@@ -9,13 +9,57 @@ function hashFile(file) {
 }
 
 function sourceFingerprint(root) {
-  const files = ['CMakeLists.txt', 'src/main.cpp', 'src/byze_rxhash.cpp']
+  const base = path.resolve(root)
   const out = {}
-  for (const rel of files) {
-    const file = path.join(root, rel)
-    if (!fs.existsSync(file)) throw new Error(`Required upstream source missing: ${rel}`)
-    out[rel] = hashFile(file)
+
+  const required = [
+    'CMakeLists.txt',
+    'src/main.cpp',
+    'src/byze_rxhash.cpp'
+  ]
+
+  for (const rel of required) {
+    if (!fs.existsSync(path.join(base, rel))) {
+      throw new Error(`Required upstream source missing: ${rel}`)
+    }
   }
+
+  function walk(dir) {
+    const entries = fs.readdirSync(dir, { withFileTypes:true })
+      .sort((a, b) => a.name.localeCompare(b.name, 'en'))
+
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name)
+      const rel = path.relative(base, full).split(path.sep).join('/')
+
+      if (
+        entry.name === '.git' ||
+        entry.name === 'build' ||
+        entry.name === '__pycache__'
+      ) {
+        continue
+      }
+
+      if (/\\.DS_Store$|\\.bak$|\\.pre-contract-/.test(rel)) {
+        continue
+      }
+
+      if (entry.isSymbolicLink()) {
+        throw new Error(`Symlink forbidden in pinned native source: ${rel}`)
+      }
+
+      if (entry.isDirectory()) {
+        walk(full)
+        continue
+      }
+
+      if (entry.isFile()) {
+        out[rel] = hashFile(full)
+      }
+    }
+  }
+
+  walk(base)
   return out
 }
 
