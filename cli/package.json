@@ -30,5 +30,5 @@
     "hyperdht": "6.21.0",
     "hyperswarm": "4.17.0"
   },
-  "license": "UNLICENSED"
+  "license": "MIT"
 }
