@@ -171,9 +171,33 @@ function patchP2PoolMinerSource(root) {
   fs.writeFileSync(file, state.source)
 
   let cmake = fs.readFileSync(cmakeFile, 'utf8')
-  cmake = cmake.replace(/find_package\(Boost\s+REQUIRED\s+COMPONENTS\s+system\s*\)/, 'find_package(Boost REQUIRED)')
-  cmake = cmake.replace(/\bBoost::system\b/g, 'Boost::headers')
-  cmake = cmake.replace(/\bbyze-miner\b/g, 'byze-p2pool-miner')
+
+  function replaceCmakeRequired(pattern, replacement, label) {
+    const before = cmake
+    cmake = cmake.replace(pattern, replacement)
+    if (cmake === before) {
+      throw new Error(`P2Pool native CMake patch incompatible: ${label}`)
+    }
+  }
+
+  replaceCmakeRequired(
+    /find_package\(Boost\s+REQUIRED\s+COMPONENTS\s+system\s*\)/,
+    'find_package(Boost REQUIRED)',
+    'Boost find_package'
+  )
+
+  replaceCmakeRequired(
+    /\bBoost::system\b/g,
+    'Boost::headers',
+    'Boost::system target'
+  )
+
+  replaceCmakeRequired(
+    /\bbyze-miner\b/g,
+    'byze-p2pool-miner',
+    'native miner target name'
+  )
+
   const boostDefs = 'BOOST_BIND_GLOBAL_PLACEHOLDERS CONTRACT_BOOST_SYSTEM_HEADER_ONLY BOOST_ERROR_CODE_HEADER_ONLY BOOST_SYSTEM_NO_LIB'
   if (/target_compile_definitions\(byze-p2pool-miner\s+PRIVATE\s+BOOST_BIND_GLOBAL_PLACEHOLDERS\s*\)/.test(cmake)) {
     cmake = cmake.replace(/target_compile_definitions\(byze-p2pool-miner\s+PRIVATE\s+BOOST_BIND_GLOBAL_PLACEHOLDERS\s*\)/, `target_compile_definitions(byze-p2pool-miner PRIVATE ${boostDefs})`)
