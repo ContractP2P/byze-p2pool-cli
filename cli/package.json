@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node src/byze-p2pool.js",
-    "check": "node --check src/byze-p2pool.js && node --check src/mining/native-bridge.js && node --check src/mining/native-components.js && node --check tools/build-native-bundle.js && node --check tools/ensure-native.js && node --check src/mining/poolshare-chain.js && node --check src/console-ui.js && node --check src/security-hardening.js && node --check tools/release-preflight.js && node --check tools/lib/native-source-policy.js && node --check tools/release-manifest.js && node --check tools/release-sign.js && node --check tools/release-verify.js && node --check tools/reproducible-native-build.js",
+    "check": "node --check src/byze-p2pool.js && node --check src/mining/native-bridge.js && node --check src/mining/native-components.js && node --check tools/build-native-bundle.js && node --check tools/ensure-native.js && node --check src/mining/poolshare-chain.js && node --check src/console-ui.js && node --check src/security-hardening.js && node --check tools/release-preflight.js && node --check tools/lib/native-source-policy.js && node --check tools/release-manifest.js && node --check tools/release-sign.js && node --check tools/release-verify.js && node --check tools/reproducible-native-build.js && node --check tools/reproducible-native-docker.js",
     "test": "node --test test/*.test.js",
     "native:build": "node tools/build-native-bundle.js",
     "native:ensure": "node tools/ensure-native.js",
@@ -19,7 +19,8 @@
     "release:manifest": "node tools/release-manifest.js",
     "release:sign": "node tools/release-sign.js",
     "release:verify": "node tools/release-verify.js",
-    "native:repro": "node tools/reproducible-native-build.js"
+    "native:repro": "node tools/reproducible-native-build.js",
+    "native:repro:docker": "node tools/reproducible-native-docker.js"
   },
   "engines": {
     "node": ">=20"
