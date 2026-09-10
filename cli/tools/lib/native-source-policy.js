@@ -15,7 +15,7 @@ function verifyPinnedSource(dir, { requireClean = true } = {}) {
   const commit = String(head.stdout || '').trim().toLowerCase()
   if (commit !== PINNED_SOURCE_COMMIT) return { ok:false, code:'native-source-commit-mismatch', commit, expected:PINNED_SOURCE_COMMIT }
   if (requireClean) {
-    const status = runGit(dir, ['status', '--porcelain', '--untracked-files=no'])
+    const status = runGit(dir, ['status', '--porcelain', '--untracked-files=all'])
     if (status.status !== 0) return { ok:false, code:'native-source-status-failed' }
     if (String(status.stdout || '').trim()) return { ok:false, code:'native-source-dirty' }
   }
