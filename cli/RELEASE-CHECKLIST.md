@@ -13,7 +13,7 @@
 - [ ] Prebuilt native bundle supplied for every advertised platform.
 - [ ] Native manifest/release artefacts signed by the dedicated offline release key.
 - [ ] Upstream `byze-miner` redistribution/license terms confirmed.
-- [ ] CLI publication license selected by the owner.
+- [x] CLI publication license selected by the owner.
 - [ ] End-to-end mainnet soak: CLI A ↔ Contract v0.15.85+ ↔ CLI B.
 - [ ] At least one real found block validated for exact PPLNS + 0.50% fee payout.
 
