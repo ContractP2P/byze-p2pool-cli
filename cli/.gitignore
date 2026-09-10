@@ -2,3 +2,7 @@
 # Native build/cache
 .native-work/
 .native-source-cache/
+
+# Public release verification key is intentionally versioned.
+!keys/
+!keys/release-ed25519.pub.pem
