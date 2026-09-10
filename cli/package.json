@@ -18,7 +18,8 @@
     "release:preflight:source": "node tools/release-preflight.js --source-rc",
     "release:manifest": "node tools/release-manifest.js",
     "release:sign": "node tools/release-sign.js",
-    "release:verify": "node tools/release-verify.js"
+    "release:verify": "node tools/release-verify.js",
+    "native:repro": "node tools/reproducible-native-build.js"
   },
   "engines": {
     "node": ">=20"
