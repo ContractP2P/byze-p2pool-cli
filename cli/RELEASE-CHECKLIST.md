@@ -10,7 +10,7 @@
 - [x] Per-peer frame/byte/expensive-message rate limits and temporary blocking are enabled.
 - [x] Expensive inbound validation concurrency/queue size is bounded.
 - [x] Pre-presence history buffering is bounded per peer and globally.
-- [ ] Prebuilt native bundle supplied for every advertised platform.
+- [x] Prebuilt native bundle supplied for every advertised platform.
 - [ ] Native manifest/release artefacts signed by the dedicated offline release key.
 - [ ] Upstream `byze-miner` redistribution/license terms confirmed.
 - [x] CLI publication license selected by the owner.

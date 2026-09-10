@@ -200,3 +200,18 @@ The suite covers consensus/fork-choice/global-epoch scaling, coinbase attacks, n
 
 The release tooling can create and sign a detached release manifest with a dedicated offline Ed25519 key. No private release key is included in this repository or source archive. See `tools/release-manifest.js`, `tools/release-sign.js` and `tools/release-verify.js`.
 
+
+## Beta 1 platform support
+
+BYZE P2Pool CLI Beta 1 is publicly supported on **Linux x86-64 only**.
+
+Recommended environment:
+
+- Ubuntu 24.04 LTS or another recent compatible Linux distribution;
+- x86-64 CPU;
+- a synchronized BYZE mainnet node.
+
+macOS and Windows are not advertised as supported platforms for Beta 1.
+
+The distributed Linux native components are SHA-256 pinned and reproducible
+with the documented Docker reproducibility procedure.
