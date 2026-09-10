@@ -1,0 +1,41 @@
+{
+  "schema": "byze-p2pool-build-environment-v1",
+  "target": "linux-x64",
+  "aptSnapshot": "20260909T120000Z",
+
+  "baseImages": {
+    "ubuntu": "ubuntu@sha256:224a1869083a311ef3f13648a154ba79832fbef6364d31493642ca03082da254",
+    "node": "node@sha256:be23f54a88d34e8824c741b19b91064094f92c1c97b194144bfc8b50d67258e2"
+  },
+
+  "upstream": {
+    "repository": "https://github.com/powhermes/byze-miner.git",
+    "commit": "d84db8a84ba4a06432fcdddbf1584b89a7e52379"
+  },
+
+  "toolchain": {
+    "gcc13": "13.3.0-6ubuntu2~24.04.1",
+    "gxx13": "13.3.0-6ubuntu2~24.04.1",
+    "binutils": "2.42-4ubuntu2.10",
+    "cmake": "3.28.3-1build7",
+    "make": "4.3-4.1build2",
+    "boost": "1.83.0-2.1ubuntu3.2",
+    "opensslDevelopment": "3.0.13-0ubuntu3.15",
+    "glibc": "2.39-0ubuntu8.8",
+    "libstdcxx6": "14.2.0-4ubuntu2~24.04.1",
+    "node": "24.20.0"
+  },
+
+  "randomx": {
+    "nativeCpuTuning": false,
+    "globalFlags": ["-maes"],
+    "argon2Ssse3Flags": ["-mssse3"],
+    "argon2Avx2Flags": ["-mavx2"]
+  },
+
+  "expectedArtifacts": {
+    "byze-p2pool-miner": "52ca608f8141ff7279b72a1fd122b9106876809428429a947e2ca3675ff4dca2",
+    "byze-rxhash": "21c8503d08fbe3f0f2e58e8ebd3703c21cedaa1cd4b1c37ef18830635f5418e3",
+    "native-manifest.json": "f0b2c50001e8c482ac47e3588157988f4c3ff19f25460364aa29cd559a2ad38b"
+  }
+}
