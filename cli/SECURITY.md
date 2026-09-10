@@ -13,3 +13,15 @@ Useful reports include the affected version, platform, minimal reproduction step
 ## Security boundaries
 
 The CLI never needs a BYZE wallet seed, private key, or passphrase. Its P2P identity is ephemeral. Native mining components are accepted only from the managed native directory, with SHA-256 verification and an upstream source-commit pin. The public pool is mainnet-only and fails closed when the local BYZE node is not synchronized.
+
+## Release signing key
+
+Official BYZE P2Pool CLI release manifests are signed with the dedicated
+Ed25519 release key stored outside this repository.
+
+The corresponding public verification key is:
+
+`keys/release-ed25519.pub.pem`
+
+Always verify a release manifest and the artifact SHA-256 before running
+downloaded release binaries.
