@@ -141,3 +141,44 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Contract - données locales / sensibles
+.profiles/
+profiles/
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.wallet
+wallet.dat
+wallets/
+secrets/
+credentials/
+*.log
+
+# Build / runtime
+dist/
+release/
+out/
+build/
+coverage/
+.DS_Store
+
+# Secrets / credentials
+secrets/
+credentials/
+
+# Logs
+*.log
+
+# Build / runtime
+dist/
+release/
+out/
+build/
+coverage/
+
+# macOS
+.DS_Store
