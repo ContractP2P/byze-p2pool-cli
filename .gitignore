@@ -164,21 +164,6 @@ release/
 out/
 build/
 coverage/
-.DS_Store
-
-# Secrets / credentials
-secrets/
-credentials/
-
-# Logs
-*.log
-
-# Build / runtime
-dist/
-release/
-out/
-build/
-coverage/
 
 # macOS
 .DS_Store
