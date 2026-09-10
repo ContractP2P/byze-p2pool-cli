@@ -1,0 +1,5 @@
+#!/bin/sh
+set -e
+HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+node "$HERE/tools/ensure-native.js"
+exec node "$HERE/src/byze-p2pool.js" "$@"

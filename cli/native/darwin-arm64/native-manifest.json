@@ -1,0 +1,20 @@
+{
+  "schema": "byze-p2pool-native-manifest-v1",
+  "platforms": {
+    "darwin-arm64": {
+      "miner": {
+        "filename": "byze-p2pool-miner",
+        "sha256": "ea38df11189e3a02ac0fe15e7f632298f8651bf1b9968a34ed4417465a4129f8",
+        "feature": "contract-direct-coinbase-v2",
+        "sourceCommit": "d84db8a84ba4a06432fcdddbf1584b89a7e52379",
+        "buildId": "pinned-d84db8a84ba4"
+      },
+      "verifier": {
+        "filename": "byze-rxhash",
+        "sha256": "2a90a5c125087208b9741639e00cb6f82f9944e35281172e8214b01db325e23d",
+        "sourceCommit": "d84db8a84ba4a06432fcdddbf1584b89a7e52379",
+        "buildId": "pinned-d84db8a84ba4"
+      }
+    }
+  }
+}

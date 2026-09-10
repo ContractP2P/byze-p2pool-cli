@@ -1,0 +1,51 @@
+{
+  "cliVersion": "0.2.5-rc1",
+  "contractBase": "Contract v0.15.85+ global-epoch-v4",
+  "contractId": "org.contract.byze-p2pool",
+  "contractVersion": "0.1.3",
+  "contractSourceHash": "0ba509a74eb5f475ce41f152349fe49a7d19e4fbd6c14c1833632c61681a0b66",
+  "builtinPublisherKey": "77a412df63379feff5e8a0cdef364b10377d7fcd0d2753f6000b48bf5b4e523e",
+  "poolId": "byze-main-p2pool-v1",
+  "feeBasisPoints": 50,
+  "feeAddress": "byz1ptlyn7q58zyhht8lds0u58n6mf4vehx6ds8gkax0vmtc49az2w9eqgqsm5p",
+  "feePolicyHash": "fa349d33253d2949a7050913115575ede3c4b2f5b62bb2a3228ce73212f20e08",
+  "discoveryTopic": "842cb027b568c37abc6349dd4e516f40953e961e7d9ee622ecf97143a469b847",
+  "wire": {
+    "presence": 9,
+    "localShare": 10,
+    "cellCheckpoint": 12,
+    "poolShare": 12,
+    "poolShareRequest": 12
+  },
+  "randomxProofMode": "byze-randomx-v2",
+  "pplnsWindow": 20,
+  "cellMaxMembers": 20,
+  "workEpochMs": 60000,
+  "relayTermMs": 600000,
+  "relayBackups": 2,
+  "relayFailoverGraceMs": 12000,
+  "securityGeneration": "coinbase-binding-v2-global-epoch-v4",
+  "nativeMinerFeature": "contract-direct-coinbase-v2",
+  "nativeMinerBinary": "byze-p2pool-miner",
+  "nativeDistribution": "managed-bundle-sha256-v2-pinned-source",
+  "externalByzeMinerCheckout": "developer-explicit-only-pinned-commit-required",
+  "globalAggregationGraceMs": 30000,
+  "validatedPoolSizes": [
+    21,
+    41,
+    65,
+    100
+  ],
+  "networkPolicy": {
+    "chain": "main",
+    "initialBlockDownload": false,
+    "failClosed": true
+  },
+  "p2pLimits": {
+    "maxPeers": 64,
+    "maxFrameBytes": 262144,
+    "rateWindowMs": 10000,
+    "maxFramesPerWindow": 120,
+    "maxBytesPerWindow": 2097152
+  }
+}

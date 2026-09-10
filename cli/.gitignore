@@ -1,0 +1,4 @@
+
+# Native build/cache
+.native-work/
+.native-source-cache/

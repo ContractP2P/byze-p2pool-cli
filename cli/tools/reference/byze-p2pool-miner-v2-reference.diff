@@ -1,0 +1,62 @@
+--- upstream-copy/src/main.cpp
++++ p2pool-isolated-copy/src/main.cpp
+@@ -127,6 +127,7 @@
+     /** Hex scriptPubKey for coinbase vout[0]; empty = legacy OP_1 (not poolwallet-spendable). */
+     std::string coinbase_script_hex;
+     std::vector<CoinbaseOutput> coinbase_outputs;
++    bool coinbase_outputs_present{false};
+     /**
+      * Full coinbase witness-commitment scriptPubKey (6a24aa21a9ed<32-byte commitment>) from
+      * GBT's default_witness_commitment, computed over this template's transaction set. Empty =>
+@@ -307,7 +308,8 @@
+     WriteLE32(txw, 0xffffffff);
+     WriteLE32(txnw, 0xffffffff);
+ 
+-    const bool direct_multi = !job.coinbase_outputs.empty();
++    if (job.coinbase_outputs_present && job.coinbase_outputs.empty()) throw std::runtime_error("direct coinbase outputs required but invalid");
++    const bool direct_multi = job.coinbase_outputs_present;
+     WriteVarInt(txw, (direct_multi ? job.coinbase_outputs.size() : 1) + 1);
+     WriteVarInt(txnw, (direct_multi ? job.coinbase_outputs.size() : 1) + 1);
+     if (direct_multi) {
+@@ -497,7 +499,7 @@
+ } // namespace
+ 
+ int main(int argc, char** argv) {
+-    for (int i = 1; i < argc; ++i) if (std::string(argv[i]) == "--features") { std::cout << "contract-direct-coinbase-v1\n"; return 0; }
++    for (int i = 1; i < argc; ++i) if (std::string(argv[i]) == "--features") { std::cout << "contract-direct-coinbase-v2\n"; return 0; }
+     Config cfg;
+     for (int i = 1; i < argc; ++i) {
+         std::string a = argv[i];
+@@ -652,16 +654,21 @@
+                         j.height = obj.get<uint32_t>("height");
+                         j.coinbase_script_hex = obj.get<std::string>("template.coinbasescript", "");
+                     if (const auto outs = obj.get_child_optional("template.coinbaseoutputs")) {
++                        j.coinbase_outputs_present = true;
+                         uint64_t sum = 0;
++                        bool invalid_direct_outputs = false;
+                         for (const auto& ent : *outs) {
+                             CoinbaseOutput out;
+                             out.value = ent.second.get<uint64_t>("value", 0);
+                             out.script = HexToBytes(ent.second.get<std::string>("script", ""));
+-                            if (!out.value || out.script.empty() || UINT64_MAX - sum < out.value) { j.coinbase_outputs.clear(); break; }
++                            if (!out.value || out.script.empty() || UINT64_MAX - sum < out.value) { invalid_direct_outputs = true; break; }
+                             sum += out.value;
+                             j.coinbase_outputs.push_back(std::move(out));
+                         }
+-                        if (!j.coinbase_outputs.empty() && sum != j.coinbase_value) j.coinbase_outputs.clear();
++                        if (invalid_direct_outputs || j.coinbase_outputs.empty() || sum != j.coinbase_value) {
++                            LogLine("reject mining.notify: invalid direct coinbase outputs");
++                            continue;
++                        }
+                     }
+                         j.gbt_segwit_rule = false;
+                         if (const auto rules = obj.get_child_optional("template.rules")) {
+@@ -850,7 +857,7 @@
+                                     std::ostringstream req;
+                                     req << "{\"id\":" << id << ",\"method\":\"mining.submit\",\"params\":[\""
+                                         << cfg.wallet << "." << cfg.worker << "\",\"" << block_hex << "\",\"" << job.id
+-                                        << "\"]}";
++                                        << "\",\"" << BytesToHex(coinbase.no_witness) << "\"]}";
+                                     try {
+                                         send_json(req.str());
+                                         LogLine("step5:mining-submit-sent id=" + std::to_string(id));

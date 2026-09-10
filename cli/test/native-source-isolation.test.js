@@ -1,0 +1,31 @@
+'use strict'
+const test=require('node:test')
+const assert=require('node:assert/strict')
+const fs=require('fs')
+const os=require('os')
+const path=require('path')
+const { sourceFingerprint, copySourceTree }=require('../tools/lib/p2pool-native-source')
+
+test('native release preparation copies upstream source before any modification',()=>{
+  const base=fs.mkdtempSync(path.join(os.tmpdir(),'p2pool-source-isolation-'))
+  const source=path.join(base,'upstream'), copy=path.join(base,'isolated-copy')
+  fs.mkdirSync(path.join(source,'src'),{recursive:true})
+  fs.writeFileSync(path.join(source,'CMakeLists.txt'),'project(byze-miner)\n')
+  fs.writeFileSync(path.join(source,'src','main.cpp'),'// upstream main\n')
+  fs.writeFileSync(path.join(source,'src','byze_rxhash.cpp'),'// upstream verifier\n')
+  const before=sourceFingerprint(source)
+  copySourceTree(source,copy)
+  fs.writeFileSync(path.join(copy,'src','main.cpp'),'// modified copy only\n')
+  assert.deepEqual(sourceFingerprint(source),before)
+  assert.equal(fs.readFileSync(path.join(source,'src','main.cpp'),'utf8'),'// upstream main\n')
+})
+
+test('source copy refuses a destination inside the upstream checkout',()=>{
+  const base=fs.mkdtempSync(path.join(os.tmpdir(),'p2pool-source-guard-'))
+  const source=path.join(base,'upstream')
+  fs.mkdirSync(path.join(source,'src'),{recursive:true})
+  fs.writeFileSync(path.join(source,'CMakeLists.txt'),'x')
+  fs.writeFileSync(path.join(source,'src','main.cpp'),'x')
+  fs.writeFileSync(path.join(source,'src','byze_rxhash.cpp'),'x')
+  assert.throws(()=>copySourceTree(source,path.join(source,'.native-work')),/must not be inside/)
+})

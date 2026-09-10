@@ -1,0 +1,32 @@
+{
+  "name": "byze-p2pool-cli",
+  "version": "0.2.5-rc1",
+  "private": true,
+  "description": "Standalone CLI peer for Contract BYZE P2P Mining Pool",
+  "type": "commonjs",
+  "bin": {
+    "byze-p2pool": "src/byze-p2pool.js"
+  },
+  "scripts": {
+    "start": "node src/byze-p2pool.js",
+    "check": "node --check src/byze-p2pool.js && node --check src/mining/native-bridge.js && node --check src/mining/native-components.js && node --check tools/build-native-bundle.js && node --check tools/ensure-native.js && node --check src/mining/poolshare-chain.js && node --check src/console-ui.js && node --check src/security-hardening.js && node --check tools/release-preflight.js && node --check tools/lib/native-source-policy.js && node --check tools/release-manifest.js && node --check tools/release-sign.js && node --check tools/release-verify.js",
+    "test": "node --test test/*.test.js",
+    "native:build": "node tools/build-native-bundle.js",
+    "native:ensure": "node tools/ensure-native.js",
+    "native:bootstrap-official": "node tools/ensure-native.js --bootstrap-official",
+    "release:preflight": "node tools/release-preflight.js",
+    "release:preflight:source": "node tools/release-preflight.js --source-rc",
+    "release:manifest": "node tools/release-manifest.js",
+    "release:sign": "node tools/release-sign.js",
+    "release:verify": "node tools/release-verify.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "b4a": "1.6.7",
+    "hyperdht": "6.21.0",
+    "hyperswarm": "4.17.0"
+  },
+  "license": "UNLICENSED"
+}
