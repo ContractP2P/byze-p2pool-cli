@@ -205,6 +205,39 @@ function patchP2PoolMinerSource(root) {
     cmake += `\ntarget_compile_definitions(byze-p2pool-miner PRIVATE ${boostDefs})\n`
   }
   fs.writeFileSync(cmakeFile, cmake)
+
+  // RandomX x86 GNU assembly must explicitly declare a non-executable stack.
+  // Without .note.GNU-stack, GNU ld marks the final ELF GNU_STACK segment RWE.
+  if (process.platform === 'linux' && process.arch === 'x64') {
+    const randomxAsm = path.join(
+      root,
+      'third_party',
+      'randomx',
+      'src',
+      'jit_compiler_x86_static.S'
+    )
+
+    if (!fs.existsSync(randomxAsm)) {
+      throw new Error(
+        'P2Pool native source patch incompatible: RandomX x86 assembly missing'
+      )
+    }
+
+    let asm = fs.readFileSync(randomxAsm, 'utf8')
+
+    if (!asm.includes('.note.GNU-stack')) {
+      asm = asm.replace(/\s*$/, '') +
+        '\n\n.section .note.GNU-stack,"",@progbits\n'
+      fs.writeFileSync(randomxAsm, asm)
+    }
+
+    if (!fs.readFileSync(randomxAsm, 'utf8').includes('.note.GNU-stack')) {
+      throw new Error(
+        'P2Pool native security patch failed: GNU-stack marker missing'
+      )
+    }
+  }
+
   return { main:file, cmake:cmakeFile }
 }
 
