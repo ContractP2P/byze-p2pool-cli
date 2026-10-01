@@ -2,7 +2,9 @@
 
 Standalone command-line peer for the **BYZE P2Pool secure-v2** used by Contract v0.15.85+ (`global-epoch-v4`).
 
-This package is a **source release candidate**. The P2Pool consensus implementation is production-oriented, but the archive intentionally does not redistribute a derived native `byze-p2pool-miner` binary until the upstream redistribution terms and the dedicated release-signing process are closed.
+This package is a **release candidate**. The `cli-next` branch contains prebuilt Linux x64 and macOS Apple Silicon components; initial public support is limited to Linux x64. Artifact signing and upstream redistribution confirmation remain open in the release checklist.
+
+The Electron Contract application is **not required**. See the [installation and mining guide](../README.md) for the source checkout, release archive instructions and full launch parameter table.
 
 ## Security model
 
@@ -15,7 +17,7 @@ This package is a **source release candidate**. The P2Pool consensus implementat
 - the public pool is **mainnet-only** and refuses to run while the local node is in Initial Block Download or materially behind its headers;
 - incoming P2P traffic is bounded by frame-size, peer-count, per-peer rate limits and bounded expensive-validation concurrency.
 
-The P2Pool consensus behavior remains unchanged from v0.2.4. This cleaned source package removes comments only; executable logic is unchanged.
+The P2Pool consensus behavior remains unchanged from v0.2.4. The `cli-next` branch also contains build and release preparation changes.
 
 ## Compatibility
 
@@ -55,19 +57,19 @@ d84db8a84ba4a06432fcdddbf1584b89a7e52379
 
 ## Installation
 
-For a final binary release:
+To install dependencies and verify a prebuilt native bundle:
 
 ```bash
 npm ci
 npm run check
 npm test
-npm run release:preflight
-./byze-p2pool --dry-run --alias Test --wallet byz1... --threads 1
+npm run native:ensure
+./byze-p2pool --dry-run --alias Test --wallet YOUR_BYZE_ADDRESS --threads 1
 ```
 
 `install.sh` performs the same checks and **does not compile missing native code automatically**.
 
-This source RC deliberately has no redistributable native binary, so the final native check will fail until a managed bundle is supplied.
+On Linux x64, `cli-next` already includes a native bundle; successful verification does not require compilation. Node.js and a synchronized BYZE node are still required. Use your own public BYZE payout address in the command above.
 
 ### Developer-only native bootstrap
 
@@ -84,7 +86,7 @@ npm ci
 npm run native:bootstrap-official
 ```
 
-This explicitly clones the official `powhermes/byze-miner` repository, checks out the pinned commit, verifies the checkout is clean and its submodules are at the expected revisions, copies the source to an isolated work directory, patches **only the copy**, builds the P2Pool-native binaries, writes their SHA-256 manifest and verifies the resulting managed bundle.
+If a verified bundle already exists, the bootstrap reuses it. When components are missing, this explicitly clones the official `powhermes/byze-miner` repository, checks out the pinned commit, verifies the checkout is clean and its submodules are at the expected revisions, copies the source to an isolated work directory, patches **only the copy**, builds the P2Pool-native binaries, writes their SHA-256 manifest and verifies the resulting managed bundle.
 
 There is no automatic discovery of `~/ldev/byze-miner`, `~/Downloads/byze-miner`, `PATH`, or `BYZE_P2POOL_MINER_SOURCE`.
 
@@ -184,7 +186,7 @@ for this source RC. A true end-user release must pass:
 npm run release:preflight
 ```
 
-The latter intentionally remains blocked until a publication license is selected and a valid managed native bundle exists for the current platform. See `RELEASE-CHECKLIST.md` and `THIRD_PARTY-NOTICES.md`.
+The CLI license is MIT and a Linux x64 bundle is present. The public preflight still fails while blocking items remain unchecked, including signing, upstream redistribution confirmation and documented mainnet validation. It is a release-maintainer check, not a prerequisite command for starting the CLI. See `RELEASE-CHECKLIST.md` and `THIRD_PARTY-NOTICES.md`.
 
 ## Tests
 
