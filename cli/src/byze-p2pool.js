@@ -56,6 +56,8 @@ const {
   PoolShareProofAssembler
 } = require('./mining/poolshare-proof-bundle')
 const { normalizePlan: normalizeDirectCoinbasePlan, resolveScripts: resolveDirectCoinbaseScripts } = require('./mining/direct-coinbase')
+const { fitTemplateWeight } = require('./mining/block-weight')
+const { PayoutAddressValidator } = require('./mining/payout-address')
 const { publishQuantumBlock } = require('./mining/byze-block-publisher')
 const { createPoolFeePolicy, DEFAULT_POOL_FEE_BASIS_POINTS } = require('./mining/pool-fee-policy')
 const { Supervisor, setNativeMessageHandler } = require('./mining/native-bridge')
@@ -64,13 +66,13 @@ const { satoshisToByze, sumPayoutFromVouts } = require('./reward-telemetry')
 const { ANSI, color, launchPresentation, statusLine, rewardCelebration } = require('./console-ui')
 const { assertMainnetReady, PeerRateLimiter, ValidationGate } = require('./security-hardening')
 
-const APP_VERSION = '0.2.5-rc1'
+const APP_VERSION = '0.2.5-rc2'
 const CONTRACT_ID = 'org.contract.byze-p2pool'
 const CONTRACT_VERSION = '0.1.3'
 const CONTRACT_SOURCE_HASH = '0ba509a74eb5f475ce41f152349fe49a7d19e4fbd6c14c1833632c61681a0b66'
 const BUILTIN_PUBLISHER_KEY = '77a412df63379feff5e8a0cdef364b10377d7fcd0d2753f6000b48bf5b4e523e'
 const POOL_ID = 'byze-main-p2pool-v1'
-const SECURITY_GENERATION = 'coinbase-binding-v2-global-epoch-v4'
+const SECURITY_GENERATION = 'coinbase-binding-v2-global-epoch-v5'
 const CELL_MAX_MEMBERS = 20
 const WORK_EPOCH_MS = 60_000
 const RELAY_TERM_MS = 10 * 60_000
@@ -331,7 +333,7 @@ class MinerApp {
     this.currentJob = null
     this.directPlan = null
     this.jobContexts = new Map()
-    this.scriptCache = new Map()
+    this.payoutValidator = opts.payoutValidator || new PayoutAddressValidator((m,p) => this.byze.call(m,p,{timeout:10_000}), { warn })
     this.lastGbtAt = 0
     this.running = false
     this.acceptedLocal = 0
@@ -357,6 +359,7 @@ class MinerApp {
     this.missingTipRequestAt = new Map()
     this.retryingDeferred = false
     this.validationGate = new ValidationGate()
+    this.presenceGate = new ValidationGate({maxGlobal:8,maxPerPeer:1})
     this.sessionStartHeight = 0
     this.lastRewardScanHeight = 0
     this.rewardScanBusy = false
@@ -375,7 +378,7 @@ class MinerApp {
   selfPresence(now = Date.now(), state='MINING') {
     this.localSeq = Math.max(this.localSeq + 1, Math.floor(now))
     const payload = presenceSigningPayload({
-      peerKey:this.peerKey, alias:this.alias, instanceId:this.instanceId,
+      securityGeneration:SECURITY_GENERATION, peerKey:this.peerKey, alias:this.alias, instanceId:this.instanceId,
       contractId:CONTRACT_ID, version:CONTRACT_VERSION, publisherKey:BUILTIN_PUBLISHER_KEY,
       sourceHash:CONTRACT_SOURCE_HASH, poolId:POOL_ID, payoutAddress:this.payoutAddress,
       feePolicyHash:this.policy.policyHash, feeBasisPoints:this.policy.feeBasisPoints, feeAddress:this.policy.feeAddress,
@@ -390,18 +393,25 @@ class MinerApp {
     return this.transport.broadcast({ v:9, type:'mining-presence', announcement })
   }
 
-  acceptPresence(transportPeerKey, announcement) {
+  async acceptPresence(transportPeerKey, announcement) {
     const peerKey = String(transportPeerKey || '').toLowerCase()
     const checked = validatePresenceShape(announcement, { now:Date.now(), expectedPeerKey:peerKey })
     if (!checked.ok) return checked
     const p = checked.payload
+    if (p.securityGeneration !== SECURITY_GENERATION) return {ok:false,code:'miningProtocolUpgradeRequired'}
     if (p.contractId!==CONTRACT_ID || p.version!==CONTRACT_VERSION || p.publisherKey!==BUILTIN_PUBLISHER_KEY || p.sourceHash!==CONTRACT_SOURCE_HASH || p.poolId!==POOL_ID) return {ok:false,code:'contract-mismatch'}
     if (p.feePolicyHash!==this.policy.policyHash || Number(p.feeBasisPoints)!==Number(this.policy.feeBasisPoints) || p.feeAddress!==this.policy.feeAddress) return {ok:false,code:'fee-policy-mismatch'}
     if (!verify(peerKey,p,announcement.signature)) return {ok:false,code:'signature-invalid'}
     const prior=this.remotePresence.get(peerKey)
     if (prior && (p.seq < prior.payload.seq || (p.seq===prior.payload.seq && p.updatedAt<=prior.payload.updatedAt))) return {ok:true,ignored:true}
     if (p.miningState==='LEFT') { this.remotePresence.delete(peerKey); return {ok:true,left:true,payload:p,firstSeen:false} }
-    const firstSeen = !prior
+    const addressCheck = await this.payoutValidator.validate(p.payoutAddress)
+    if (!addressCheck.ok) return addressCheck
+    // RPC validation yields: a newer heartbeat may have arrived meanwhile.
+    const latest = this.remotePresence.get(peerKey)
+    if (latest && (p.seq < latest.payload.seq || (p.seq === latest.payload.seq && p.updatedAt <= latest.payload.updatedAt))) return {ok:true,ignored:true}
+    if (p.expiresAt <= Date.now()) return {ok:false,code:'miningPresenceExpired'}
+    const firstSeen = !latest
     this.remotePresence.set(peerKey,{payload:p,telemetry:this.safeTelemetry(announcement.telemetry),receivedAt:Date.now()})
     if (firstSeen) setImmediate(()=>this.syncPoolHistory(peerKey))
     return {ok:true,payload:p,firstSeen}
@@ -810,14 +820,8 @@ class MinerApp {
   }
 
   async directPayoutScript(address){
-    address=String(address||'')
-    const cached=this.scriptCache.get(address); if(cached)return {scriptPubKey:cached}
-    let script=''
-    try{const i=await this.byze.call('getaddressinfo',[address],{timeout:10_000}); script=String(i?.scriptPubKey||i?.scriptpubkey||'').toLowerCase()}catch{}
-    if(!/^[0-9a-f]+$/.test(script)||script.length%2){try{const i=await this.byze.call('validateaddress',[address],{timeout:10_000}); script=String(i?.scriptPubKey||i?.scriptpubkey||'').toLowerCase()}catch{}}
-    if(!/^[0-9a-f]+$/.test(script)||script.length%2)return null
-    this.scriptCache.set(address,script); if(this.scriptCache.size>512)this.scriptCache.delete(this.scriptCache.keys().next().value)
-    return {scriptPubKey:script}
+    const checked = await this.payoutValidator.validate(address)
+    return checked.ok ? {scriptPubKey:checked.scriptPubKey} : null
   }
   payoutForTip(reward,tipId,payoutAddress){
     const value=BigInt(String(reward||0))
@@ -846,6 +850,9 @@ class MinerApp {
     return {ok:true,commitment,plan}
   }
   async verifyShareCoinbaseBinding(checked,options={}){
+    // Check the share recipient even when the historical PPLNS plan does not pay it yet.
+    const addressCheck = await this.payoutValidator.validate(checked.payload.payoutAddress)
+    if (!addressCheck.ok) return addressCheck
     const expected=await this.expectedCommitmentForProof(checked.proof,checked.payload.payoutAddress,checked.payload.cellId,checked.payload.epoch,options); if(!expected.ok)return expected
     return verifyCoinbaseBinding({rpc:(m,p=[])=>this.byze.call(m,p,{timeout:15_000}),header80:checked.proof.header80,coinbaseNoWitnessHex:checked.proof.coinbaseNoWitnessHex,merkleBranch:checked.proof.coinbaseMerkleBranch,expectedCommitment:expected.commitment,expectedHeight:checked.proof.height})
   }
@@ -914,6 +921,15 @@ class MinerApp {
     const pplnsTipId=this.poolChain.tipBeforeEpoch(live.epoch)
     this.directPlan=await this.buildDirectPlan(sanitized.template.coinbasevalue,{tipId:pplnsTipId,payoutAddress:this.payoutAddress}).catch(e=>({ok:false,code:e.message}))
     if(!this.directPlan?.ok)throw new Error(`direct coinbase unavailable: ${this.directPlan?.code||'unknown'}`)
+    let fitted = fitTemplateWeight(sanitized.template, this.directPlan.outputs)
+    while (fitted.removed) {
+      sanitized.template = fitted.template
+      // Removing transactions removes their fees too; rebuild every payout and commitment.
+      this.directPlan = await this.buildDirectPlan(sanitized.template.coinbasevalue,{tipId:pplnsTipId,payoutAddress:this.payoutAddress})
+      if (!this.directPlan?.ok) throw new Error(`adjusted direct coinbase unavailable: ${this.directPlan?.code||'unknown'}`)
+      fitted = fitTemplateWeight(sanitized.template, this.directPlan.outputs)
+    }
+    sanitized.template = fitted.template
     sanitized.template.coinbaseoutputs=this.directPlan.outputs.map(r=>({address:r.address,value:r.satoshis,script:r.script})); sanitized.template.directCoinbaseCommitment=this.directPlan.commitment; sanitized.templateHash=randomxTemplateHash(sanitized.template)
     const commitment=buildJobCommitment({contractHash:CONTRACT_SOURCE_HASH,poolId:POOL_ID,cellId:live.cellId,templateHash:sanitized.templateHash,feePolicyHash:this.policy.policyHash,pplnsTipId,coinbaseOutputs:this.directPlan.outputs,coinbaseValue:sanitized.template.coinbasevalue})
     if(!commitment.ok)throw new Error(`job commitment unavailable: ${commitment.code}`)
@@ -1027,7 +1043,7 @@ class MinerApp {
   async onFrame(peerKey,frame,{fromGraceQueue=false}={}){
     try{
       if(frame.type==='mining-presence'){
-        const r=this.acceptPresence(peerKey,frame.announcement)
+        const r=await this.presenceGate.run(peerKey,()=>this.acceptPresence(peerKey,frame.announcement))
         if(r.ok&&!r.ignored){
           if(r.left) log('peer left',short(peerKey,10,6),r.payload?.alias||'')
           else if(r.firstSeen){if(this.uiReady)log('➕ miner joined the pool',r.payload?.alias||short(peerKey,10,6)); this.rebroadcastRecentLocalShares(); this.drainPrePresence(peerKey)}
@@ -1180,7 +1196,11 @@ async function main(){
   const chain=await byze.call('getblockchaininfo',[],{timeout:10_000})
   const ready=assertMainnetReady(chain)
   if(!ready.ok)throw new Error(`BYZE node is not ready for the public mainnet pool (${ready.code}).`)
-  const addressCheck=await byze.call('validateaddress',[wallet],{timeout:10_000}); if(addressCheck?.isvalid!==true)throw new Error('The BYZE node did not positively validate the payout address.')
+  const payoutValidator = new PayoutAddressValidator((m,p) => byze.call(m,p,{timeout:10_000}), { warn })
+  for (const [label,address] of [['payout',wallet],['fee',policy.feeAddress]]) {
+    const checked = await payoutValidator.validate(address)
+    if (!checked.ok) throw new Error(`BYZE ${label} address rejected: ${checked.code}`)
+  }
   if(args['dry-run']){
     console.log(`\nBYZE P2Pool CLI ${APP_VERSION} — dry-run`)
     console.log(`Node       : OK (main, height ${chain.blocks}, synchronized)`)
@@ -1199,7 +1219,7 @@ async function main(){
     if(!ns.minerAvailable||!ns.verifierAvailable||!ns.directCoinbaseSupported)throw new Error('Native prerequisites are incomplete; see README.md.')
     console.log('Dry-run OK. No mining or P2P networking started.');return
   }
-  const app=new MinerApp({alias,wallet,threads,policy,byze,noSubmit:!!args['no-submit']})
+  const app=new MinerApp({alias,wallet,threads,policy,byze,payoutValidator,noSubmit:!!args['no-submit']})
   let stopping=false
   const stop=async()=>{if(stopping)return; stopping=true; await app.stop(); process.exit(0)}
   process.on('SIGINT',()=>void stop()); process.on('SIGTERM',()=>void stop())
@@ -1212,6 +1232,6 @@ if (require.main === module) {
 }
 
 module.exports = {
-  APP_VERSION, CONTRACT_ID, CONTRACT_VERSION, CONTRACT_SOURCE_HASH, BUILTIN_PUBLISHER_KEY, POOL_ID,
+  SECURITY_GENERATION, APP_VERSION, CONTRACT_ID, CONTRACT_VERSION, CONTRACT_SOURCE_HASH, BUILTIN_PUBLISHER_KEY, POOL_ID,
   sha256Hex, sign, verify, detectByzeCli, loadPolicy, assertMainnetReady, PeerRateLimiter, ValidationGate, ByzeCli, P2PTransport, MinerApp
 }

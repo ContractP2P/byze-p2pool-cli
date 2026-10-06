@@ -1,5 +1,7 @@
 'use strict'
 
+const { transactionMetrics, MAX_BLOCK_WEIGHT } = require('./block-weight')
+
 const {
   canonical,
   sha256Hex,
@@ -79,13 +81,13 @@ function reverseHexBytes(hex) {
   return Buffer.from(h, 'hex').reverse().toString('hex')
 }
 
-function hashMeetsTargetEitherEndian(hashHex, targetHex) {
+function hashMeetsTarget(hashHex, targetHex) {
   const h = hex64(hashHex)
   const t = targetBigInt(targetHex)
   if (!h || t == null) return false
-  const raw = BigInt(`0x${h}`)
+  // byze-rxhash returns uint256 bytes in little-endian order, like Core.
   const reversed = BigInt(`0x${reverseHexBytes(h)}`)
-  return raw <= t || reversed <= t
+  return t > 0n && reversed <= t
 }
 
 function headerNonce(header80) {
@@ -125,7 +127,7 @@ function sanitizeGbtTemplate(raw) {
   const mintime = Math.floor(Number(raw.mintime || raw.curtime))
   const height = Math.floor(Number(raw.height))
   const coinbasevalue = Math.floor(Number(raw.coinbasevalue))
-  if (!previousblockhash || !target || !/^[0-9a-f]{8}$/.test(bits) || !Number.isInteger(version) || !Number.isInteger(curtime) || curtime <= 0 || !Number.isInteger(height) || height <= 0 || !Number.isFinite(coinbasevalue) || coinbasevalue <= 0) return { ok: false, code: 'miningRandomxTemplateInvalid' }
+  if (!previousblockhash || !target || !/^[0-9a-f]{8}$/.test(bits) || !Number.isInteger(version) || !Number.isInteger(curtime) || curtime <= 0 || !Number.isInteger(height) || height <= 0 || !Number.isSafeInteger(coinbasevalue) || coinbasevalue <= 0) return { ok: false, code: 'miningRandomxTemplateInvalid' }
   const rules = Array.isArray(raw.rules) ? raw.rules.map((v) => String(v || '').slice(0, 64)).filter(Boolean).slice(0, 32) : []
   const defaultWitnessCommitment = String(raw.default_witness_commitment || '').toLowerCase()
   if (defaultWitnessCommitment && (!/^[0-9a-f]+$/.test(defaultWitnessCommitment) || defaultWitnessCommitment.length % 2)) return { ok:false, code:'miningRandomxTemplateWitnessInvalid' }
@@ -134,10 +136,16 @@ function sanitizeGbtTemplate(raw) {
     const data = String(tx?.data || '').toLowerCase()
     const txid = String(tx?.txid || '').toLowerCase()
     if (!/^[0-9a-f]+$/.test(data) || data.length % 2 || !/^[0-9a-f]{64}$/.test(txid)) return { ok:false, code:'miningRandomxTemplateTransactionInvalid' }
-    transactions.push({ data, txid })
+    let metrics
+    try { metrics = transactionMetrics(data) } catch { return { ok:false, code:'miningRandomxTemplateTransactionInvalid' } }
+    if (metrics.txid !== txid || (tx.hash != null && tx.hash !== metrics.hash) || (tx.weight != null && tx.weight !== metrics.weight)) return { ok:false, code:'miningRandomxTemplateTransactionMismatch' }
+    if (!Number.isSafeInteger(tx.fee) || tx.fee < 0 || !Array.isArray(tx.depends) || tx.depends.some(n => !Number.isSafeInteger(n) || n < 1 || n > transactions.length)) return { ok:false, code:'miningRandomxTemplateMetadataInvalid' }
+    transactions.push({ data, txid, hash:metrics.hash, weight:metrics.weight, fee:tx.fee, depends:tx.depends.slice() })
     if (transactions.length > 5000) return { ok:false, code:'miningRandomxTemplateTooManyTransactions' }
   }
+  if (raw.weightlimit != null && (!Number.isSafeInteger(raw.weightlimit) || raw.weightlimit <= 0)) return { ok:false, code:'miningRandomxTemplateWeightInvalid' }
   const template = {
+    weightlimit: Math.min(MAX_BLOCK_WEIGHT, raw.weightlimit || MAX_BLOCK_WEIGHT),
     version,
     previousblockhash,
     bits,
@@ -237,8 +245,8 @@ function validateRandomxEnvelope(packet, {
   if (expectedWork == null || checked.work !== expectedWork) return { ok: false, code: 'miningRandomxWorkInvalid' }
   const nonce = headerNonce(proof.header80)
   if (nonce == null || share.nonce !== String(nonce)) return { ok: false, code: 'miningRandomxNonceMismatch' }
-  if (!hashMeetsTargetEitherEndian(share.powHash, proof.shareTarget)) return { ok: false, code: 'miningRandomxTargetMiss' }
-  if (proof.blockCandidate !== hashMeetsTargetEitherEndian(share.powHash, proof.networkTarget)) return { ok: false, code: 'miningRandomxBlockFlagInvalid' }
+  if (!hashMeetsTarget(share.powHash, proof.shareTarget)) return { ok: false, code: 'miningRandomxTargetMiss' }
+  if (proof.blockCandidate !== hashMeetsTarget(share.powHash, proof.networkTarget)) return { ok: false, code: 'miningRandomxBlockFlagInvalid' }
 
   const expectedPeer = expectedPeerId ? safePeerId(expectedPeerId) : ''
   const expectedAddress = expectedPayoutAddress ? normalizePayoutAddress(expectedPayoutAddress) : ''
@@ -272,7 +280,7 @@ module.exports = {
   MAX_RANDOMX_SHARE_AGE_MS,
   shareTargetFromNetworkTarget,
   workFromTarget,
-  hashMeetsTargetEitherEndian,
+  hashMeetsTarget,
   headerNonce,
   headerBits,
   targetFromCompactBits,

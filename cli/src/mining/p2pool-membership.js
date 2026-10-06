@@ -38,8 +38,8 @@ function safeInstanceId(value) {
 }
 
 function safePayoutAddress(value) {
-  const text = String(value || '').replace(/[\r\n\0\s]/g, '').slice(0, 160)
-  return text && /^[A-Za-z0-9:._-]+$/.test(text) ? text : ''
+  const text = String(value || '')
+  return /^[A-Za-z0-9]{8,160}$/.test(text) ? text : ''
 }
 
 function safeFeeBasisPoints(value) {
@@ -57,6 +57,7 @@ function presenceSigningPayload(value) {
   const expiresAt = Math.max(updatedAt, Math.floor(Number(value?.expiresAt) || 0))
   const payload = {
     protocol: LIVE_PROTOCOL,
+    securityGeneration: safeText(value?.securityGeneration, 96),
     kind: 'membership',
     peerKey: hex64(value?.peerKey),
     alias: safeText(value?.alias || 'Contact', 48) || 'Contact',

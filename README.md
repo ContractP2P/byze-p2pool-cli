@@ -6,12 +6,12 @@ Mine BYZE with a standalone peer-to-peer CPU mining CLI powered by RandomX and H
 - Direct PPLNS payouts in the block coinbase; pool fee: **0.50%**.
 - Temporary P2P identity; no persistent Contract profile.
 - No wallet seed, wallet private key or wallet passphrase is requested by the CLI.
-- Current version: **0.2.5-rc1**, a release candidate.
+- This branch: **0.2.5-rc2**, a source release candidate. See [CLI compatibility and upgrade notes](cli/README.md#upgrade-coordination) before running it.
 - Initial public support target: **Linux x86-64** (Ubuntu 24.04 is the documented target).
 
 ## Current availability
 
-The current Linux package and release preparation live on **`cli-next`**. The `main` branch still contains the earlier baseline.
+This source candidate uses P2Pool generation v5. Existing `cli-next` packages use the previous generation and do not contain these changes. The installation instructions below describe that earlier package; use the [CLI source documentation](cli/README.md) to review this candidate.
 Use the source checkout instructions below today. Release archives will be listed on the repository's **Releases** page when published; no downloadable release is announced by this README.
 
 The repository also contains macOS Apple Silicon components, but macOS and Windows are not advertised as supported platforms for this first Linux release.

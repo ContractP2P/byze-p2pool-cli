@@ -8,7 +8,7 @@ const {
   RANDOMX_PROOF_MODE,
   RANDOMX_SHARE_DIFFICULTY_MULTIPLIER,
   shareTargetFromNetworkTarget,
-  hashMeetsTargetEitherEndian,
+  hashMeetsTarget,
   headerNonce
 } = require('./p2pool-randomx')
 const { coinbaseMerkleBranch } = require('./mining-job-commitment')
@@ -395,9 +395,9 @@ class Supervisor {
       const powHash = await this.verifier.verify(header80)
       const multiplier = Number(this.config?.difficultyMultiplier || RANDOMX_SHARE_DIFFICULTY_MULTIPLIER)
       const shareTarget = shareTargetFromNetworkTarget(this.job.template.target, multiplier)
-      if (!shareTarget || !hashMeetsTargetEitherEndian(powHash, shareTarget)) throw Object.assign(new Error('share target miss'), { code: 'randomxTargetMiss' })
+      if (!shareTarget || !hashMeetsTarget(powHash, shareTarget)) throw Object.assign(new Error('share target miss'), { code: 'randomxTargetMiss' })
       const nonce = headerNonce(header80)
-      const blockCandidate = hashMeetsTargetEitherEndian(powHash, this.job.template.target)
+      const blockCandidate = hashMeetsTarget(powHash, this.job.template.target)
       const foundAt = Date.now()
       this.accepted += 1
       if (blockCandidate) {

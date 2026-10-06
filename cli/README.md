@@ -1,6 +1,6 @@
-# BYZE P2Pool CLI v0.2.5-rc1
+# BYZE P2Pool CLI v0.2.5-rc2
 
-Standalone command-line peer for the **BYZE P2Pool secure-v2** used by Contract v0.15.85+ (`global-epoch-v4`).
+Standalone command-line peer for **BYZE P2Pool secure-v2**, with the `global-epoch-v5` compatibility generation.
 
 This package is a **source release candidate**. The P2Pool consensus implementation is production-oriented, but the archive intentionally does not redistribute a derived native `byze-p2pool-miner` binary until the upstream redistribution terms and the dedicated release-signing process are closed.
 
@@ -15,17 +15,23 @@ This package is a **source release candidate**. The P2Pool consensus implementat
 - the public pool is **mainnet-only** and refuses to run while the local node is in Initial Block Download or materially behind its headers;
 - incoming P2P traffic is bounded by frame-size, peer-count, per-peer rate limits and bounded expensive-validation concurrency.
 
-The P2Pool consensus behavior remains unchanged from v0.2.4. This cleaned source package removes comments only; executable logic is unchanged.
+This candidate uses Core-compatible PoW ordering, node-backed payout checks, and a block-weight budget that includes the direct coinbase and quantum block signatures. When needed, it removes a suffix of template transactions, subtracts their fees, and rebuilds the witness commitment and payout plan. All PPLNS beneficiaries are retained.
+
+Addresses are checked at startup (including the fee address), membership intake, share verification and payout resolution. The node rejects invalid scripts; wallet-reported `unspendable` addresses are refused. A valid external address may still have unknown spendability: the CLI warns instead of claiming otherwise. Obtain receiving addresses with `getnewaddress` on Byze rc4 or later. Node validation does not replace a receiving-wallet check or a small test spend.
+
+### Upgrade coordination
+
+Generation v5 uses a new discovery topic and a signed generation field. It does not join v4 peers or import their PPLNS history. Coordinate a pool-wide restart after reviewing the current payout window; restarting starts a new window and does not carry forward its prior share weights. Existing on-chain coinbase outputs are unchanged. Do not mix this CLI with an unmodified Contract v4 miner.
 
 ## Compatibility
 
-- CLI: `0.2.5-rc1`
-- Contract: `v0.15.85+ global-epoch-v4`
+- CLI: `0.2.5-rc2`
+- Contract ancestry: `v0.15.85+`; unmodified v4 peers are incompatible
 - contract: `org.contract.byze-p2pool@0.1.3`
 - contract source hash: `0ba509a74eb5f475ce41f152349fe49a7d19e4fbd6c14c1833632c61681a0b66`
 - pool: `byze-main-p2pool-v1`
 - proof mode: `byze-randomx-v2`
-- security generation: `coinbase-binding-v2-global-epoch-v4`
+- security generation: `coinbase-binding-v2-global-epoch-v5`
 - native miner feature: `contract-direct-coinbase-v2`
 - PPLNS window: 20 PoolShares
 - cell size: up to 20 miners; global epoch aggregation combines valid cell checkpoints
@@ -33,10 +39,23 @@ The P2Pool consensus behavior remains unchanged from v0.2.4. This cleaned source
 
 See `COMPATIBILITY.json` for machine-readable compatibility metadata.
 
+## Validation
+
+Run `npm ci`, `npm run check`, `npm test` and `npm run release:preflight:source` from `cli/`.
+The regression suite covers PoW ordering, payout validation, a near-full block with
+400 recipients, fee conservation after template adjustment, and protocol compatibility.
+
+For an isolated Core RPC integration check, set `BYZE_CORE_BIN` to a directory
+containing verified Byze rc4 `byzed` and `byze-cli` binaries, then run `npm run test:core`.
+This creates a temporary regtest node with networking disabled, checks wallet address
+classification and serialization against Core, mines one test block, and stops the node.
+It does not access an existing wallet or mainnet. End-to-end multi-peer mining with a
+full mempool and real-wallet test spends remain separate release checks.
+
 ## Requirements
 
 - Node.js 20 or newer;
-- a local, synchronized BYZE mainnet node (`chain=main`, `initialblockdownload=false`);
+- a local, synchronized BYZE rc4 or later mainnet node (`chain=main`, `initialblockdownload=false`);
 - `byze-cli` able to communicate with that node;
 - a managed native bundle for the current platform:
 
@@ -199,4 +218,3 @@ The suite covers consensus/fork-choice/global-epoch scaling, coinbase attacks, n
 ## Release signatures
 
 The release tooling can create and sign a detached release manifest with a dedicated offline Ed25519 key. No private release key is included in this repository or source archive. See `tools/release-manifest.js`, `tools/release-sign.js` and `tools/release-verify.js`.
-
