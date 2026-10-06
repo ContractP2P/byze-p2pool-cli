@@ -228,3 +228,34 @@ Live aggregates allow three minutes of age and one minute of forward clock skew.
 Peers advertise share identifiers and retrieve one page (at most 48 KiB of packet data) per request. Each client issues at most one request every 650 ms, with 16 outstanding bundles globally and four per peer. Serving is bounded per peer and globally; socket output buffers are bounded too. Deferred validation uses the same concurrency gate as new traffic.
 
 History is bounded by the peers' retained packet caches. If an ancestor is unavailable, synchronization stays pending and block submission is held while pending contexts remain. A fully archival bootstrap/persistent pool history is not supplied by this RC. Validate restart and partition recovery with the intended pool size before rollout.
+
+## DHT bootstrap configuration
+
+Default operation uses HyperDHT's public bootstrap nodes. To use a separate DHT, start a persistent bootstrap node and pass the same endpoint to every miner:
+
+```sh
+# From cli/, in a separate terminal (local test network):
+node -e "require('hyperdht').bootstrapper(49737,'127.0.0.1',{bootstrap:[],nodes:[]})"
+# Add to each miner's normal invocation:
+node src/byze-p2pool.js --alias Miner --wallet byz1... --bootstrap 127.0.0.1:49737
+```
+
+`--bootstrap HOST:PORT[,HOST:PORT]` replaces both bootstrap and known-node lists. There is no fallback to public seeds when the chosen nodes are unreachable. `--bootstrap none` uses empty lists and cannot discover peers on its own. Up to eight IPv4/hostname endpoints are accepted; IPv6 endpoint syntax is not supported by this option. A private DHT does not change the CLI's mainnet-only mining policy.
+
+`npm run test:dht` creates two transport peers with a loopback-only bootstrap, exchanges a multi-page proof bundle, then closes them. It does not start mining or contact the public DHT. The Linux/Node 22 CI job runs this integration test.
+
+The unused `CONTRACT_BYZE_POOL_FEE_ADDRESS` environment override has been removed. The configured pool policy remains the source of the fee address.
+
+## Verified Core rc4 download
+
+With GnuPG available on PATH, from `cli/`:
+
+```sh
+npm run core:download -- --dest ./core-rc4-download
+```
+
+The destination must be new, and its parent must exist. The tool selects Linux x64, macOS arm64/x64 or Windows x64; `--platform` can select one explicitly. It verifies the signed checksum manifest against pinned release-key fingerprint `9F11E836EB4B7F464ADBB1E7AC11CA674828CAE1`, then verifies the archive against both the signed manifest and the pinned rc4 SHA-256. It uses an isolated public-key ring and removes partial downloads on failure.
+
+The verified archive is left unextracted. Stop your node before manually replacing its binaries, then restart and select the new `byze-cli` with `--byze-cli PATH`. The downloader never opens wallets or changes node data. Platform requirements and the source release are documented in the [official rc4 release](https://github.com/powhermes/byze/releases/tag/v0.2.5-rc4-plain-taproot-guard).
+
+For the optional Core integration test, set `BYZE_CORE_BIN` to the directory containing verified `byzed` and `byze-cli`, then run `npm run test:core`. It creates a temporary regtest node with networking disabled, verifies payouts and block metrics, and checks chain context after block invalidation/restoration.

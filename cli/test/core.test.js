@@ -62,10 +62,10 @@ test('PoolShareChain computes a bounded PPLNS window', () => {
   assert.equal(chain.bestWindow().length,20)
 })
 
-test('unchanged consensus modules remain byte-identical to Contract v0.15.80; P0 modules intentionally diverge', () => {
+test('unchanged consensus modules remain byte-identical to Contract v0.15.80; reviewed CLI modules intentionally diverge', () => {
   const src=process.env.CONTRACT_SRC
   if(!src)return
-  for(const name of ['p2pool-protocol.js','poolshare-proof-bundle.js','direct-coinbase.js','pool-fee-policy.js']){
+  for(const name of ['p2pool-protocol.js','poolshare-proof-bundle.js','direct-coinbase.js']){
     const a=fs.readFileSync(path.join(__dirname,'..','src','mining',name))
     const b=fs.readFileSync(path.join(src,'mining',name))
     assert.deepEqual(a,b,name)

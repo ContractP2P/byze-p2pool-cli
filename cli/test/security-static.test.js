@@ -48,7 +48,7 @@ test('v0.1.3 defers transient chain-context gaps and authenticates startup histo
   assert.match(text, /PRE_PRESENCE_GRACE_MS\s*=\s*5_000/)
   assert.match(text, /queuePrePresence\(peerKey, frame\)/)
   assert.match(text, /drainPrePresence\(peerKey\)/)
-  assert.match(text, /CONSENSUS_UNKNOWN_CACHE_MS\s*=\s*1_000/)
+  assert.match(text, /new ChainContextValidator/)
   assert.match(text, /DEFERRED_CONTEXT_TTL_MS\s*=\s*120_000/)
   assert.match(text, /deferContext\('pool'/)
   assert.match(text, /retryDeferredContext\(\)/)

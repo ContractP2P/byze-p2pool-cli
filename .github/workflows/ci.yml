@@ -25,3 +25,7 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run release:preflight:source
+      - name: Isolated DHT integration
+        if: matrix.os == 'ubuntu-latest' && matrix.node == 22
+        timeout-minutes: 2
+        run: npm run test:dht

@@ -12,6 +12,7 @@ const { promisify } = require('node:util')
 const { PayoutAddressValidator } = require('../src/mining/payout-address')
 const { transactionMetrics, blockWeight } = require('../src/mining/block-weight')
 const { sanitizeGbtTemplate, hashMeetsTarget, targetFromCompactBits } = require('../src/mining/p2pool-randomx')
+const {ChainContextValidator}=require('../src/mining/chain-context')
 const run = promisify(execFile)
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -70,11 +71,24 @@ async function main() {
     const decodedBlock=await rpc('getblock',[mined,1])
     assert.equal(blockWeight(rawBlock),decodedBlock.weight)
     console.log('Mined regtest block: Core PoW ordering and serialized block weight agree.')
+    const template=await rpc('getblocktemplate',[{rules:['segwit']}])
+    const candidateHeader=Buffer.alloc(80)
+    Buffer.from(template.previousblockhash,'hex').reverse().copy(candidateHeader,4)
+    candidateHeader.writeUInt32LE(parseInt(template.bits,16),72)
+    const proof={height:template.height,previousBlockHash:template.previousblockhash,header80:candidateHeader.toString('hex')}
+    const context=new ChainContextValidator(rpc)
+    assert.equal((await context.validate(proof,template)).ok,true)
+    assert.equal((await context.validate({...proof,previousBlockHash:'ff'.repeat(32)},template)).ok,false)
+    await rpc('invalidateblock',[mined]);context.snapshot.at=0
+    assert.equal((await context.validate(proof,template)).code,'consensus-height-out-of-range')
+    await rpc('reconsiderblock',[mined]);context.snapshot.at=0
+    assert.equal((await context.validate(proof,template)).ok,true)
+    console.log('Chain context follows Core invalidation and restoration of the active tip.')
     await rpc('unloadwallet',['p0-test'])
     validator=new PayoutAddressValidator(rpc)
     assert.equal((await validator.validate(plain)).spendability,'unknown')
     console.log('Without the wallet, external spendability remains explicitly unknown.')
-    console.log('Core P0 integration checks passed.')
+    console.log('Core P0/P1 integration checks passed.')
   } finally {
     if (ready) { try { await rpc('stop') } catch {} }
     if (node.exitCode === null) node.kill('SIGTERM')

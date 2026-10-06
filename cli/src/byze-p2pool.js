@@ -51,9 +51,7 @@ const {
   CellCheckpointProofAssembler
 } = require('./mining/cell-checkpoint-bundle')
 const {
-  MAX_POOLSHARE_PROOFS,
-  splitPoolShareProofPacket,
-  PoolShareProofAssembler
+  MAX_POOLSHARE_PROOFS
 } = require('./mining/poolshare-proof-bundle')
 const { normalizePlan: normalizeDirectCoinbasePlan, resolveScripts: resolveDirectCoinbaseScripts } = require('./mining/direct-coinbase')
 const { fitTemplateWeight } = require('./mining/block-weight')
@@ -66,7 +64,7 @@ const { satoshisToByze, sumPayoutFromVouts } = require('./reward-telemetry')
 const { ANSI, color, launchPresentation, statusLine, rewardCelebration } = require('./console-ui')
 const { assertMainnetReady, PeerRateLimiter, ValidationGate } = require('./security-hardening')
 
-const APP_VERSION = '0.2.5-rc2'
+const APP_VERSION = require('../package.json').version
 const CONTRACT_ID = 'org.contract.byze-p2pool'
 const CONTRACT_VERSION = '0.1.3'
 const CONTRACT_SOURCE_HASH = '0ba509a74eb5f475ce41f152349fe49a7d19e4fbd6c14c1833632c61681a0b66'
@@ -95,8 +93,6 @@ const MAX_LIVE_SHARE_AGE_MS = 4 * 60_000
 const PRE_PRESENCE_GRACE_MS = 5_000
 const MAX_PRE_PRESENCE_FRAMES_PER_PEER = 24
 const MAX_PRE_PRESENCE_FRAMES_TOTAL = 256
-const CONSENSUS_UNKNOWN_CACHE_MS = 1_000
-const CONSENSUS_MISMATCH_CACHE_MS = 5_000
 const DEFERRED_CONTEXT_TTL_MS = 120_000
 const DEFERRED_CONTEXT_RETRY_MS = 2_000
 const MAX_DEFERRED_CONTEXT_ITEMS = 128
@@ -150,7 +146,7 @@ function argMap(argv) {
   return out
 }
 function help() {
-  console.log(`BYZE P2Pool CLI ${APP_VERSION}\n\nUsage:\n  byze-p2pool --alias Eric --wallet byz1... --threads 8\n\nOptions:\n  --alias NAME          Alias announced to the P2P pool\n  --wallet ADDRESS      Public BYZE payout address\n  --threads N           RandomX CPU threads (1..logical CPUs)\n  --byze-cli PATH       Path to byze-cli if auto-detection fails\n  --native-dir PATH     Managed directory containing byze-p2pool-miner and byze-rxhash\n  --policy PATH         Pool policy file (default: config/pool-policy.json)\n  --no-submit           Never submit a found block (diagnostic)\n  --dry-run             Check node, policy and binaries without mining\n  --version             Show version and exit
+  console.log(`BYZE P2Pool CLI ${APP_VERSION}\n\nUsage:\n  byze-p2pool --alias Eric --wallet byz1... --threads 8\n\nOptions:\n  --alias NAME          Alias announced to the P2P pool\n  --wallet ADDRESS      Public BYZE payout address\n  --threads N           RandomX CPU threads (1..logical CPUs)\n  --byze-cli PATH       Path to byze-cli if auto-detection fails\n  --native-dir PATH     Managed directory containing byze-p2pool-miner and byze-rxhash\n  --bootstrap NODES     HOST:PORT[,HOST:PORT], or none; replaces public DHT seeds\n  --policy PATH         Pool policy file (default: config/pool-policy.json)\n  --no-submit           Never submit a found block (diagnostic)\n  --dry-run             Check node, policy and binaries without mining\n  --version             Show version and exit
   --help                Show help\n\nNo P2P profile is created on disk. The P2P identity is temporary.`)
 }
 
@@ -209,15 +205,17 @@ function loadPolicy(policyPath) {
 
 function uuidInstance() { return `cfi1:${crypto.randomUUID()}` }
 
+const {parseBootstrap,dhtOptions}=require('./dht-config')
+
 class P2PTransport {
-  constructor({ seed, alias, topicHex, onFrame, onPeerChange }) {
+  constructor({ seed, alias, topicHex, onFrame, onPeerChange, bootstrap }) {
     this.seed = seed
     this.alias = alias
     this.topic = Buffer.from(topicHex, 'hex')
     this.onFrame = onFrame
     this.onPeerChange = onPeerChange
     this.peers = new Map()
-    this.dht = new DHT()
+    this.dht = new DHT(dhtOptions(bootstrap))
     this.rateLimiter = new PeerRateLimiter()
     this.swarm = new Hyperswarm({ seed, dht:this.dht, maxPeers:P2P_MAX_PEERS, maxParallel:8 })
     this.peerKey = b4a.toString(this.swarm.keyPair.publicKey, 'hex').toLowerCase()
@@ -308,6 +306,7 @@ const {HistorySync,MAX_HISTORY_AGE_MS}=require('./mining/history-sync')
 
 class MinerApp {
   constructor(opts) {
+    this.bootstrap = opts.bootstrap
     this.alias = opts.alias
     this.payoutAddress = opts.wallet
     this.threads = opts.threads
@@ -327,7 +326,6 @@ class MinerApp {
     this.cellCheckpointPackets = new Map()
     this.publishedCellCheckpoints = new Map()
     this.promotedEpochs = new Map()
-    this.assembler = new PoolShareProofAssembler({ maxBundles:12, maxBytes:12*1024*1024, ttlMs:120_000 })
     this.cellAssembler = new CellCheckpointProofAssembler({ maxBundles:24, maxBytes:16*1024*1024, ttlMs:120_000 })
     this.supervisor = new Supervisor()
     this.workerState = this.supervisor.status()
@@ -1129,7 +1127,7 @@ class MinerApp {
   async start(){
     setNativeMessageHandler((m)=>void this.handleNative(m))
     const topic=this.discoveryTopic()
-    this.transport=new P2PTransport({seed:this.seed,alias:this.alias,topicHex:topic,onFrame:(k,f)=>void this.onFrame(k,f),onPeerChange:(k,on)=>{if(on)setTimeout(()=>{this.broadcastPresence(); this.rebroadcastRecentLocalShares()},80)}})
+    this.transport=new P2PTransport({bootstrap:this.bootstrap,seed:this.seed,alias:this.alias,topicHex:topic,onFrame:(k,f)=>void this.onFrame(k,f),onPeerChange:(k,on)=>{if(on)setTimeout(()=>{this.broadcastPresence(); this.rebroadcastRecentLocalShares()},80)}})
     this.peerKey=this.transport.peerKey
     const selfTest=this.selfPresence(); if(!verify(this.peerKey,presenceSigningPayload(selfTest),selfTest.signature))throw new Error('The temporary P2P key does not match the signing key.')
     this.history.start()
@@ -1204,6 +1202,8 @@ async function main(){
   if(!args.alias||!args.wallet||!args.threads)args=await interactiveOptions(args)
   const alias=safeAlias(args.alias), wallet=safeAddress(args.wallet), maxThreads=Math.max(1,Number(os.availableParallelism?.()||os.cpus().length||1)), threads=Math.max(1,Math.min(maxThreads,Math.floor(Number(args.threads)||1)))
   if(!wallet)throw new Error('Invalid BYZE address.')
+  if(Object.prototype.hasOwnProperty.call(args,'bootstrap')&&args.bootstrap===undefined)throw new Error('--bootstrap requires a value')
+  const bootstrap=parseBootstrap(args.bootstrap)
   const cliPath=detectByzeCli(args['byze-cli']); if(!cliPath)throw new Error('byze-cli not found. Use --byze-cli PATH.')
   if(args['miner-dir'])throw new Error('--miner-dir was removed: BYZE P2Pool never uses or patches an external byze-miner checkout. Use --native-dir for a managed P2Pool bundle.')
   if(args['native-dir'])process.env.BYZE_P2POOL_NATIVE_DIR=path.resolve(args['native-dir'])
@@ -1219,6 +1219,7 @@ async function main(){
   }
   if(args['dry-run']){
     console.log(`\nBYZE P2Pool CLI ${APP_VERSION} — dry-run`)
+    console.log(`DHT seeds  : ${bootstrap===undefined?'public defaults':bootstrap.length?bootstrap.join(', '):'none (isolated)'}`)
     console.log(`Node       : OK (main, height ${chain.blocks}, synchronized)`)
     console.log(`Alias      : ${alias}`)
     console.log(`Payout     : ${wallet}`)
@@ -1235,7 +1236,7 @@ async function main(){
     if(!ns.minerAvailable||!ns.verifierAvailable||!ns.directCoinbaseSupported)throw new Error('Native prerequisites are incomplete; see README.md.')
     console.log('Dry-run OK. No mining or P2P networking started.');return
   }
-  const app=new MinerApp({alias,wallet,threads,policy,byze,payoutValidator,noSubmit:!!args['no-submit']})
+  const app=new MinerApp({alias,wallet,threads,policy,byze,payoutValidator,bootstrap,noSubmit:!!args['no-submit']})
   let stopping=false
   const stop=async()=>{if(stopping)return; stopping=true; await app.stop(); process.exit(0)}
   process.on('SIGINT',()=>void stop()); process.on('SIGTERM',()=>void stop())
