@@ -51,11 +51,11 @@ const {
   CellCheckpointProofAssembler
 } = require('./mining/cell-checkpoint-bundle')
 const {
-  MAX_POOLSHARE_PROOFS,
-  splitPoolShareProofPacket,
-  PoolShareProofAssembler
+  MAX_POOLSHARE_PROOFS
 } = require('./mining/poolshare-proof-bundle')
 const { normalizePlan: normalizeDirectCoinbasePlan, resolveScripts: resolveDirectCoinbaseScripts } = require('./mining/direct-coinbase')
+const { fitTemplateWeight } = require('./mining/block-weight')
+const { PayoutAddressValidator } = require('./mining/payout-address')
 const { publishQuantumBlock } = require('./mining/byze-block-publisher')
 const { createPoolFeePolicy, DEFAULT_POOL_FEE_BASIS_POINTS } = require('./mining/pool-fee-policy')
 const { Supervisor, setNativeMessageHandler } = require('./mining/native-bridge')
@@ -64,13 +64,13 @@ const { satoshisToByze, sumPayoutFromVouts } = require('./reward-telemetry')
 const { ANSI, color, launchPresentation, statusLine, rewardCelebration } = require('./console-ui')
 const { assertMainnetReady, PeerRateLimiter, ValidationGate } = require('./security-hardening')
 
-const APP_VERSION = '0.2.5-rc1'
+const APP_VERSION = require('../package.json').version
 const CONTRACT_ID = 'org.contract.byze-p2pool'
 const CONTRACT_VERSION = '0.1.3'
 const CONTRACT_SOURCE_HASH = '0ba509a74eb5f475ce41f152349fe49a7d19e4fbd6c14c1833632c61681a0b66'
 const BUILTIN_PUBLISHER_KEY = '77a412df63379feff5e8a0cdef364b10377d7fcd0d2753f6000b48bf5b4e523e'
 const POOL_ID = 'byze-main-p2pool-v1'
-const SECURITY_GENERATION = 'coinbase-binding-v2-global-epoch-v4'
+const SECURITY_GENERATION = 'coinbase-binding-v2-global-epoch-v6'
 const CELL_MAX_MEMBERS = 20
 const WORK_EPOCH_MS = 60_000
 const RELAY_TERM_MS = 10 * 60_000
@@ -93,8 +93,6 @@ const MAX_LIVE_SHARE_AGE_MS = 4 * 60_000
 const PRE_PRESENCE_GRACE_MS = 5_000
 const MAX_PRE_PRESENCE_FRAMES_PER_PEER = 24
 const MAX_PRE_PRESENCE_FRAMES_TOTAL = 256
-const CONSENSUS_UNKNOWN_CACHE_MS = 1_000
-const CONSENSUS_MISMATCH_CACHE_MS = 5_000
 const DEFERRED_CONTEXT_TTL_MS = 120_000
 const DEFERRED_CONTEXT_RETRY_MS = 2_000
 const MAX_DEFERRED_CONTEXT_ITEMS = 128
@@ -148,7 +146,7 @@ function argMap(argv) {
   return out
 }
 function help() {
-  console.log(`BYZE P2Pool CLI ${APP_VERSION}\n\nUsage:\n  byze-p2pool --alias Eric --wallet byz1... --threads 8\n\nOptions:\n  --alias NAME          Alias announced to the P2P pool\n  --wallet ADDRESS      Public BYZE payout address\n  --threads N           RandomX CPU threads (1..logical CPUs)\n  --byze-cli PATH       Path to byze-cli if auto-detection fails\n  --native-dir PATH     Managed directory containing byze-p2pool-miner and byze-rxhash\n  --policy PATH         Pool policy file (default: config/pool-policy.json)\n  --no-submit           Never submit a found block (diagnostic)\n  --dry-run             Check node, policy and binaries without mining\n  --version             Show version and exit
+  console.log(`BYZE P2Pool CLI ${APP_VERSION}\n\nUsage:\n  byze-p2pool --alias Eric --wallet byz1... --threads 8\n\nOptions:\n  --alias NAME          Alias announced to the P2P pool\n  --wallet ADDRESS      Public BYZE payout address\n  --threads N           RandomX CPU threads (1..logical CPUs)\n  --byze-cli PATH       Path to byze-cli if auto-detection fails\n  --native-dir PATH     Managed directory containing byze-p2pool-miner and byze-rxhash\n  --bootstrap NODES     HOST:PORT[,HOST:PORT], or none; replaces public DHT seeds\n  --policy PATH         Pool policy file (default: config/pool-policy.json)\n  --no-submit           Never submit a found block (diagnostic)\n  --dry-run             Check node, policy and binaries without mining\n  --version             Show version and exit
   --help                Show help\n\nNo P2P profile is created on disk. The P2P identity is temporary.`)
 }
 
@@ -207,15 +205,17 @@ function loadPolicy(policyPath) {
 
 function uuidInstance() { return `cfi1:${crypto.randomUUID()}` }
 
+const {parseBootstrap,dhtOptions}=require('./dht-config')
+
 class P2PTransport {
-  constructor({ seed, alias, topicHex, onFrame, onPeerChange }) {
+  constructor({ seed, alias, topicHex, onFrame, onPeerChange, bootstrap }) {
     this.seed = seed
     this.alias = alias
     this.topic = Buffer.from(topicHex, 'hex')
     this.onFrame = onFrame
     this.onPeerChange = onPeerChange
     this.peers = new Map()
-    this.dht = new DHT()
+    this.dht = new DHT(dhtOptions(bootstrap))
     this.rateLimiter = new PeerRateLimiter()
     this.swarm = new Hyperswarm({ seed, dht:this.dht, maxPeers:P2P_MAX_PEERS, maxParallel:8 })
     this.peerKey = b4a.toString(this.swarm.keyPair.publicKey, 'hex').toLowerCase()
@@ -263,7 +263,7 @@ class P2PTransport {
       if (frame?.type === 'hello') {
         peer.alias = safeAlias(frame.alias || 'Contact'); peer.ready = true; continue
       }
-      if (['mining-presence','mining-local-share','mining-cell-checkpoint','mining-pool-share','mining-pool-share-request'].includes(frame?.type)) {
+      if (['mining-presence','mining-local-share','mining-cell-checkpoint','mining-pool-share','mining-pool-share-request','mining-pool-share-inventory','mining-pool-share-page'].includes(frame?.type)) {
         this.onFrame?.(peer.peerKey, frame)
       }
     }
@@ -281,7 +281,7 @@ class P2PTransport {
   send(peerKey, frame) {
     const peer = this.peers.get(String(peerKey || '').toLowerCase())
     if (!peer?.conn || peer.conn.destroyed) return false
-    try { peer.conn.write(b4a.from(`${JSON.stringify(frame)}\n`)); return true } catch { return false }
+    try { const data=b4a.from(`${JSON.stringify(frame)}\n`);if(data.length>MAX_FRAME_BYTES||Number(peer.conn.writableLength||0)+data.length>512*1024)return false;peer.conn.write(data);return true } catch { return false }
   }
   broadcast(frame, filter = null) {
     let n=0
@@ -301,8 +301,12 @@ class P2PTransport {
   }
 }
 
+const {poolAnchor,ChainContextValidator}=require('./mining/chain-context')
+const {HistorySync,MAX_HISTORY_AGE_MS}=require('./mining/history-sync')
+
 class MinerApp {
   constructor(opts) {
+    this.bootstrap = opts.bootstrap
     this.alias = opts.alias
     this.payoutAddress = opts.wallet
     this.threads = opts.threads
@@ -322,7 +326,6 @@ class MinerApp {
     this.cellCheckpointPackets = new Map()
     this.publishedCellCheckpoints = new Map()
     this.promotedEpochs = new Map()
-    this.assembler = new PoolShareProofAssembler({ maxBundles:12, maxBytes:12*1024*1024, ttlMs:120_000 })
     this.cellAssembler = new CellCheckpointProofAssembler({ maxBundles:24, maxBytes:16*1024*1024, ttlMs:120_000 })
     this.supervisor = new Supervisor()
     this.workerState = this.supervisor.status()
@@ -331,7 +334,7 @@ class MinerApp {
     this.currentJob = null
     this.directPlan = null
     this.jobContexts = new Map()
-    this.scriptCache = new Map()
+    this.payoutValidator = opts.payoutValidator || new PayoutAddressValidator((m,p) => this.byze.call(m,p,{timeout:10_000}), { warn })
     this.lastGbtAt = 0
     this.running = false
     this.acceptedLocal = 0
@@ -347,7 +350,8 @@ class MinerApp {
     this.lastStatsAt = 0
     this.uiReady = false
     this.timers = []
-    this.consensusCache = new Map()
+    this.chainContext = new ChainContextValidator((m,p)=>this.byze.call(m,p,{timeout:10000}))
+    this.history = new HistorySync({send:(peer,frame)=>!!this.remotePoolPeer(peer)&&this.transport.send(peer,frame),getPacket:id=>this.poolPackets.get(id),known:id=>this.poolChain.byId.has(id),receive:(peer,packet)=>this.onFrame(peer,{type:'mining-pool-share',packet},{requestedHistory:true})})
     this.randomxVerifyInflight = new Map()
     this.pendingLocalShareIds = new Set()
     this.pendingPoolShareIds = new Set()
@@ -357,6 +361,7 @@ class MinerApp {
     this.missingTipRequestAt = new Map()
     this.retryingDeferred = false
     this.validationGate = new ValidationGate()
+    this.presenceGate = new ValidationGate({maxGlobal:8,maxPerPeer:1})
     this.sessionStartHeight = 0
     this.lastRewardScanHeight = 0
     this.rewardScanBusy = false
@@ -375,7 +380,7 @@ class MinerApp {
   selfPresence(now = Date.now(), state='MINING') {
     this.localSeq = Math.max(this.localSeq + 1, Math.floor(now))
     const payload = presenceSigningPayload({
-      peerKey:this.peerKey, alias:this.alias, instanceId:this.instanceId,
+      securityGeneration:SECURITY_GENERATION, peerKey:this.peerKey, alias:this.alias, instanceId:this.instanceId,
       contractId:CONTRACT_ID, version:CONTRACT_VERSION, publisherKey:BUILTIN_PUBLISHER_KEY,
       sourceHash:CONTRACT_SOURCE_HASH, poolId:POOL_ID, payoutAddress:this.payoutAddress,
       feePolicyHash:this.policy.policyHash, feeBasisPoints:this.policy.feeBasisPoints, feeAddress:this.policy.feeAddress,
@@ -390,18 +395,25 @@ class MinerApp {
     return this.transport.broadcast({ v:9, type:'mining-presence', announcement })
   }
 
-  acceptPresence(transportPeerKey, announcement) {
+  async acceptPresence(transportPeerKey, announcement) {
     const peerKey = String(transportPeerKey || '').toLowerCase()
     const checked = validatePresenceShape(announcement, { now:Date.now(), expectedPeerKey:peerKey })
     if (!checked.ok) return checked
     const p = checked.payload
+    if (p.securityGeneration !== SECURITY_GENERATION) return {ok:false,code:'miningProtocolUpgradeRequired'}
     if (p.contractId!==CONTRACT_ID || p.version!==CONTRACT_VERSION || p.publisherKey!==BUILTIN_PUBLISHER_KEY || p.sourceHash!==CONTRACT_SOURCE_HASH || p.poolId!==POOL_ID) return {ok:false,code:'contract-mismatch'}
     if (p.feePolicyHash!==this.policy.policyHash || Number(p.feeBasisPoints)!==Number(this.policy.feeBasisPoints) || p.feeAddress!==this.policy.feeAddress) return {ok:false,code:'fee-policy-mismatch'}
     if (!verify(peerKey,p,announcement.signature)) return {ok:false,code:'signature-invalid'}
     const prior=this.remotePresence.get(peerKey)
     if (prior && (p.seq < prior.payload.seq || (p.seq===prior.payload.seq && p.updatedAt<=prior.payload.updatedAt))) return {ok:true,ignored:true}
     if (p.miningState==='LEFT') { this.remotePresence.delete(peerKey); return {ok:true,left:true,payload:p,firstSeen:false} }
-    const firstSeen = !prior
+    const addressCheck = await this.payoutValidator.validate(p.payoutAddress)
+    if (!addressCheck.ok) return addressCheck
+    // RPC validation yields: a newer heartbeat may have arrived meanwhile.
+    const latest = this.remotePresence.get(peerKey)
+    if (latest && (p.seq < latest.payload.seq || (p.seq === latest.payload.seq && p.updatedAt <= latest.payload.updatedAt))) return {ok:true,ignored:true}
+    if (p.expiresAt <= Date.now()) return {ok:false,code:'miningPresenceExpired'}
+    const firstSeen = !latest
     this.remotePresence.set(peerKey,{payload:p,telemetry:this.safeTelemetry(announcement.telemetry),receivedAt:Date.now()})
     if (firstSeen) setImmediate(()=>this.syncPoolHistory(peerKey))
     return {ok:true,payload:p,firstSeen}
@@ -454,25 +466,8 @@ class MinerApp {
     this.liveShares.set(s.shareId,{...clone(packet),local,receivedAt:Date.now()}); this.shareSlots.set(key,s.shareId); return {ok:true}
   }
 
-  async validateConsensusContext(proof) {
-    const height=Math.max(1,Number(proof?.height||0)), prev=String(proof?.previousBlockHash||'').toLowerCase()
-    const bits=String(proof?.header80||'').slice(144,152).match(/../g)?.reverse().join('') || ''
-    if(!height||!/^[0-9a-f]{64}$/.test(prev)||!/^[0-9a-f]{8}$/.test(bits))return {ok:false,code:'consensus-context-invalid'}
-    if(this.lastTemplate&&Number(this.lastTemplate.height)===height&&String(this.lastTemplate.previousblockhash).toLowerCase()===prev)return String(this.lastTemplate.bits||'').toLowerCase()===bits?{ok:true}:{ok:false,code:'bits-mismatch'}
-    const key=`${height}:${prev}:${bits}`, cached=this.consensusCache.get(key)
-    if(cached){
-      const ttl=cached.result?.ok ? 600_000 : cached.result?.code==='consensus-context-unknown' ? CONSENSUS_UNKNOWN_CACHE_MS : CONSENSUS_MISMATCH_CACHE_MS
-      if(Date.now()-cached.at<ttl)return cached.result
-      this.consensusCache.delete(key)
-    }
-    let result={ok:false,code:'consensus-context-unknown'}
-    try {
-      const expectedPrev=String(await this.byze.call('getblockhash',[height-1])).toLowerCase()
-      if(expectedPrev===prev){const bh=String(await this.byze.call('getblockhash',[height])).toLowerCase(); const h=await this.byze.call('getblockheader',[bh]); result=String(h?.bits||'').toLowerCase()===bits?{ok:true}:{ok:false,code:'bits-mismatch'}}
-      else result={ok:false,code:'previous-block-mismatch'}
-    }catch{}
-    this.consensusCache.set(key,{at:Date.now(),result}); if(this.consensusCache.size>128)this.consensusCache.delete(this.consensusCache.keys().next().value)
-    return result
+  async validateConsensusContext(proof, options={}) {
+    return this.chainContext.validate(proof,this.lastTemplate,options)
   }
 
   async verifyRandomxHash(header80, expectedHash) {
@@ -583,9 +578,9 @@ class MinerApp {
   }
 
   sendPoolPacket(packet, targets=null){
-    const split=splitPoolShareProofPacket(packet); if(!split.ok){warn('PoolShare cannot be broadcast',split.code); return false}
     const keys=targets||[...this.transport.peers.keys()].filter(k=>this.remotePoolPeer(k))
-    let sent=false; for(const chunk of split.packets)for(const k of keys)if(this.transport.send(k,{v:12,type:'mining-pool-share',packet:chunk}))sent=true
+    let sent=false
+    for(const peer of keys)if(this.transport.send(peer,{v:12,type:'mining-pool-share-inventory',id:packet?.share?.poolShareId}))sent=true
     return sent
   }
   sendCellCheckpointPacket(packet, targets=null){
@@ -598,18 +593,31 @@ class MinerApp {
   }
   syncPoolHistory(peerKey){
     if(!this.remotePoolPeer(peerKey))return
-    const minEpoch=Math.floor(Date.now()/WORK_EPOCH_MS)-2
-    for(const packet of this.cellCheckpointPackets.values())if(Number(packet?.checkpoint?.epoch||-1)>=minEpoch)this.sendCellCheckpointPacket(packet,[peerKey])
-    for(const s of this.poolChain.recentShares(Math.min(64,POOLSHARE_WINDOW*2+8))){const p=this.poolPackets.get(s.poolShareId); if(p)this.sendPoolPacket(p,[peerKey])}
+    const packet=this.poolPackets.get(this.poolChain.bestId)
+    if(packet)this.sendPoolPacket(packet,[peerKey])
   }
 
-  async verifyCellProof(pp,{contractHash,poolId,cellId,epoch,previousPoolShareId}){
+  precheckRelay(packet,checkpoint,proofs,signer,previousPoolShareId,{historical=false}={}){
+    if(!checkpoint)return {ok:false,code:'relay-checkpoint-invalid'}
+    if(!Array.isArray(proofs)||!proofs.length||proofs.length>MAX_POOLSHARE_PROOFS)return {ok:false,code:'relay-proof-count-invalid'}
+    const contributors=[]
+    for(const pp of proofs){
+      const checked=validateRandomxEnvelope(pp,{expectedContractHash:checkpoint.contractHash,expectedPoolId:checkpoint.poolId,now:Date.now(),epochMs:WORK_EPOCH_MS,maxAgeMs:historical?MAX_HISTORY_AGE_MS:180000,aggregate:true})
+      if(!checked.ok)return checked
+      if(checked.payload.epoch!==checkpoint.epoch||String(checked.proof.pplnsTipId||'')!==String(previousPoolShareId||'')||!verify(checked.payload.minerPeerId,proofEnvelopeSigningPayload(pp),pp.signature))return {ok:false,code:'relay-proof-signature-invalid'}
+      contributors.push(checked.payload.minerPeerId)
+    }
+    const relay=electCellRelays({members:[...new Set(contributors)],cellId:checkpoint.cellId,epoch:this.relayTermForWorkEpoch(checkpoint.epoch),seed:membershipSeed({contractHash:CONTRACT_SOURCE_HASH,poolId:POOL_ID}),backups:RELAY_BACKUPS})
+    return relay?.ok&&[relay.primary,...relay.backups].includes(signer)?{ok:true}:{ok:false,code:'relay-unauthorized'}
+  }
+
+  async verifyCellProof(pp,{contractHash,poolId,cellId,epoch,previousPoolShareId,historical=false}){
     if(pp?.proofMode!==RANDOMX_PROOF_MODE||!pp.share||!pp.proof||!pp.signature)return {ok:false,code:'cell-checkpoint-proof-invalid'}
     const rs=pp.share
-    const checked=validateRandomxEnvelope(pp,{expectedPeerId:rs.minerPeerId,expectedPayoutAddress:rs.payoutAddress,expectedContractHash:contractHash,expectedPoolId:poolId,expectedCellId:cellId,epochMs:WORK_EPOCH_MS,now:Math.max(1,Number(rs.createdAt)||Date.now()),allowPreviousEpoch:true})
+    const checked=validateRandomxEnvelope(pp,{expectedPeerId:rs.minerPeerId,expectedPayoutAddress:rs.payoutAddress,expectedContractHash:contractHash,expectedPoolId:poolId,expectedCellId:cellId,epochMs:WORK_EPOCH_MS,now:Date.now(),allowPreviousEpoch:true,aggregate:true,maxAgeMs:historical?MAX_HISTORY_AGE_MS:180000})
     if(!checked.ok||Number(checked.payload.epoch)!==Number(epoch))return {ok:false,code:checked.code||'cell-checkpoint-proof-invalid'}
     if(!verify(String(checked.payload.minerPeerId).toLowerCase(),proofEnvelopeSigningPayload(pp),pp.signature))return {ok:false,code:'cell-checkpoint-proof-signature-invalid'}
-    const context=await this.validateConsensusContext(checked.proof); if(!context.ok)return context
+    const context=await this.validateConsensusContext(checked.proof,{historical}); if(!context.ok)return context
     const binding=await this.verifyShareCoinbaseBinding(checked,{expectedPplnsTipId:String(previousPoolShareId||'')}); if(!binding.ok)return binding
     const cached=this.liveShares.get(checked.payload.shareId)
     const same=cached?.proofMode===RANDOMX_PROOF_MODE&&cached?.signature===pp.signature&&JSON.stringify(cached?.proof||{})===JSON.stringify(checked.proof||{})
@@ -626,6 +634,7 @@ class MinerApp {
     if(checkpoint.contractHash!==CONTRACT_SOURCE_HASH||checkpoint.poolId!==POOL_ID)return {ok:false,code:'cell-checkpoint-contract-mismatch'}
     if(!verify(signer,shape.signingPayload,packet.signature))return {ok:false,code:'cell-checkpoint-signature-invalid'}
     if(shape.previousPoolShareId&&!this.poolChain.byId.has(shape.previousPoolShareId))return {ok:false,code:'pplns-context-unknown',missingTip:shape.previousPoolShareId}
+    const authorized=this.precheckRelay(packet,checkpoint,shape.proofs,signer,shape.previousPoolShareId);if(!authorized.ok)return authorized
     const verified=[]
     for(const pp of shape.proofs){
       const result=await this.verifyCellProof(pp,{contractHash:checkpoint.contractHash,poolId:checkpoint.poolId,cellId:checkpoint.cellId,epoch:checkpoint.epoch,previousPoolShareId:shape.previousPoolShareId})
@@ -651,7 +660,7 @@ class MinerApp {
     return {ok:true,checkpoint:verified.checkpoint}
   }
 
-  async verifyPoolProofBundle(packet){
+  async verifyPoolProofBundle(packet,{historical=false}={}){
     const share=packet?.share,checkpoint=packet?.checkpoint,proofs=Array.isArray(packet?.proofs)?packet.proofs:[]
     if(!share||!checkpoint||checkpoint.checkpointId!==share.checkpointId||checkpoint.contractHash!==share.contractHash||checkpoint.poolId!==share.poolId||checkpoint.cellId!==share.cellId)return {ok:false,code:'poolshare-checkpoint-invalid'}
     if(!proofs.length||proofs.length>MAX_POOLSHARE_PROOFS)return {ok:false,code:'poolshare-proof-count-invalid'}
@@ -660,7 +669,7 @@ class MinerApp {
     const groups=new Map()
     for(const pp of proofs){
       const cellId=String(pp?.share?.cellId||'')
-      const result=await this.verifyCellProof(pp,{contractHash:share.contractHash,poolId:share.poolId,cellId,epoch:Number(checkpoint.epoch||0),previousPoolShareId})
+      const result=await this.verifyCellProof(pp,{contractHash:share.contractHash,poolId:share.poolId,cellId,epoch:Number(checkpoint.epoch||0),previousPoolShareId,historical})
       if(!result.ok)return {ok:false,code:result.code||'poolshare-proof-invalid',missingTip:result.missingTip}
       verified.push(result.payload)
       if(!groups.has(cellId))groups.set(cellId,[])
@@ -687,6 +696,10 @@ class MinerApp {
     }
     if(rebuiltCheckpoint.checkpointId!==checkpoint.checkpointId||String(rebuiltCheckpoint.totalWork)!==String(share.work)||JSON.stringify(rebuiltCheckpoint.workByPayout)!==JSON.stringify(share.payoutWeights||{}))return {ok:false,code:'poolshare-proof-mismatch'}
     if(checkpoint.kind==='global-epoch-checkpoint'&&JSON.stringify(rebuiltCheckpoint.checkpointIds)!==JSON.stringify(checkpoint.checkpointIds||[]))return {ok:false,code:'poolshare-global-checkpoint-mismatch'}
+    const anchor=poolAnchor(proofs)
+    if(!anchor||share.byzeHeight!==anchor.height||share.byzePrevBlockHash!==anchor.previousBlockHash)return {ok:false,code:'poolshare-anchor-mismatch'}
+    const rebuiltShare=buildPoolShare({checkpoint:rebuiltCheckpoint,previousPoolShareId,byzeHeight:anchor.height,byzePrevBlockHash:anchor.previousBlockHash})
+    if(!rebuiltShare.ok||rebuiltShare.poolShare.poolShareId!==share.poolShareId)return {ok:false,code:'poolshare-id-mismatch'}
     return {ok:true,checkpoint:rebuiltCheckpoint,minerPeerIds:[...new Set(verified.map(x=>String(x.minerPeerId).toLowerCase()).filter(validPeerKey))]}
   }
 
@@ -700,17 +713,20 @@ class MinerApp {
     }
     try{
       if(share.contractHash!==CONTRACT_SOURCE_HASH||share.poolId!==POOL_ID||!validPeerKey(signer)||!verify(signer,this.poolShareSigningPayload(share),packet.signature))return {ok:false,code:'poolshare-signature-invalid'}
-      const proof=await this.verifyPoolProofBundle(packet); if(!proof.ok)return proof
+      const historical=this.history.isRequested(peerKey,id)
+      const authorized=this.precheckRelay(packet,packet.checkpoint,packet.proofs,signer,share.previousPoolShareId,{historical});if(!authorized.ok)return authorized
+      const proof=await this.verifyPoolProofBundle(packet,{historical}); if(!proof.ok)return proof
       const relay=electCellRelays({members:proof.minerPeerIds,cellId:share.cellId,epoch:this.relayTermForWorkEpoch(proof.checkpoint.epoch),seed:membershipSeed({contractHash:CONTRACT_SOURCE_HASH,poolId:POOL_ID}),backups:RELAY_BACKUPS})
       if(!relay?.ok||![relay.primary,...relay.backups].includes(signer))return {ok:false,code:'poolshare-relay-unauthorized'}
-      const normalized={...clone(packet),signerPeerKey:signer}; this.cachePoolPacket(normalized)
+      const normalized={...clone(packet),signerPeerKey:signer}
       const added=this.poolChain.add(share,{signerPeerKey:signer,receivedAt:Date.now(),checkpointEpoch:proof.checkpoint.epoch}); if(!added.ok)return added
-      if(added.orphan){this.transport.send(peerKey,{v:12,type:'mining-pool-share-request',ids:[added.missingParent]}); return {ok:true,orphan:true}}
+      this.cachePoolPacket(normalized)
+      if(added.orphan){this.requestMissingPplnsTip(peerKey,{missingTip:added.missingParent}); return {ok:true,orphan:true}}
       if(added.bestChanged){
         if(added.reorg&&this.uiReady)log('↻ PPLNS reorg',short(added.oldBestId,8,6),'→',short(added.bestId,8,6))
         setImmediate(()=>void this.refreshJob(true).catch(e=>warn('PPLNS refresh:',e.message)))
       }
-      if(!added.duplicate)this.sendPoolPacket(normalized)
+      if(!added.duplicate&&!historical)this.sendPoolPacket(normalized)
       return {ok:true,duplicate:!!added.duplicate,bestChanged:!!added.bestChanged,reorg:!!added.reorg}
     } finally {
       if(/^ps:[0-9a-f]{64}$/.test(id))this.pendingPoolShareIds.delete(id)
@@ -796,7 +812,9 @@ class MinerApp {
     if(idx<0)return
     const elapsed=Math.max(0,now-currentEpoch*WORK_EPOCH_MS)
     if(elapsed<GLOBAL_AGGREGATION_GRACE_MS+idx*RELAY_FAILOVER_GRACE_MS)return
-    const tip=String(this.lastTemplate?.previousblockhash||'').toLowerCase(),height=Math.max(0,Number(this.lastTemplate?.height||0)); if(!/^[0-9a-f]{64}$/.test(tip))return
+    const anchor=poolAnchor(proofs);if(!anchor)return
+    for(const pp of proofs)if(!(await this.validateConsensusContext(pp.proof)).ok)return
+    const tip=anchor.previousBlockHash,height=anchor.height
     const built=buildPoolShare({checkpoint:global.checkpoint,previousPoolShareId,byzeHeight:height,byzePrevBlockHash:tip}); if(!built.ok)return
     if(this.poolChain.byId.has(built.poolShare.poolShareId))return
     const mark=`${closed}:${global.checkpoint.checkpointId}:${this.peerKey}`
@@ -810,14 +828,8 @@ class MinerApp {
   }
 
   async directPayoutScript(address){
-    address=String(address||'')
-    const cached=this.scriptCache.get(address); if(cached)return {scriptPubKey:cached}
-    let script=''
-    try{const i=await this.byze.call('getaddressinfo',[address],{timeout:10_000}); script=String(i?.scriptPubKey||i?.scriptpubkey||'').toLowerCase()}catch{}
-    if(!/^[0-9a-f]+$/.test(script)||script.length%2){try{const i=await this.byze.call('validateaddress',[address],{timeout:10_000}); script=String(i?.scriptPubKey||i?.scriptpubkey||'').toLowerCase()}catch{}}
-    if(!/^[0-9a-f]+$/.test(script)||script.length%2)return null
-    this.scriptCache.set(address,script); if(this.scriptCache.size>512)this.scriptCache.delete(this.scriptCache.keys().next().value)
-    return {scriptPubKey:script}
+    const checked = await this.payoutValidator.validate(address)
+    return checked.ok ? {scriptPubKey:checked.scriptPubKey} : null
   }
   payoutForTip(reward,tipId,payoutAddress){
     const value=BigInt(String(reward||0))
@@ -846,6 +858,9 @@ class MinerApp {
     return {ok:true,commitment,plan}
   }
   async verifyShareCoinbaseBinding(checked,options={}){
+    // Check the share recipient even when the historical PPLNS plan does not pay it yet.
+    const addressCheck = await this.payoutValidator.validate(checked.payload.payoutAddress)
+    if (!addressCheck.ok) return addressCheck
     const expected=await this.expectedCommitmentForProof(checked.proof,checked.payload.payoutAddress,checked.payload.cellId,checked.payload.epoch,options); if(!expected.ok)return expected
     return verifyCoinbaseBinding({rpc:(m,p=[])=>this.byze.call(m,p,{timeout:15_000}),header80:checked.proof.header80,coinbaseNoWitnessHex:checked.proof.coinbaseNoWitnessHex,merkleBranch:checked.proof.coinbaseMerkleBranch,expectedCommitment:expected.commitment,expectedHeight:checked.proof.height})
   }
@@ -914,6 +929,15 @@ class MinerApp {
     const pplnsTipId=this.poolChain.tipBeforeEpoch(live.epoch)
     this.directPlan=await this.buildDirectPlan(sanitized.template.coinbasevalue,{tipId:pplnsTipId,payoutAddress:this.payoutAddress}).catch(e=>({ok:false,code:e.message}))
     if(!this.directPlan?.ok)throw new Error(`direct coinbase unavailable: ${this.directPlan?.code||'unknown'}`)
+    let fitted = fitTemplateWeight(sanitized.template, this.directPlan.outputs)
+    while (fitted.removed) {
+      sanitized.template = fitted.template
+      // Removing transactions removes their fees too; rebuild every payout and commitment.
+      this.directPlan = await this.buildDirectPlan(sanitized.template.coinbasevalue,{tipId:pplnsTipId,payoutAddress:this.payoutAddress})
+      if (!this.directPlan?.ok) throw new Error(`adjusted direct coinbase unavailable: ${this.directPlan?.code||'unknown'}`)
+      fitted = fitTemplateWeight(sanitized.template, this.directPlan.outputs)
+    }
+    sanitized.template = fitted.template
     sanitized.template.coinbaseoutputs=this.directPlan.outputs.map(r=>({address:r.address,value:r.satoshis,script:r.script})); sanitized.template.directCoinbaseCommitment=this.directPlan.commitment; sanitized.templateHash=randomxTemplateHash(sanitized.template)
     const commitment=buildJobCommitment({contractHash:CONTRACT_SOURCE_HASH,poolId:POOL_ID,cellId:live.cellId,templateHash:sanitized.templateHash,feePolicyHash:this.policy.policyHash,pplnsTipId,coinbaseOutputs:this.directPlan.outputs,coinbaseValue:sanitized.template.coinbasevalue})
     if(!commitment.ok)throw new Error(`job commitment unavailable: ${commitment.code}`)
@@ -962,8 +986,7 @@ class MinerApp {
     if(now-last<2_000)return false
     this.missingTipRequestAt.set(key,now)
     while(this.missingTipRequestAt.size>256)this.missingTipRequestAt.delete(this.missingTipRequestAt.keys().next().value)
-    this.transport.send(peerKey,{v:12,type:'mining-pool-share-request',ids:[id]})
-    return true
+    return this.history.request(peerKey,id)
   }
 
   deferContext(kind, peerKey, packet){
@@ -985,7 +1008,7 @@ class MinerApp {
       for(const [id,rec] of [...this.deferredLocalShares]){
         if(now<rec.retryAt)continue
         if(now-rec.firstSeen>DEFERRED_CONTEXT_TTL_MS){this.deferredLocalShares.delete(id); warn('deferred share expired',short(id,8,6)); continue}
-        const r=await this.acceptLocalShare(rec.peerKey,rec.packet)
+        const r=await this.validationGate.run(rec.peerKey,()=>this.acceptLocalShare(rec.peerKey,rec.packet))
         if(r.ok){this.deferredLocalShares.delete(id); if(!r.duplicate)this.recordRemoteOutcome('local',rec.packet,'accepted'); continue}
         if(['consensus-context-unknown','pplns-context-unknown'].includes(r.code)){if(r.code==='pplns-context-unknown')this.requestMissingPplnsTip(rec.peerKey,r);rec.retryAt=Date.now()+DEFERRED_CONTEXT_RETRY_MS; continue}
         this.deferredLocalShares.delete(id)
@@ -995,7 +1018,7 @@ class MinerApp {
       for(const [id,rec] of [...this.deferredPoolShares]){
         if(now<rec.retryAt)continue
         if(now-rec.firstSeen>DEFERRED_CONTEXT_TTL_MS){this.deferredPoolShares.delete(id); warn('deferred PoolShare expired',short(id,8,6)); continue}
-        const r=await this.acceptPoolShare(rec.peerKey,rec.packet)
+        const r=await this.validationGate.run(rec.peerKey,()=>this.acceptPoolShare(rec.peerKey,rec.packet))
         if(r.ok){this.deferredPoolShares.delete(id); if(!r.duplicate)this.recordRemoteOutcome('pool',rec.packet,'accepted'); continue}
         if(['consensus-context-unknown','pplns-context-unknown'].includes(r.code)){if(r.code==='pplns-context-unknown')this.requestMissingPplnsTip(rec.peerKey,r);rec.retryAt=Date.now()+DEFERRED_CONTEXT_RETRY_MS; continue}
         this.deferredPoolShares.delete(id)
@@ -1024,10 +1047,10 @@ class MinerApp {
     setTimeout(()=>this.refreshJob(true).catch(()=>{}),500)
   }
 
-  async onFrame(peerKey,frame,{fromGraceQueue=false}={}){
+  async onFrame(peerKey,frame,{fromGraceQueue=false,requestedHistory=false}={}){
     try{
       if(frame.type==='mining-presence'){
-        const r=this.acceptPresence(peerKey,frame.announcement)
+        const r=await this.presenceGate.run(peerKey,()=>this.acceptPresence(peerKey,frame.announcement))
         if(r.ok&&!r.ignored){
           if(r.left) log('peer left',short(peerKey,10,6),r.payload?.alias||'')
           else if(r.firstSeen){if(this.uiReady)log('➕ miner joined the pool',r.payload?.alias||short(peerKey,10,6)); this.rebroadcastRecentLocalShares(); this.drainPrePresence(peerKey)}
@@ -1037,6 +1060,7 @@ class MinerApp {
       if(!fromGraceQueue&&!this.remotePoolPeer(peerKey)&&['mining-local-share','mining-cell-checkpoint','mining-pool-share'].includes(frame.type)){
         if(this.queuePrePresence(peerKey,frame))return
       }
+      if(!this.remotePoolPeer(peerKey))return
       if(frame.type==='mining-local-share'){
         if(frame.packet?.proofMode===COORDINATION_PROOF_MODE){this.compatIgnoredRemote++; return}
         const r=await this.validationGate.run(peerKey,()=>this.acceptLocalShare(peerKey,frame.packet))
@@ -1058,7 +1082,8 @@ class MinerApp {
         return
       }
       if(frame.type==='mining-pool-share'){
-        const assembled=this.assembler.add(frame.packet,peerKey); if(!assembled.ok)return; if(!assembled.complete)return
+        if(!requestedHistory)return
+        const assembled={ok:true,complete:true,packet:frame.packet}; if(!assembled.ok)return; if(!assembled.complete)return
         const r=await this.validationGate.run(peerKey,()=>this.acceptPoolShare(peerKey,assembled.packet))
         if(r.ok&&!r.duplicate)this.recordRemoteOutcome('pool',assembled.packet,'accepted')
         else if(!r.ok&&['consensus-context-unknown','pplns-context-unknown'].includes(r.code)){if(r.code==='pplns-context-unknown')this.requestMissingPplnsTip(peerKey,r);this.deferContext('pool',peerKey,assembled.packet); return}
@@ -1067,9 +1092,11 @@ class MinerApp {
         else if(!r.ok){this.recordRemoteOutcome('pool',assembled.packet,'rejected',r.code);warn('PoolShare rejected',r.code)}
         return
       }
+      if(frame.type==='mining-pool-share-inventory'){this.history.request(peerKey,String(frame.id||''));return}
+      if(frame.type==='mining-pool-share-page'){await this.history.accept(peerKey,frame);return}
       if(frame.type==='mining-pool-share-request'){
         if(!this.remotePoolPeer(peerKey))return
-        for(const id of Array.isArray(frame.ids)?frame.ids.slice(0,16):[]){const p=this.poolPackets.get(String(id)); if(p)this.sendPoolPacket(p,[peerKey])}; return
+        this.history.serve(peerKey,frame);return
       }
     }catch(e){warn('P2P frame:',e.code||e.message||e)}
   }
@@ -1100,9 +1127,10 @@ class MinerApp {
   async start(){
     setNativeMessageHandler((m)=>void this.handleNative(m))
     const topic=this.discoveryTopic()
-    this.transport=new P2PTransport({seed:this.seed,alias:this.alias,topicHex:topic,onFrame:(k,f)=>void this.onFrame(k,f),onPeerChange:(k,on)=>{if(on)setTimeout(()=>{this.broadcastPresence(); this.rebroadcastRecentLocalShares()},80)}})
+    this.transport=new P2PTransport({bootstrap:this.bootstrap,seed:this.seed,alias:this.alias,topicHex:topic,onFrame:(k,f)=>void this.onFrame(k,f),onPeerChange:(k,on)=>{if(on)setTimeout(()=>{this.broadcastPresence(); this.rebroadcastRecentLocalShares()},80)}})
     this.peerKey=this.transport.peerKey
     const selfTest=this.selfPresence(); if(!verify(this.peerKey,presenceSigningPayload(selfTest),selfTest.signature))throw new Error('The temporary P2P key does not match the signing key.')
+    this.history.start()
     await this.transport.start()
     const status=await this.supervisor.configure({instanceId:this.instanceId,payoutAddress:this.payoutAddress,threads:this.threads,workerTag:`cli-${this.alias}`,difficultyMultiplier:RANDOMX_SHARE_DIFFICULTY_MULTIPLIER})
     this.workerState={...this.workerState,...status}
@@ -1122,6 +1150,7 @@ class MinerApp {
     this.timers.push(setInterval(()=>void this.maybePromotePoolShare().catch(e=>warn('PoolShare:',e.message)),1_500))
     this.timers.push(setInterval(()=>this.rebroadcastRecentLocalShares(),5_000))
     this.timers.push(setInterval(()=>this.pruneShares(),10_000))
+    this.timers.push(setInterval(()=>{for(const peer of this.transport.peers.keys())this.syncPoolHistory(peer)},20_000))
     this.timers.push(setInterval(()=>void this.retryDeferredContext(),DEFERRED_CONTEXT_RETRY_MS))
     this.timers.push(setInterval(()=>void this.scanRewards(),5_000))
     this.timers.push(setInterval(()=>this.stats(),10_000))
@@ -1147,6 +1176,7 @@ class MinerApp {
 
   async stop(){
     if(!this.running&& !this.transport)return
+    this.history.stop()
     this.running=false
     for(const t of this.timers)clearInterval(t); this.timers=[]
     try{this.broadcastPresence('LEFT'); await sleep(150)}catch{}
@@ -1172,6 +1202,8 @@ async function main(){
   if(!args.alias||!args.wallet||!args.threads)args=await interactiveOptions(args)
   const alias=safeAlias(args.alias), wallet=safeAddress(args.wallet), maxThreads=Math.max(1,Number(os.availableParallelism?.()||os.cpus().length||1)), threads=Math.max(1,Math.min(maxThreads,Math.floor(Number(args.threads)||1)))
   if(!wallet)throw new Error('Invalid BYZE address.')
+  if(Object.prototype.hasOwnProperty.call(args,'bootstrap')&&args.bootstrap===undefined)throw new Error('--bootstrap requires a value')
+  const bootstrap=parseBootstrap(args.bootstrap)
   const cliPath=detectByzeCli(args['byze-cli']); if(!cliPath)throw new Error('byze-cli not found. Use --byze-cli PATH.')
   if(args['miner-dir'])throw new Error('--miner-dir was removed: BYZE P2Pool never uses or patches an external byze-miner checkout. Use --native-dir for a managed P2Pool bundle.')
   if(args['native-dir'])process.env.BYZE_P2POOL_NATIVE_DIR=path.resolve(args['native-dir'])
@@ -1180,9 +1212,14 @@ async function main(){
   const chain=await byze.call('getblockchaininfo',[],{timeout:10_000})
   const ready=assertMainnetReady(chain)
   if(!ready.ok)throw new Error(`BYZE node is not ready for the public mainnet pool (${ready.code}).`)
-  const addressCheck=await byze.call('validateaddress',[wallet],{timeout:10_000}); if(addressCheck?.isvalid!==true)throw new Error('The BYZE node did not positively validate the payout address.')
+  const payoutValidator = new PayoutAddressValidator((m,p) => byze.call(m,p,{timeout:10_000}), { warn })
+  for (const [label,address] of [['payout',wallet],['fee',policy.feeAddress]]) {
+    const checked = await payoutValidator.validate(address)
+    if (!checked.ok) throw new Error(`BYZE ${label} address rejected: ${checked.code}`)
+  }
   if(args['dry-run']){
     console.log(`\nBYZE P2Pool CLI ${APP_VERSION} — dry-run`)
+    console.log(`DHT seeds  : ${bootstrap===undefined?'public defaults':bootstrap.length?bootstrap.join(', '):'none (isolated)'}`)
     console.log(`Node       : OK (main, height ${chain.blocks}, synchronized)`)
     console.log(`Alias      : ${alias}`)
     console.log(`Payout     : ${wallet}`)
@@ -1199,7 +1236,7 @@ async function main(){
     if(!ns.minerAvailable||!ns.verifierAvailable||!ns.directCoinbaseSupported)throw new Error('Native prerequisites are incomplete; see README.md.')
     console.log('Dry-run OK. No mining or P2P networking started.');return
   }
-  const app=new MinerApp({alias,wallet,threads,policy,byze,noSubmit:!!args['no-submit']})
+  const app=new MinerApp({alias,wallet,threads,policy,byze,payoutValidator,bootstrap,noSubmit:!!args['no-submit']})
   let stopping=false
   const stop=async()=>{if(stopping)return; stopping=true; await app.stop(); process.exit(0)}
   process.on('SIGINT',()=>void stop()); process.on('SIGTERM',()=>void stop())
@@ -1212,6 +1249,6 @@ if (require.main === module) {
 }
 
 module.exports = {
-  APP_VERSION, CONTRACT_ID, CONTRACT_VERSION, CONTRACT_SOURCE_HASH, BUILTIN_PUBLISHER_KEY, POOL_ID,
+  SECURITY_GENERATION, APP_VERSION, CONTRACT_ID, CONTRACT_VERSION, CONTRACT_SOURCE_HASH, BUILTIN_PUBLISHER_KEY, POOL_ID,
   sha256Hex, sign, verify, detectByzeCli, loadPolicy, assertMainnetReady, PeerRateLimiter, ValidationGate, ByzeCli, P2PTransport, MinerApp
 }

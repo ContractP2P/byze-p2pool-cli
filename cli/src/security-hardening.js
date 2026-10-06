@@ -34,8 +34,10 @@ class PeerRateLimiter {
     if(this.isBlocked(key,now))return {ok:false,code:'peer-temporarily-blocked',blocked:true}
     let rec=this.byPeer.get(key)
     if(!rec||now-rec.startedAt>=this.windowMs){rec={startedAt:now,frames:0,bytes:0,expensive:0,strikes:Math.max(0,Number(rec?.strikes||0)-1)};this.byPeer.set(key,rec)}
+    while(this.byPeer.size>1024)this.byPeer.delete(this.byPeer.keys().next().value)
+    while(this.blockedUntil.size>1024)this.blockedUntil.delete(this.blockedUntil.keys().next().value)
     rec.frames+=1; rec.bytes+=Math.max(0,Number(bytes)||0)
-    if(['mining-local-share','mining-cell-checkpoint','mining-pool-share'].includes(String(type||'')))rec.expensive+=1
+    if(['mining-local-share','mining-cell-checkpoint','mining-pool-share','mining-pool-share-page'].includes(String(type||'')))rec.expensive+=1
     if(rec.frames<=this.maxFrames&&rec.bytes<=this.maxBytes&&rec.expensive<=this.maxExpensive)return {ok:true}
     rec.strikes+=1
     if(rec.strikes>=this.strikesToBlock){this.blockedUntil.set(key,now+this.blockMs);this.byPeer.delete(key);return {ok:false,code:'peer-rate-limit-blocked',blocked:true}}
@@ -49,7 +51,7 @@ class ValidationGate {
   canRun(peerKey){return this.active<this.maxGlobal&&Number(this.activeByPeer.get(peerKey)||0)<this.maxPerPeer}
   run(peerKey,task){peerKey=String(peerKey||'').toLowerCase();if(this.canRun(peerKey))return this.execute(peerKey,task);if(this.queue.length>=this.maxQueued||this.queuedFor(peerKey)>=this.maxQueuedPerPeer)return Promise.resolve({ok:false,code:'peer-validation-overloaded'});return new Promise((resolve)=>{this.queue.push({peerKey,task,resolve,queuedAt:Date.now()})})}
   async execute(peerKey,task){this.active+=1;this.activeByPeer.set(peerKey,Number(this.activeByPeer.get(peerKey)||0)+1);try{return await task()}finally{this.active=Math.max(0,this.active-1);const n=Math.max(0,Number(this.activeByPeer.get(peerKey)||1)-1);if(n)this.activeByPeer.set(peerKey,n);else this.activeByPeer.delete(peerKey);this.drain()}}
-  drain(){for(let i=0;i<this.queue.length;){const row=this.queue[i];if(Date.now()-row.queuedAt>15_000){this.queue.splice(i,1);row.resolve({ok:false,code:'peer-validation-queue-timeout'});continue}if(!this.canRun(row.peerKey)){i+=1;continue}this.queue.splice(i,1);void this.execute(row.peerKey,row.task).then(row.resolve);}}
+  drain(){for(let i=0;i<this.queue.length;){const row=this.queue[i];if(Date.now()-row.queuedAt>15_000){this.queue.splice(i,1);row.resolve({ok:false,code:'peer-validation-queue-timeout'});continue}if(!this.canRun(row.peerKey)){i+=1;continue}this.queue.splice(i,1);void this.execute(row.peerKey,row.task).then(row.resolve,error=>row.resolve({ok:false,code:error?.code||'peer-validation-failed'}));}}
 }
 
 module.exports={DEFAULTS,assertMainnetReady,PeerRateLimiter,ValidationGate}

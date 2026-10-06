@@ -48,7 +48,7 @@ test('v0.1.3 defers transient chain-context gaps and authenticates startup histo
   assert.match(text, /PRE_PRESENCE_GRACE_MS\s*=\s*5_000/)
   assert.match(text, /queuePrePresence\(peerKey, frame\)/)
   assert.match(text, /drainPrePresence\(peerKey\)/)
-  assert.match(text, /CONSENSUS_UNKNOWN_CACHE_MS\s*=\s*1_000/)
+  assert.match(text, /new ChainContextValidator/)
   assert.match(text, /DEFERRED_CONTEXT_TTL_MS\s*=\s*120_000/)
   assert.match(text, /deferContext\('pool'/)
   assert.match(text, /retryDeferredContext\(\)/)
@@ -74,13 +74,13 @@ test('v0.1.7 keeps miner UX compact and removes estimate, fee-wallet and periodi
   assert.doesNotMatch(ui, /Gain si bloc|Gains de la session|temporaire|Frais vers|Fee wallet|Height #/)
 })
 
-test('v0.2.4 keeps coinbase-binding-v2 with global-epoch-v4 and managed native isolation before PPLNS',()=>{
+test('v0.2.4 keeps coinbase-binding-v2 with global-epoch-v6 and managed native isolation before PPLNS',()=>{
   const main=fs.readFileSync(path.join(__dirname,'..','src','byze-p2pool.js'),'utf8')
   const rx=fs.readFileSync(path.join(__dirname,'..','src','mining','p2pool-randomx.js'),'utf8')
   const native=fs.readFileSync(path.join(__dirname,'..','src','mining','native-bridge.js'),'utf8')
   const managed=fs.readFileSync(path.join(__dirname,'..','src','mining','native-components.js'),'utf8')
   const builder=fs.readFileSync(path.join(__dirname,'..','tools','build-native-bundle.js'),'utf8')
-  assert.match(main,/SECURITY_GENERATION = 'coinbase-binding-v2-global-epoch-v4'/)
+  assert.match(main,/SECURITY_GENERATION = 'coinbase-binding-v2-global-epoch-v6'/)
   assert.match(main,/verifyShareCoinbaseBinding\(checked,options=\{\}\)/)
   assert.match(main,/const binding=await this\.verifyShareCoinbaseBinding\(checked\); if\(!binding\.ok\)return binding/)
   assert.match(main,/const binding=await this\.verifyShareCoinbaseBinding\(checked\); if\(!binding\.ok\)\{warn\('local share coinbase binding rejected'/)

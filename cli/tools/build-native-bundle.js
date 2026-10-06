@@ -61,6 +61,8 @@ fs.mkdirSync(outDir,{recursive:true})
 const minerOut=path.join(outDir,`byze-p2pool-miner${suffix}`)
 const verifierOut=path.join(outDir,`byze-rxhash${suffix}`)
 fs.copyFileSync(miner,minerOut); fs.copyFileSync(verifier,verifierOut)
+fs.copyFileSync(path.join(ROOT,'THIRD_PARTY-NOTICES.md'),path.join(outDir,'THIRD_PARTY-NOTICES.md'))
+fs.cpSync(path.join(ROOT,'licenses'),path.join(outDir,'licenses'),{recursive:true})
 if(process.platform!=='win32'){fs.chmodSync(minerOut,0o755);fs.chmodSync(verifierOut,0o755)}
 
 const sourceCommit=sourceTrust.commit

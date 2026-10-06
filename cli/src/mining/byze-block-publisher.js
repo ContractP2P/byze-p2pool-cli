@@ -1,5 +1,7 @@
 'use strict'
 
+const { blockWeight, MAX_BLOCK_WEIGHT } = require('./block-weight')
+
 function hexBlock(v) {
   const s = String(v || '').toLowerCase()
   return /^[0-9a-f]+$/.test(s) && s.length >= 160 && s.length % 2 === 0 ? s : ''
@@ -46,6 +48,11 @@ async function publishQuantumBlock({ rpc, candidate, allowSubmit = false, expect
   if (chain === 'main' && signed.result?.quantum_signed !== true) {
     return { ok: false, code: 'miningQuantumSignatureMissing', chain, signerMethod: signed.method }
   }
+
+  // Check the actual signed serialization as well as the pre-mining budget.
+  try {
+    if (blockWeight(signedHex) > MAX_BLOCK_WEIGHT) return { ok:false, code:'miningBlockWeightExceeded', chain }
+  } catch { return { ok:false, code:'miningBlockSerializationInvalid', chain } }
 
   if (validateProposal) {
     let proposal

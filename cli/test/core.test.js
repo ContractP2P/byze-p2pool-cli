@@ -62,15 +62,15 @@ test('PoolShareChain computes a bounded PPLNS window', () => {
   assert.equal(chain.bestWindow().length,20)
 })
 
-test('unchanged consensus modules remain byte-identical to Contract v0.15.80; P0 modules intentionally diverge', () => {
+test('unchanged consensus modules remain byte-identical to Contract v0.15.80; reviewed CLI modules intentionally diverge', () => {
   const src=process.env.CONTRACT_SRC
   if(!src)return
-  for(const name of ['p2pool-protocol.js','p2pool-membership.js','poolshare-proof-bundle.js','direct-coinbase.js','byze-block-publisher.js','pool-fee-policy.js']){
+  for(const name of ['p2pool-protocol.js','poolshare-proof-bundle.js','direct-coinbase.js']){
     const a=fs.readFileSync(path.join(__dirname,'..','src','mining',name))
     const b=fs.readFileSync(path.join(src,'mining',name))
     assert.deepEqual(a,b,name)
   }
-  for(const name of ['p2pool-randomx.js','poolshare-chain.js']){
+  for(const name of ['p2pool-randomx.js','poolshare-chain.js','p2pool-membership.js','byze-block-publisher.js']){
     const a=fs.readFileSync(path.join(__dirname,'..','src','mining',name))
     const b=fs.readFileSync(path.join(src,'mining',name))
     assert.notDeepEqual(a,b,`${name} must contain the secure-v2 P0 changes`)

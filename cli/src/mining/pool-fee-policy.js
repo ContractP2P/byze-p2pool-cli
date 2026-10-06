@@ -43,7 +43,7 @@ function createPoolFeePolicy({ poolId, feeAddress, feeBasisPoints = DEFAULT_POOL
   return { ok:true, ...base, policyHash, configured:true }
 }
 
-function loadPoolFeePolicy({ filePath = '', poolId = 'byze-main-p2pool-v1', env = process.env } = {}) {
+function loadPoolFeePolicy({ filePath = '', poolId = 'byze-main-p2pool-v1' } = {}) {
   let configured = {}
   if (filePath) {
     try {
@@ -51,9 +51,8 @@ function loadPoolFeePolicy({ filePath = '', poolId = 'byze-main-p2pool-v1', env 
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) configured = parsed
     } catch {}
   }
-  const envAddress = String(env?.CONTRACT_BYZE_POOL_FEE_ADDRESS || '').trim()
   const configuredAddress = normalizeFeeAddress(configured.feeAddress || '')
-  const feeAddress = normalizeFeeAddress(envAddress) || configuredAddress || OFFICIAL_POOL_FEE_ADDRESS
+  const feeAddress = configuredAddress || OFFICIAL_POOL_FEE_ADDRESS
   return createPoolFeePolicy({ poolId, feeAddress, feeBasisPoints: DEFAULT_POOL_FEE_BASIS_POINTS })
 }
 
