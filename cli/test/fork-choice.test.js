@@ -54,7 +54,7 @@ test('v0.2.2 binds PoolShare proofs to branch parent and classifies stale live s
  assert.match(main,/pplns-tip-stale-fork/)
  assert.match(main,/deferredLocalShares\.size\|\|this\.deferredPoolShares\.size/)
  assert.match(main,/this\.refreshJob\(true\)/)
- assert.match(main,/coinbase-binding-v2-global-epoch-v5/)
+ assert.match(main,/coinbase-binding-v2-global-epoch-v6/)
  assert.match(ui,/Remote A\/P\/R/)
  assert.match(ui,/Forks/)
  assert.match(ui,/Reorgs/)

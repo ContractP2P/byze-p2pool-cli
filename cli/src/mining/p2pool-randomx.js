@@ -226,7 +226,7 @@ function buildRandomxLocalShare({ contractHash, poolId, cellId, epoch, minerPeer
 
 function validateRandomxEnvelope(packet, {
   expectedPeerId = '', expectedPayoutAddress = '', expectedContractHash = '', expectedPoolId = '', expectedCellId = '',
-  epochMs = 60_000, now = Date.now(), allowPreviousEpoch = true
+  epochMs = 60_000, now = Date.now(), allowPreviousEpoch = true, aggregate = false, maxAgeMs = MAX_RANDOMX_SHARE_AGE_MS
 } = {}) {
   if (!packet || packet.proofMode !== RANDOMX_PROOF_MODE || !packet.share || !packet.proof || typeof packet.signature !== 'string') return { ok: false, code: 'miningRandomxShareInvalid' }
   const checked = validateLocalShareStructure(packet.share)
@@ -261,9 +261,10 @@ function validateRandomxEnvelope(packet, {
 
   const safeEpochMs = Math.max(10_000, Math.min(10 * 60_000, Math.floor(Number(epochMs) || 60_000)))
   const currentEpoch = Math.floor(Math.max(1, Number(now) || Date.now()) / safeEpochMs)
-  const minEpoch = allowPreviousEpoch ? currentEpoch - 1 : currentEpoch
+  const age=Math.max(1,Math.min(30*24*60*60*1000,Number(maxAgeMs)||MAX_RANDOMX_SHARE_AGE_MS))
+  const minEpoch = aggregate ? Math.floor((now-age)/safeEpochMs) : allowPreviousEpoch ? currentEpoch - 1 : currentEpoch
   if (share.epoch < minEpoch || share.epoch > currentEpoch + 1) return { ok: false, code: 'miningRandomxShareEpochInvalid' }
-  if (share.createdAt > now + MAX_CLOCK_SKEW_MS || share.createdAt < now - MAX_RANDOMX_SHARE_AGE_MS) return { ok: false, code: 'miningRandomxShareExpired' }
+  if (share.createdAt > now + MAX_CLOCK_SKEW_MS || share.createdAt < now - age) return { ok: false, code: 'miningRandomxShareExpired' }
   if (Math.floor(share.createdAt / safeEpochMs) !== share.epoch) return { ok: false, code: 'miningRandomxShareEpochInvalid' }
 
   return { ok: true, proofMode: RANDOMX_PROOF_MODE, payload: share, work: checked.work, proof }

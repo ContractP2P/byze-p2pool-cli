@@ -14,6 +14,7 @@ function validatePoolShareShape(share) {
   if (share.previousPoolShareId && !/^ps:[0-9a-f]{64}$/.test(String(share.previousPoolShareId))) return { ok:false, code:'miningPoolSharePreviousInvalid' }
   if (!/^(?:cp|gc):[0-9a-f]{64}$/.test(String(share.checkpointId || ''))) return { ok:false, code:'miningPoolShareCheckpointInvalid' }
   if (!/^[0-9a-f]{64}$/.test(String(share.byzePrevBlockHash || ''))) return { ok:false, code:'miningPoolShareTipInvalid' }
+  if (!Number.isSafeInteger(share.byzeHeight) || share.byzeHeight<1) return {ok:false,code:'miningPoolShareHeightInvalid'}
   if (!positiveBigInt(share.work)) return { ok:false, code:'miningPoolShareWorkInvalid' }
   const weights = Object.entries(share.payoutWeights || {})
   if (!weights.length || weights.length > 400) return { ok:false, code:'miningPoolShareWeightsInvalid' }
@@ -98,7 +99,7 @@ class PoolShareChain {
     const prev = share.previousPoolShareId ? this.byId.get(share.previousPoolShareId) : null
     if (share.previousPoolShareId && !prev) return this.rememberOrphan(share, meta)
     if (prev && (prev.share.contractHash !== share.contractHash || prev.share.poolId !== share.poolId)) return { ok:false, code:'miningPoolShareChainMismatch' }
-    if (prev && Number(share.byzeHeight||0) < Number(prev.share.byzeHeight||0)) return { ok:false, code:'miningPoolShareHeightRegression' }
+    if (prev && Number(share.byzeHeight||0) < Number(prev.share.byzeHeight||0)-6) return { ok:false, code:'miningPoolShareHeightRegression' }
     const checkpointEpoch = normalizedEpoch(meta.checkpointEpoch)
     const previousEpoch = normalizedEpoch(prev?.checkpointEpoch)
     if (prev && checkpointEpoch >= 0 && previousEpoch >= 0 && checkpointEpoch <= previousEpoch) return { ok:false, code:'miningPoolShareEpochRegression', checkpointEpoch, previousEpoch }
