@@ -5,7 +5,7 @@ const assert = require('node:assert/strict')
 const crypto = require('crypto')
 const { hashMeetsTarget, sanitizeGbtTemplate, buildRandomxLocalShare, validateRandomxEnvelope, targetFromCompactBits, shareTargetFromNetworkTarget, RANDOMX_PROOF_MODE } = require('../src/mining/p2pool-randomx')
 const { Supervisor } = require('../src/mining/native-bridge')
-const { PayoutAddressValidator } = require('../src/mining/payout-address')
+const { PayoutAddressValidator, TRANSIENT_PAYOUT_CODES } = require('../src/mining/payout-address')
 const { transactionMetrics, blockWeight, coinbaseWeightBound, fitTemplateWeight, witnessCommitment, QUANTUM_TAIL_BYTES, MAX_BLOCK_WEIGHT } = require('../src/mining/block-weight')
 const { publishQuantumBlock } = require('../src/mining/byze-block-publisher')
 const { MinerApp, loadPolicy, sign, SECURITY_GENERATION } = require('../src/byze-p2pool')
@@ -186,7 +186,7 @@ test('payout validator distinguishes invalid, known unspendable, known quantum a
   for (const [validated,info,expected] of cases) {
     const warnings=[]
     const validator = new PayoutAddressValidator(async m=>m==='validateaddress'?validated:info,{warn:m=>warnings.push(m)})
-    const result = await validator.validate(address)
+    const result = await validator.validate(address,{local:true})
     assert.equal(result.code||result.spendability,expected)
     assert.equal(warnings.length,expected==='unknown'?1:0)
   }
@@ -196,18 +196,43 @@ test('RPC outages fail closed; absent wallet only leaves spendability unknown', 
   const offline = new PayoutAddressValidator(async()=>{throw new Error('offline')})
   assert.equal((await offline.validate(address)).code,'miningPayoutValidationUnavailable')
   const noWallet = new PayoutAddressValidator(async m=>{if(m==='validateaddress')return {isvalid:true,scriptPubKey:script};throw new Error('no wallet')})
-  assert.equal((await noWallet.validate(address)).spendability,'unknown')
+  assert.equal((await noWallet.validate(address,{local:true})).spendability,'unknown')
   assert.equal((await noWallet.validate(address+' ')).ok,false)
 })
 
 test('address cache coalesces RPC calls, expires and observes wallet classification changes', async () => {
   let now=1, calls=0, unsafe=false
   const validator = new PayoutAddressValidator(async m=>{calls++;return m==='validateaddress'?{isvalid:true,scriptPubKey:script}:{unspendable:unsafe}},{now:()=>now,ttlMs:100})
-  const results=await Promise.all([validator.validate(address),validator.validate(address)])
+  const results=await Promise.all([validator.validate(address,{local:true}),validator.validate(address,{local:true})])
   assert.ok(results.every(r=>r.ok))
   assert.equal(calls,2)
   unsafe=true; now=102
-  assert.equal((await validator.validate(address)).code,'miningPayoutUnspendable')
+  assert.equal((await validator.validate(address,{local:true})).code,'miningPayoutUnspendable')
+})
+
+test('remote addresses are judged without the local wallet and never warn', async () => {
+  const methods=[], warnings=[]
+  const validator = new PayoutAddressValidator(async m=>{methods.push(m);return m==='validateaddress'?{isvalid:true,scriptPubKey:script}:{unspendable:true}},{warn:m=>warnings.push(m)})
+  const remote=await validator.validate(address)
+  assert.equal(remote.ok,true)
+  assert.equal(remote.spendability,'not-checked')
+  assert.deepEqual(methods,['validateaddress'])
+  assert.equal(warnings.length,0)
+  // The same address as the miner's own payout address still gets the wallet check.
+  assert.equal((await validator.validate(address,{local:true})).code,'miningPayoutUnspendable')
+  assert.equal((await validator.validate(address)).ok,true)
+  const flagged = new PayoutAddressValidator(async()=>({isvalid:true,scriptPubKey:script,unspendable:true}))
+  assert.equal((await flagged.validate(address)).code,'miningPayoutUnspendable')
+})
+
+test('a payout plan reports an RPC outage as transient, not as an invalid script', async () => {
+  assert.ok(TRANSIENT_PAYOUT_CODES.has('miningPayoutValidationUnavailable'))
+  assert.ok(TRANSIENT_PAYOUT_CODES.has('miningPayoutValidationBusy'))
+  let online=false
+  const a=app(async m=>{if(!online)throw new Error('offline');return m==='validateaddress'?{isvalid:true,scriptPubKey:script}:{}})
+  assert.equal((await a.buildDirectPlan('5000000000',{tipId:'',payoutAddress:address})).code,'miningPayoutValidationUnavailable')
+  a.payoutValidator.cache.clear();online=true
+  assert.equal((await a.buildDirectPlan('5000000000',{tipId:'',payoutAddress:address})).ok,true)
 })
 
 function app(rpc) {

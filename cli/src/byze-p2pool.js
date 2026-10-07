@@ -55,7 +55,7 @@ const {
 } = require('./mining/poolshare-proof-bundle')
 const { normalizePlan: normalizeDirectCoinbasePlan, resolveScripts: resolveDirectCoinbaseScripts } = require('./mining/direct-coinbase')
 const { fitTemplateWeight } = require('./mining/block-weight')
-const { PayoutAddressValidator } = require('./mining/payout-address')
+const { PayoutAddressValidator, TRANSIENT_PAYOUT_CODES } = require('./mining/payout-address')
 const { publishQuantumBlock } = require('./mining/byze-block-publisher')
 const { createPoolFeePolicy, DEFAULT_POOL_FEE_BASIS_POINTS } = require('./mining/pool-fee-policy')
 const { Supervisor, setNativeMessageHandler } = require('./mining/native-bridge')
@@ -96,6 +96,8 @@ const MAX_PRE_PRESENCE_FRAMES_TOTAL = 256
 const DEFERRED_CONTEXT_TTL_MS = 120_000
 const DEFERRED_CONTEXT_RETRY_MS = 2_000
 const MAX_DEFERRED_CONTEXT_ITEMS = 128
+// Verdicts that describe this node's momentary state, not the share: retry instead of rejecting.
+const DEFERRABLE_CODES = new Set(['consensus-context-unknown','pplns-context-unknown',...TRANSIENT_PAYOUT_CODES])
 
 const ED25519_PKCS8_SEED_PREFIX = Buffer.from('302e020100300506032b657004220420', 'hex')
 const ED25519_SPKI_PREFIX = Buffer.from('302a300506032b6570032100', 'hex')
@@ -827,8 +829,9 @@ class MinerApp {
     const packet={share:built.poolShare,checkpoint:clone(global.checkpoint),proofs,signature,signerPeerKey:this.peerKey}; this.cachePoolPacket(packet); this.sendPoolPacket(packet)
   }
 
-  async directPayoutScript(address){
+  async directPayoutScript(address,state=null){
     const checked = await this.payoutValidator.validate(address)
+    if(state&&!checked.ok&&TRANSIENT_PAYOUT_CODES.has(checked.code))state.transient=checked.code
     return checked.ok ? {scriptPubKey:checked.scriptPubKey} : null
   }
   payoutForTip(reward,tipId,payoutAddress){
@@ -839,7 +842,10 @@ class MinerApp {
   async buildDirectPlan(reward,{tipId=this.poolChain.bestId||'',payoutAddress=this.payoutAddress}={}){
     const payout=this.payoutForTip(reward,tipId,payoutAddress); if(!payout?.ok)return {ok:false,code:payout?.code||'payout-unavailable'}
     const normalized=normalizeDirectCoinbasePlan(payout.outputs,BigInt(String(reward||0)),400); if(!normalized.ok)return normalized
-    const resolved=await resolveDirectCoinbaseScripts(normalized,(a)=>this.directPayoutScript(a)); return resolved.ok?{...resolved,feeSatoshis:payout.feeSatoshis,minerSatoshis:payout.minerSatoshis,pplnsTipId:String(tipId||'')}:resolved
+    const state={transient:null}
+    const resolved=await resolveDirectCoinbaseScripts(normalized,(a)=>this.directPayoutScript(a,state))
+    if(!resolved.ok&&state.transient)return {ok:false,code:state.transient}
+    return resolved.ok?{...resolved,feeSatoshis:payout.feeSatoshis,minerSatoshis:payout.minerSatoshis,pplnsTipId:String(tipId||'')}:resolved
   }
   async expectedCommitmentForProof(proof,payoutAddress,cellId,shareEpoch=null,options={}){
     if(String(proof?.feePolicyHash||'')!==this.policy.policyHash)return {ok:false,code:'fee-policy-mismatch'}
@@ -1010,7 +1016,7 @@ class MinerApp {
         if(now-rec.firstSeen>DEFERRED_CONTEXT_TTL_MS){this.deferredLocalShares.delete(id); warn('deferred share expired',short(id,8,6)); continue}
         const r=await this.validationGate.run(rec.peerKey,()=>this.acceptLocalShare(rec.peerKey,rec.packet))
         if(r.ok){this.deferredLocalShares.delete(id); if(!r.duplicate)this.recordRemoteOutcome('local',rec.packet,'accepted'); continue}
-        if(['consensus-context-unknown','pplns-context-unknown'].includes(r.code)){if(r.code==='pplns-context-unknown')this.requestMissingPplnsTip(rec.peerKey,r);rec.retryAt=Date.now()+DEFERRED_CONTEXT_RETRY_MS; continue}
+        if(DEFERRABLE_CODES.has(r.code)){if(r.code==='pplns-context-unknown')this.requestMissingPplnsTip(rec.peerKey,r);rec.retryAt=Date.now()+DEFERRED_CONTEXT_RETRY_MS; continue}
         this.deferredLocalShares.delete(id)
         if(r.code==='pplns-tip-stale-fork'){this.recordRemoteOutcome('local',rec.packet,'stale',r.code);continue}
         this.recordRemoteOutcome('local',rec.packet,'rejected',r.code); warn('deferred share rejected',r.code)
@@ -1020,7 +1026,7 @@ class MinerApp {
         if(now-rec.firstSeen>DEFERRED_CONTEXT_TTL_MS){this.deferredPoolShares.delete(id); warn('deferred PoolShare expired',short(id,8,6)); continue}
         const r=await this.validationGate.run(rec.peerKey,()=>this.acceptPoolShare(rec.peerKey,rec.packet))
         if(r.ok){this.deferredPoolShares.delete(id); if(!r.duplicate)this.recordRemoteOutcome('pool',rec.packet,'accepted'); continue}
-        if(['consensus-context-unknown','pplns-context-unknown'].includes(r.code)){if(r.code==='pplns-context-unknown')this.requestMissingPplnsTip(rec.peerKey,r);rec.retryAt=Date.now()+DEFERRED_CONTEXT_RETRY_MS; continue}
+        if(DEFERRABLE_CODES.has(r.code)){if(r.code==='pplns-context-unknown')this.requestMissingPplnsTip(rec.peerKey,r);rec.retryAt=Date.now()+DEFERRED_CONTEXT_RETRY_MS; continue}
         this.deferredPoolShares.delete(id)
         if(r.code==='pplns-tip-stale-fork'){this.recordRemoteOutcome('pool',rec.packet,'stale',r.code);continue}
         this.recordRemoteOutcome('pool',rec.packet,'rejected',r.code); warn('deferred PoolShare rejected',r.code)
@@ -1065,7 +1071,7 @@ class MinerApp {
         if(frame.packet?.proofMode===COORDINATION_PROOF_MODE){this.compatIgnoredRemote++; return}
         const r=await this.validationGate.run(peerKey,()=>this.acceptLocalShare(peerKey,frame.packet))
         if(r.ok&&!r.duplicate)this.recordRemoteOutcome('local',frame.packet,'accepted')
-        else if(!r.ok&&['consensus-context-unknown','pplns-context-unknown'].includes(r.code)){if(r.code==='pplns-context-unknown')this.requestMissingPplnsTip(peerKey,r);this.deferContext('local',peerKey,frame.packet)}
+        else if(!r.ok&&DEFERRABLE_CODES.has(r.code)){if(r.code==='pplns-context-unknown')this.requestMissingPplnsTip(peerKey,r);this.deferContext('local',peerKey,frame.packet)}
         else if(!r.ok&&['peer-validation-overloaded','peer-validation-queue-timeout'].includes(r.code))return
         else if(!r.ok&&r.code==='pplns-tip-stale-fork')this.recordRemoteOutcome('local',frame.packet,'stale',r.code)
         else if(!r.ok){this.recordRemoteOutcome('local',frame.packet,'rejected',r.code);warn('Remote share rejected',r.code,short(frame.packet?.share?.shareId,8,6))}
@@ -1086,7 +1092,7 @@ class MinerApp {
         const assembled={ok:true,complete:true,packet:frame.packet}; if(!assembled.ok)return; if(!assembled.complete)return
         const r=await this.validationGate.run(peerKey,()=>this.acceptPoolShare(peerKey,assembled.packet))
         if(r.ok&&!r.duplicate)this.recordRemoteOutcome('pool',assembled.packet,'accepted')
-        else if(!r.ok&&['consensus-context-unknown','pplns-context-unknown'].includes(r.code)){if(r.code==='pplns-context-unknown')this.requestMissingPplnsTip(peerKey,r);this.deferContext('pool',peerKey,assembled.packet); return}
+        else if(!r.ok&&DEFERRABLE_CODES.has(r.code)){if(r.code==='pplns-context-unknown')this.requestMissingPplnsTip(peerKey,r);this.deferContext('pool',peerKey,assembled.packet); return}
         else if(!r.ok&&['peer-validation-overloaded','peer-validation-queue-timeout'].includes(r.code))return
         else if(!r.ok&&r.code==='pplns-tip-stale-fork')this.recordRemoteOutcome('pool',assembled.packet,'stale',r.code)
         else if(!r.ok){this.recordRemoteOutcome('pool',assembled.packet,'rejected',r.code);warn('PoolShare rejected',r.code)}
@@ -1214,7 +1220,7 @@ async function main(){
   if(!ready.ok)throw new Error(`BYZE node is not ready for the public mainnet pool (${ready.code}).`)
   const payoutValidator = new PayoutAddressValidator((m,p) => byze.call(m,p,{timeout:10_000}), { warn })
   for (const [label,address] of [['payout',wallet],['fee',policy.feeAddress]]) {
-    const checked = await payoutValidator.validate(address)
+    const checked = await payoutValidator.validate(address, { local: label === 'payout' })
     if (!checked.ok) throw new Error(`BYZE ${label} address rejected: ${checked.code}`)
   }
   if(args['dry-run']){
