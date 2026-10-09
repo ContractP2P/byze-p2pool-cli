@@ -17,7 +17,7 @@ This package is a **source release candidate**. Managed native bundles remain su
 
 This candidate uses Core-compatible PoW ordering, node-backed payout checks, and a block-weight budget that includes the direct coinbase and quantum block signatures. When needed, it removes a suffix of template transactions, subtracts their fees, and rebuilds the witness commitment and payout plan. All PPLNS beneficiaries are retained.
 
-Addresses are checked at startup (including the fee address), membership intake, share verification and payout resolution. The node rejects invalid scripts; wallet-reported `unspendable` addresses are refused. A valid external address may still have unknown spendability: the CLI warns instead of claiming otherwise. Obtain receiving addresses with `getnewaddress` on Byze rc4 or later. Node validation does not replace a receiving-wallet check or a small test spend.
+Addresses are checked at startup (including the fee address), membership intake, share verification and payout resolution. Remote/peer addresses and the fee address are validated using `validateaddress` and supported output-script rules only; the local wallet's `getaddressinfo` is **not** used to judge another miner's address. The miner's own payout address uses an additional local-wallet check and warns when spendability cannot be established. A syntactically valid remote output may still be unspendable by its intended recipient. Obtain receiving addresses with `getnewaddress` on Byze rc4 or later and verify them in the recipient's wallet; node-side script validation is not proof of ownership or ability to spend. Transient RPC failures defer share validation instead of permanently rejecting shares, within the bounded retry window.
 
 ### Upgrade coordination
 

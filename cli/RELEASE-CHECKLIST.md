@@ -25,6 +25,6 @@
 - [x] `npm test`
 - [x] source-RC preflight
 - [ ] public-release preflight (must fail while any blocking gate above remains)
-- [ ] CI green on Linux, macOS and Windows
+- [x] CI green on Linux, macOS and Windows (source tests on Node.js 20/22; not native miner validation)
 - [ ] `npm audit --omit=dev` succeeds against the live npm registry (audit environment DNS was unavailable).
 - [ ] published ZIP SHA-256 generated after final packaging
