@@ -69,7 +69,11 @@ jobs:
           node -e 'const actual=process.platform+"-"+process.arch; if(actual!==process.env.EXPECTED_PLATFORM)throw new Error("Unexpected platform: "+actual); console.log("Platform: "+actual)'
 
       - name: Compile official pinned native source into managed bundle
+        env:
+          EXPECTED_PLATFORM: ${{ matrix.platform }}
         run: |
+          # Build fresh test binaries, never silently reuse a committed native component.
+          rm -rf "native/${EXPECTED_PLATFORM}"
           npm run native:bootstrap-official
           npm run native:ensure
 
@@ -88,7 +92,11 @@ jobs:
           if(s.miner.feature!=='contract-direct-coinbase-v2')throw new Error('Incorrect miner feature')
           NODE
           features="$(native/${{ matrix.platform }}/byze-p2pool-miner --features)"
-          test "$features" = "contract-direct-coinbase-v2"
+          printf 'Native --features output: <%s>\\n' "$features"
+          case "$features" in
+            *contract-direct-coinbase-v2*) ;;
+            *) echo 'Missing required direct coinbase feature' >&2; exit 1 ;;
+          esac
           test -f "native/${{ matrix.platform }}/THIRD_PARTY-NOTICES.md"
           test -f "native/${{ matrix.platform }}/licenses/byze-miner-MIT.txt"
           test -f "native/${{ matrix.platform }}/licenses/RandomX-BSD-3-Clause.txt"
