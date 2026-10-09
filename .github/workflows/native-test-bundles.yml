@@ -1,0 +1,124 @@
+name: Experimental native test bundles
+
+# Disposable CI artifacts only: NOT signed, notarized, audited or released.
+on:
+  push:
+    branches:
+      - build/native-test-bundles
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-test-bundles-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  native:
+    name: Build ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            platform: linux-x64
+          - os: macos-15
+            platform: darwin-arm64
+          - os: macos-15-intel
+            platform: darwin-x64
+
+    defaults:
+      run:
+        working-directory: cli
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: cli/package-lock.json
+
+      - name: Install Linux build tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake git pkg-config libboost-dev libssl-dev
+
+      - name: Install macOS build tools
+        if: runner.os == 'macOS'
+        run: |
+          brew install cmake boost openssl@3 pkg-config
+          echo "CMAKE_PREFIX_PATH=$(brew --prefix boost):$(brew --prefix openssl@3)" >> "$GITHUB_ENV"
+
+      - name: Validate source and platform
+        env:
+          EXPECTED_PLATFORM: ${{ matrix.platform }}
+        run: |
+          npm ci
+          npm run check
+          npm test
+          npm run release:preflight:source
+          node -e 'const actual=process.platform+"-"+process.arch; if(actual!==process.env.EXPECTED_PLATFORM)throw new Error("Unexpected platform: "+actual); console.log("Platform: "+actual)'
+
+      - name: Compile official pinned native source into managed bundle
+        run: |
+          npm run native:bootstrap-official
+          npm run native:ensure
+
+      - name: Verify binaries and manifest
+        env:
+          EXPECTED_PLATFORM: ${{ matrix.platform }}
+        run: |
+          node - <<'NODE'
+          const {nativeBundleStatus,EXPECTED_NATIVE_SOURCE_COMMIT} = require('./src/mining/native-components')
+          const s = nativeBundleStatus()
+          if(s.platformKey !== process.env.EXPECTED_PLATFORM)throw new Error('Wrong platform: '+s.platformKey)
+          for(const c of [s.miner,s.verifier]){
+            if(!c.ok || c.sourceCommit!==EXPECTED_NATIVE_SOURCE_COMMIT) throw new Error(JSON.stringify(c))
+            console.log(c.kind, c.path, c.sha256)
+          }
+          if(s.miner.feature!=='contract-direct-coinbase-v2')throw new Error('Incorrect miner feature')
+          NODE
+          features="$(native/${{ matrix.platform }}/byze-p2pool-miner --features)"
+          test "$features" = "contract-direct-coinbase-v2"
+          test -f "native/${{ matrix.platform }}/THIRD_PARTY-NOTICES.md"
+          test -f "native/${{ matrix.platform }}/licenses/byze-miner-MIT.txt"
+          test -f "native/${{ matrix.platform }}/licenses/RandomX-BSD-3-Clause.txt"
+          echo "Native feature: $features"
+
+      - name: Package native-only test archive with checksum
+        env:
+          EXPECTED_PLATFORM: ${{ matrix.platform }}
+        run: |
+          set -euo pipefail
+          mkdir -p ../test-artifacts
+          short_sha="$(git rev-parse --short=12 HEAD)"
+          archive="byze-p2pool-native-0.2.5-rc3-${EXPECTED_PLATFORM}-${short_sha}.tar.gz"
+          tar -czf "../test-artifacts/$archive" -C . "native/${EXPECTED_PLATFORM}"
+          (
+            cd ../test-artifacts
+            shasum -a 256 "$archive" > SHA256SUMS
+            printf 'Experimental native-only BYZE P2Pool test bundle\n'
+            printf 'Source repository: %s\n' "$GITHUB_REPOSITORY"
+            printf 'CLI commit: %s\n' "$GITHUB_SHA"
+            printf 'Pinned miner source: d84db8a84ba4a06432fcdddbf1584b89a7e52379\n'
+            printf 'Platform: %s\n' "$EXPECTED_PLATFORM"
+            printf 'Not signed, notarized or approved for a public release.\n'
+          ) > "../test-artifacts/BUILD-INFO.txt"
+          cat ../test-artifacts/SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: byze-p2pool-native-test-${{ matrix.platform }}
+          path: test-artifacts/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
