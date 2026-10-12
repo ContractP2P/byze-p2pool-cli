@@ -25,6 +25,11 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run release:preflight:source
+      - name: BYZE SafeLabEnv client contract (offline, no VPS)
+        if: matrix.os == 'ubuntu-latest' && matrix.node == 22
+        run: |
+          python3 -m py_compile tools/safelabenv-native-smoke.py tools/safelabenv-randomx-genesis.py
+          python3 -m unittest discover -s tests -p 'test_safelabenv_clients.py' -v
       - name: Isolated DHT integration
         if: matrix.os == 'ubuntu-latest' && matrix.node == 22
         timeout-minutes: 2
