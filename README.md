@@ -58,6 +58,18 @@ Only if the dry run succeeds, an opt-in diagnostic session can use `--no-submit`
 
 These commands still use **mainnet** policy; do not assume a separate consensus testnet. The isolated regtest integration test uses its own disposable node, not a running mainnet wallet.
 
+## Off-host native binary testing with SafeLabEnv
+
+For an optional, isolated BYZE native startup smoke and **full-memory
+RandomX mainnet-genesis consensus comparison** through the external
+SafeLabEnv Remote API, see
+[SafeLabEnv remote test runbook](cli/docs/safelabenv-remote-testing.md).
+
+SafeLabEnv contains no BYZE-specific executor logic. This repository owns
+the native build, expected features, pinned archive and consensus vectors.
+These tests do not require BYZE wallet secrets, a mainnet node or guest
+network access.
+
 ## Validation and release readiness
 
 The `main` branch includes PR #2's remote-payout/RPC retry fixes and PR #4's deterministic deferred-share recovery regression. That regression simulates RPC failures; it does **not** replace a live `byzed` outage soak test. Track this in [issue #3](https://github.com/ContractP2P/byze-p2pool-cli/issues/3).
