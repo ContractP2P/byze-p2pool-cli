@@ -18,6 +18,7 @@ function check(root) {
     'app/native/linux-x64/byze-rxhash',
     'app/native/linux-x64/native-manifest.json',
     'app/licenses/RandomX-BSD-3-Clause.txt',
+    'app/tools/download-core.js',
     'app/THIRD_PARTY-NOTICES.md',
   ]
   for (const name of required) {
