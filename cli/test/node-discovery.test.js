@@ -115,6 +115,25 @@ test('real CLI --check-node diagnoses existing executable without wallet or prom
   }finally{fs.rmSync(root,{recursive:true,force:true})}
 })
 
+test('explicit stale Core path cannot cause acquisition while an existing client is elsewhere',()=>{
+  if(process.platform==='win32')return
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),'p2pool-node-duplicate-'))
+  try{
+    const home=path.join(root,'home')
+    const known=path.join(home,'ldev','byze','build','bin')
+    fs.mkdirSync(known,{recursive:true})
+    mockCli(known)
+    const result=spawnSync(process.execPath,
+      [path.join(__dirname,'..','src','byze-p2pool.js'),
+       '--setup-core','--byze-cli',path.join(root,'wrong-cli')],
+      {encoding:'utf8',timeout:9000,env:{...process.env,HOME:home,BYZE_CLI:''}})
+    assert.notEqual(result.status,0)
+    assert.match(result.stderr,/Existing byze-cli.*Core download refused/)
+    assert.doesNotMatch(result.stderr,/requires an interactive terminal/)
+    assert.equal(fs.existsSync(path.join(home,'byze-core-verified-rc4')),false)
+  }finally{fs.rmSync(root,{recursive:true,force:true})}
+})
+
 test('no install/acquisition side effects for noninteractive --setup-core',()=>{
   if(process.platform==='win32')return
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'p2pool-node-setup-'))
