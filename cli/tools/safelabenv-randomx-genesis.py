@@ -13,6 +13,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import struct
 import sys
 import time
@@ -40,6 +41,27 @@ def genesis_header() -> str:
     )
     assert len(fields) == 80
     return fields.hex()
+
+
+def build_guest_script(header: str) -> str:
+    """Build the guest command with the *literal* 80-byte block header.
+
+    Python f-string substitution already inserts the header: an extra
+    shell dollar prefix would expand "$0" and truncate the hex argument.
+    """
+    if not isinstance(header, str) or not re.fullmatch(r"[0-9a-fA-F]{160}", header):
+        raise ValueError("Expected exactly 80 bytes of header hex")
+    arg = shlex.quote(header)
+    return f"""set -eu
+mkdir -p /tmp/byze
+tar -xzf /inputs/payload.bin -C /tmp/byze --no-same-owner
+test -f /tmp/byze/native/linux-x64/byze-rxhash
+chmod 500 /tmp/byze/native/linux-x64/byze-rxhash
+echo BYZE_RANDOMX_FULL_MEM_BEGIN
+hash=$(/tmp/byze/native/linux-x64/byze-rxhash --once {arg})
+printf 'BYZE_RANDOMX_HASH_RAW=%s\\n' "$hash"
+echo BYZE_RANDOMX_FULL_MEM_END
+"""
 
 
 def request(method, path, key, body=None, content_type=None, digest=None):
@@ -88,16 +110,7 @@ def main() -> int:
     if up.get("sha256") != digest:
         raise RuntimeError("Input receipt SHA-256 mismatch")
 
-    guest = f"""set -eu
-mkdir -p /tmp/byze
-tar -xzf /inputs/payload.bin -C /tmp/byze --no-same-owner
-test -f /tmp/byze/native/linux-x64/byze-rxhash
-chmod 500 /tmp/byze/native/linux-x64/byze-rxhash
-echo BYZE_RANDOMX_FULL_MEM_BEGIN
-hash=$(/tmp/byze/native/linux-x64/byze-rxhash --once ${header})
-printf 'BYZE_RANDOMX_HASH_RAW=%s\\n' "$hash"
-echo BYZE_RANDOMX_FULL_MEM_END
-"""
+    guest = build_guest_script(header)
 
     spec = {
         "image": "ubuntu", "input_id": up["id"],
