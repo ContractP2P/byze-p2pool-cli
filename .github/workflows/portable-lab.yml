@@ -49,6 +49,7 @@ jobs:
           bash tools/build-portable-lab.sh
           .portable-lab/linux-x64/bin/byze-p2pool --version
           .portable-lab/linux-x64/bin/byze-p2pool --help >/dev/null
+          .portable-lab/linux-x64/bin/node .portable-lab/linux-x64/app/tools/test-private-dht.js
       - name: Package experimental complete CLI
         run: |
           set -euo pipefail
