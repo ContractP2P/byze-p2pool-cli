@@ -11,9 +11,14 @@ function fixture(fn) {
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'p2pool-core-detect-'))
   try {return fn(root)} finally {fs.rmSync(root,{recursive:true,force:true})}
 }
-function mockCli(folder,basename='byze-cli') {
+function mockCli(folder, basename='byze-cli') {
   const filename=path.join(folder,basename)
-  fs.writeFileSync(filename,'#!/bin/sh\necho "{\"chain\":\"main\",\"initialblockdownload\":false,\"blocks\":1250,\"headers\":1250}"\n',{mode:0o700})
+  const payload=JSON.stringify({
+    chain:'main',initialblockdownload:false,blocks:1250,headers:1250
+  })
+  fs.writeFileSync(filename,`#!/bin/sh
+printf '%s\\n' '${payload}'
+`,{mode:0o700})
   fs.chmodSync(filename,0o700)
   return filename
 }
