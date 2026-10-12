@@ -47,12 +47,12 @@ class SafeLabEnvBYZEClientTests(unittest.TestCase):
         header = client.genesis_header()
         script = client.build_guest_script(header)
         self.assertNotIn("--once $", script)
-        self.assertNotIn("--once \${", script)
+        self.assertNotIn("--once ${", script)
         # Extract the exact shell argument from the command substitution,
         # then have a real POSIX shell expand it. This catches the historical
-        # f-string bug: '--once \${header}' became '$010000...' and expanded
+        # f-string bug: '--once ${header}' became '$010000...' and expanded
         # '$0' before the native verifier could receive 160 hex chars.
-        match = re.search(r"byze-rxhash --once (.+)\\)\\n", script)
+        match = re.search(r"byze-rxhash --once (.+)\)\n", script)
         self.assertIsNotNone(match)
         shell_arg = match.group(1)
         result = subprocess.run(
