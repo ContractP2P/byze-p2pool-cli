@@ -63,6 +63,7 @@ const { buildJobCommitment, verifyCoinbaseBinding } = require('./mining/mining-j
 const { satoshisToByze, sumPayoutFromVouts } = require('./reward-telemetry')
 const { ANSI, color, launchPresentation, statusLine, rewardCelebration } = require('./console-ui')
 const { assertMainnetReady, PeerRateLimiter, ValidationGate } = require('./security-hardening')
+const { candidates: nodeCandidates, executable: nodeExecutable, inspectNode, operatorGuidance } = require('./node-discovery')
 
 const APP_VERSION = require('../package.json').version
 const CONTRACT_ID = 'org.contract.byze-p2pool'
@@ -142,38 +143,77 @@ function argMap(argv) {
     const token = argv[i]
     if (!token.startsWith('--')) { out._.push(token); continue }
     const key = token.slice(2)
-    if (['help','version','dry-run','no-submit'].includes(key)) { out[key] = true; continue }
+    if (['help','version','dry-run','no-submit','check-node','setup-core'].includes(key)) { out[key] = true; continue }
     out[key] = argv[i + 1]; i += 1
   }
   return out
 }
 function help() {
-  console.log(`BYZE P2Pool CLI ${APP_VERSION}\n\nUsage:\n  byze-p2pool --alias Eric --wallet byz1... --threads 8\n\nOptions:\n  --alias NAME          Alias announced to the P2P pool\n  --wallet ADDRESS      Public BYZE payout address\n  --threads N           RandomX CPU threads (1..logical CPUs)\n  --byze-cli PATH       Path to byze-cli if auto-detection fails\n  --native-dir PATH     Managed directory containing byze-p2pool-miner and byze-rxhash\n  --bootstrap NODES     HOST:PORT[,HOST:PORT], or none; replaces public DHT seeds\n  --policy PATH         Pool policy file (default: config/pool-policy.json)\n  --no-submit           Never submit a found block (diagnostic)\n  --dry-run             Check node, policy and binaries without mining\n  --version             Show version and exit
+  console.log(`BYZE P2Pool CLI ${APP_VERSION}\n\nUsage:\n  byze-p2pool --alias Eric --wallet byz1... --threads 8\n\nOptions:\n  --alias NAME          Alias announced to the P2P pool\n  --wallet ADDRESS      Public BYZE payout address\n  --threads N           RandomX CPU threads (1..logical CPUs)\n  --byze-cli PATH       Select an existing byze-cli (no silent fallback)
+  --check-node           Diagnose Core executable and RPC without starting mining
+  --setup-core           Explicit consent-only verified Core archive download; no install/start\n  --native-dir PATH     Managed directory containing byze-p2pool-miner and byze-rxhash\n  --bootstrap NODES     HOST:PORT[,HOST:PORT], or none; replaces public DHT seeds\n  --policy PATH         Pool policy file (default: config/pool-policy.json)\n  --no-submit           Never submit a found block (diagnostic)\n  --dry-run             Check node, policy and binaries without mining\n  --version             Show version and exit
   --help                Show help\n\nNo P2P profile is created on disk. The P2P identity is temporary.`)
 }
 
-function executable(file) {
-  if (!file) return false
-  try { fs.accessSync(file, fs.constants.X_OK); return fs.statSync(file).isFile() } catch { return false }
+function detectByzeCli(explicit = undefined) {
+  return nodeCandidates({explicit}).find(entry => nodeExecutable(entry.path))?.path || ''
 }
-function which(name) {
-  try {
-    const r = spawnSync(process.platform === 'win32' ? 'where' : 'which', [name], { encoding:'utf8', timeout:1500, windowsHide:true })
-    return String(r.stdout || '').split(/\r?\n/).map((x)=>x.trim()).find(executable) || ''
-  } catch { return '' }
+function explainNode(result) {
+  if (result.status === 'ready') {
+    return [
+      'BYZE_NODE_READY',
+      'RPC client: ' + result.path,
+      'Detected via: ' + result.source,
+      'Chain: ' + result.chain + ', blocks: ' + result.blocks +
+        ', headers: ' + result.headers,
+      'Local/remote daemon: unknown (determined by RPC configuration)',
+      operatorGuidance(result)
+    ].join('\\n')
+  }
+  return [
+    'BYZE_NODE_NOT_READY',
+    ...result.observations.map(o => {
+      const src = o.source + ' ' + o.path
+      return src + ': ' + o.status + (o.code ? ' (' + o.code + ')' : '')
+    }),
+    operatorGuidance(result)
+  ].join('\\n')
 }
-function detectByzeCli(explicit = '') {
-  const exe = process.platform === 'win32' ? 'byze-cli.exe' : 'byze-cli'
-  const candidates = [
+
+async function diagnoseNode(explicit) {
+  return inspectNode({
     explicit,
-    process.env.BYZE_CLI,
-    which(exe),
-    path.join(os.homedir(), 'ldev', 'byze', 'build', 'bin', exe),
-    path.join(os.homedir(), 'byze', 'build', 'bin', exe),
-    path.join(os.homedir(), 'Downloads', 'byze', 'build', 'bin', exe),
-    process.platform === 'win32' ? path.join(os.homedir(), 'ldev', 'byze', 'build', 'bin', 'Release', exe) : ''
-  ].filter(Boolean)
-  return candidates.find(executable) || ''
+    call:(binary,method) => new ByzeCli(binary).call(method, [], {timeout:6000})
+  })
+}
+
+async function setupCoreWithExplicitConsent(explicit) {
+  const probe = await diagnoseNode(explicit)
+  console.log(explainNode(probe))
+  if (probe.status !== 'client-missing') {
+    throw new Error('Existing Core client found: repair/reuse it; no additional Core download offered.')
+  }
+  if (!stdin.isTTY || !stdout.isTTY) {
+    throw new Error('Core acquisition requires an interactive terminal; automated download refused.')
+  }
+  const destination = path.join(os.homedir(), 'byze-core-verified-rc4')
+  const rl=readline.createInterface({input:stdin,output:stdout})
+  let answer
+  try {
+    console.log('This downloads a verified official Core archive only.')
+    console.log('It will NOT extract, install, start byzed, configure RPC or access wallets.')
+    console.log('GnuPG and network access are required. Destination must not exist: ' + destination)
+    answer=await rl.question('Type DOWNLOAD to consent, or press Enter to cancel: ')
+  } finally {rl.close()}
+  if (answer !== 'DOWNLOAD') {
+    console.log('No files downloaded and no node changed.')
+    return
+  }
+  const {downloadCore} = require('../tools/download-core')
+  const result = await downloadCore({destination})
+  console.log('Official archive verified: '+result.archive)
+  console.log('SHA-256: '+result.sha256)
+  console.log('No node was installed. Configure BYZE Core separately, then run --check-node.')
 }
 function encodeCliArg(value) {
   if (value === null || typeof value === 'object' || typeof value === 'boolean' || typeof value === 'number') return JSON.stringify(value)
@@ -1205,12 +1245,27 @@ async function interactiveOptions(args){
 
 async function main(){
   let args=argMap(process.argv.slice(2)); if(args.version){console.log(APP_VERSION);return} if(args.help){help();return}
+  if (args['check-node'] && args['setup-core']) throw new Error('Choose only one Core diagnostic mode.')
+  if (args['check-node']) {
+    const result = await diagnoseNode(args['byze-cli'])
+    console.log(explainNode(result))
+    if (result.status !== 'ready') process.exitCode=3
+    return
+  }
+  if (args['setup-core']) {
+    await setupCoreWithExplicitConsent(args['byze-cli'])
+    return
+  }
   if(!args.alias||!args.wallet||!args.threads)args=await interactiveOptions(args)
   const alias=safeAlias(args.alias), wallet=safeAddress(args.wallet), maxThreads=Math.max(1,Number(os.availableParallelism?.()||os.cpus().length||1)), threads=Math.max(1,Math.min(maxThreads,Math.floor(Number(args.threads)||1)))
   if(!wallet)throw new Error('Invalid BYZE address.')
   if(Object.prototype.hasOwnProperty.call(args,'bootstrap')&&args.bootstrap===undefined)throw new Error('--bootstrap requires a value')
   const bootstrap=parseBootstrap(args.bootstrap)
-  const cliPath=detectByzeCli(args['byze-cli']); if(!cliPath)throw new Error('byze-cli not found. Use --byze-cli PATH.')
+  const nodeProbe=await diagnoseNode(args['byze-cli'])
+  if (nodeProbe.status !== 'ready') {
+    throw new Error(explainNode(nodeProbe))
+  }
+  const cliPath=nodeProbe.path
   if(args['miner-dir'])throw new Error('--miner-dir was removed: BYZE P2Pool never uses or patches an external byze-miner checkout. Use --native-dir for a managed P2Pool bundle.')
   if(args['native-dir'])process.env.BYZE_P2POOL_NATIVE_DIR=path.resolve(args['native-dir'])
   const policyPath=path.resolve(args.policy||path.join(__dirname,'..','config','pool-policy.json')), policy=loadPolicy(policyPath)
@@ -1256,5 +1311,5 @@ if (require.main === module) {
 
 module.exports = {
   SECURITY_GENERATION, APP_VERSION, CONTRACT_ID, CONTRACT_VERSION, CONTRACT_SOURCE_HASH, BUILTIN_PUBLISHER_KEY, POOL_ID,
-  sha256Hex, sign, verify, detectByzeCli, loadPolicy, assertMainnetReady, PeerRateLimiter, ValidationGate, ByzeCli, P2PTransport, MinerApp
+  sha256Hex, sign, verify, detectByzeCli, inspectNode, loadPolicy, assertMainnetReady, PeerRateLimiter, ValidationGate, ByzeCli, P2PTransport, MinerApp
 }
