@@ -101,6 +101,39 @@ resource-limited KVM guest. This test neither exercises a networked
 BYZE Core nor verifies PPLNS/reorgs/direct coinbase payouts, nor signs
 or endorses binaries for release.
 
+## Verified isolated full-memory genesis computation (2026-10-12)
+
+A macOS client submitted the SHA-256-verified experimental Linux-x64
+native bundle through the **unchanged generic** SafeLabEnv Remote API.
+The first run exposed a shell expansion bug in the BYZE-owned test client:
+`--once $010000...` truncated the header. This was fixed in
+`build_guest_script()`, with regression coverage for the exact 160-hex
+argument passed through POSIX `sh`.
+
+The corrected run returned:
+
+```text
+Input archive: 258042 bytes (SHA-256 verified)
+Remote job ID: 482b460e414544fcb2c7897ad7a2508a
+Requested resources: Ubuntu, 1 CPU, 4096 MiB, 180 s limit
+Status: succeeded
+Duration: 54.97 s
+BYZE_RANDOMX_FULL_MEM_BEGIN
+BYZE_RANDOMX_HASH_RAW=7050c8beb261fbd7642180c705e78bc91fffc831190ad349653cacf66f0a0000
+BYZE_RANDOMX_FULL_MEM_END
+Exit code: 0
+Observed BYZE hash: 00000a6ff6ac3c6549d30a1931c8ff1fc98be705c7802164d7fb61b2bec85070
+BYZE Core expected:  00000a6ff6ac3c6549d30a1931c8ff1fc98be705c7802164d7fb61b2bec85070
+SAFELABENV_BYZE_RANDOMX_GENESIS_MATCH_PASSED
+```
+
+This demonstrates one correct full-memory native BYZE RandomX consensus
+vector, with byte-order-normalized exact 32-byte equality to BYZE Core.
+Duration includes sandbox startup and RandomX initialization; it is not a
+hashrate benchmark. It does **not** validate mining shares, full P2Pool
+Node.js operation, payout spendability, peer discovery or general release
+readiness. The job needed no node RPC, wallet secret or guest network.
+
 ## Boundaries
 
 Do not add BYZE-specific source files, consensus constants, feature flags,
