@@ -72,6 +72,21 @@ Each manifest entry must include the executable SHA-256 and the pinned upstream 
 d84db8a84ba4a06432fcdddbf1584b89a7e52379
 ```
 
+## Core node detection and safe setup (no automatic reinstallation)
+
+Before configuring mining, run `./byze-p2pool --check-node` (or
+`linux-x64/bin/byze-p2pool --check-node` from the portable Linux bundle).
+This reports the first **actually responsive, synchronized mainnet** Core
+RPC client it can find. A supplied `--byze-cli PATH` or `BYZE_CLI` path
+is strict: the program never silently connects to another node.
+
+If Core is disconnected or unsynchronized, the CLI refuses mining and
+recommends repairing that endpoint; **it never installs, starts or
+synchronizes another BYZE node automatically**. `--setup-core` offers
+an interactive, explicit-consent download of the official pinned/signed
+rc4 archive only when no Core client exists; it never extracts or starts
+`byzed`. See [Core discovery & SafeLabEnv lab plan](docs/core-discovery-and-live-lab.md).
+
 ## Installation
 
 For a final binary release:
