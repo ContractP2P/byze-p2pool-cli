@@ -10,9 +10,10 @@ node tools/ensure-native.js
 [[ -d node_modules && -f node_modules/hyperswarm/package.json ]] || {
   echo "Run npm ci --omit=dev first" >&2; exit 2;
 }
-stage="${1:-$PWD/.portable-lab/linux-x64}"
-[[ "$stage" == /* && "$stage" != "$PWD" && "$stage" == "$PWD"/.portable-lab/* ]] || {
-  echo "Output must be inside source .portable-lab/" >&2; exit 2;
+[[ "$#" -eq 0 ]] || { echo "No output-path override permitted" >&2; exit 2; }
+stage="$PWD/.portable-lab/linux-x64"
+[[ ! -L "$PWD/.portable-lab" && ! -L "$stage" ]] || {
+  echo "Symlinked staging directories forbidden" >&2; exit 2;
 }
 rm -rf -- "$stage"
 install -d -m 0755 "$stage/bin" "$stage/app/native"
