@@ -87,6 +87,7 @@ test('auto mode skips disconnected local client when another eligible Core clien
     const old=mockCli(first),good=mockCli(second)
     const result=await inspectNode({
       env:{PATH:first+path.delimiter+second},home:path.join(root,'nohome'),
+      platform: process.platform === 'win32' ? 'linux' : process.platform,
       call:async found=>{
         if(found===old)throw Error('not connected')
         if(found===good)return {chain:'main',initialblockdownload:false,blocks:100,headers:100}
