@@ -37,6 +37,7 @@ jobs:
           npm run check
           npm test
           npm run test:dht
+          python3 -m unittest discover -s tests -p 'test_byze_lab_rpc_relay.py' -q
           npm run release:preflight:source
       - name: Build managed natives only from pinned official miner source
         run: |
