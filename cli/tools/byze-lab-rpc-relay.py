@@ -6,6 +6,8 @@ public interfaces, never forwards credentials, and never permits submission,
 wallet mutation, raw RPC tunneling, or command execution chosen by a guest.
 """
 import argparse
+from collections import deque
+import time
 import hmac
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
@@ -66,6 +68,8 @@ def validated(method, params):
 
 
 def create_handler(cli, token):
+    recent = deque()
+
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
             # No request bodies, wallet addresses, RPC cookie paths or auth tokens logged.
@@ -86,6 +90,14 @@ def create_handler(cli, token):
             supplied = self.headers.get("Authorization", "")
             if not hmac.compare_digest(supplied, "Bearer " + token):
                 return self.reply(401, {"ok": False, "error": "unauthorized"})
+            # Single-threaded HTTPServer plus bounded rolling quota avoids
+            # letting a permitted read-only call flood the Mac Core daemon.
+            now = time.monotonic()
+            while recent and now - recent[0] > 60:
+                recent.popleft()
+            if len(recent) >= 120:
+                return self.reply(429, {"ok": False, "error": "rate-limited"})
+            recent.append(now)
             try:
                 length = int(self.headers.get("Content-Length", "0"))
                 if not 0 < length <= MAX_REQUEST:
@@ -111,6 +123,21 @@ def create_handler(cli, token):
                     if len(output) > 4096:
                         raise ValueError("Unparseable RPC result")
                     result = output
+                # Wallet-local classification is necessary for rc4 payout
+                # checks, but labels, key origins and unrelated descriptors
+                # must not cross the lab bridge.
+                if value["method"] == "getaddressinfo":
+                    if type(result) is not dict:
+                        raise ValueError("Invalid getaddressinfo response")
+                    result = {k: result[k] for k in
+                              ("unspendable", "scriptPubKey", "solvable", "desc")
+                              if k in result}
+                elif value["method"] == "validateaddress":
+                    if type(result) is not dict:
+                        raise ValueError("Invalid validateaddress response")
+                    result = {k: result[k] for k in
+                              ("isvalid", "unspendable", "scriptPubKey")
+                              if k in result}
             except (OSError, ValueError, subprocess.TimeoutExpired):
                 return self.reply(502, {"ok": False, "error": "core-rpc-unavailable"})
             return self.reply(200, {"ok": True, "result": result})
