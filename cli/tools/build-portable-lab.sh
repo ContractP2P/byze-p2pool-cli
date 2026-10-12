@@ -23,6 +23,7 @@ cp -R native/linux-x64 "$stage/app/native/"
 install -d -m 0755 "$stage/app/tools"
 install -m 0644 tools/test-private-dht.js "$stage/app/tools/"
 install -m 0644 tools/download-core.js "$stage/app/tools/"
+install -m 0644 tools/byze-lab-remote-cli.js "$stage/app/tools/"
 install -m 0644 package.json package-lock.json THIRD_PARTY-NOTICES.md COMPATIBILITY.json "$stage/app/"
 cat > "$stage/bin/byze-p2pool" <<'SH'
 #!/bin/sh
@@ -31,6 +32,13 @@ here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 exec "$here/node" "$here/../app/src/byze-p2pool.js" "$@"
 SH
 chmod 0755 "$stage/bin/byze-p2pool"
+cat > "$stage/bin/byze-cli-lab" <<'SH'
+#!/bin/sh
+set -eu
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+exec "$here/node" "$here/../app/tools/byze-lab-remote-cli.js" "$@"
+SH
+chmod 0755 "$stage/bin/byze-cli-lab"
 node tools/verify-portable-lab.js "$stage"
 "$stage/bin/byze-p2pool" --help >/dev/null
 echo "BYZE_P2POOL_COMPLETE_LINUX_CLI_PACKAGE_READY"
