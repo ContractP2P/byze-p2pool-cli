@@ -20,6 +20,8 @@ import urllib.error
 import urllib.request
 
 BASE = "http://127.0.0.1:18766"
+# Historical CI run 37982214553. Its SHA is used as a reproducible
+# pinned test fixture, not as evidence of a signed public release.
 EXPECTED_ARCHIVE_SHA = "3b8dc23e1e6b7f73ccb3026beb257c23168bf0d9315ffbff730ff0e1b7910e69"
 EXPECTED_GENESIS_HASH_DISPLAY = "00000a6ff6ac3c6549d30a1931c8ff1fc98be705c7802164d7fb61b2bec85070"
 MAINNET_GENESIS_MERKLE = "946448a64c948d5a9c044306689cc47a4e1c12ee591f8871600ab8b9025f7cca"
@@ -93,7 +95,7 @@ test -f /tmp/byze/native/linux-x64/byze-rxhash
 chmod 500 /tmp/byze/native/linux-x64/byze-rxhash
 echo BYZE_RANDOMX_FULL_MEM_BEGIN
 hash=$(/tmp/byze/native/linux-x64/byze-rxhash --once ${header})
-printf 'BYZE_RANDOMX_HASH_RAW=%s\n' "$hash"
+printf 'BYZE_RANDOMX_HASH_RAW=%s\\n' "$hash"
 echo BYZE_RANDOMX_FULL_MEM_END
 """
 
