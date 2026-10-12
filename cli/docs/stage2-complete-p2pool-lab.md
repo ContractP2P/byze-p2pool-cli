@@ -34,6 +34,18 @@ A 53-MiB archive cannot be uploaded through the deployed SafeLabEnv's
 **8 MiB** input endpoint. The Stage 1 operator-only 64 MiB upload extension
 has been proposed to address that; it is NOT live yet.
 
+## Existing Core detection without duplicate-node installation
+
+The complete Linux CLI now supports `--check-node` (no mining options
+required), strict `--byze-cli PATH` overrides, reuse of a healthy RPC
+endpoint and `--setup-core` (explicit consent before a pinned/signed
+Core archive download, with **no** daemon startup or wallet modifications).
+Client detection does not prove whether the responding daemon is on the
+same machine. Before connecting the SafeLabEnv guest to Core, use the
+controlled gateway arrangement defined in
+[Core discovery and live lab](core-discovery-and-live-lab.md). The
+network/lease policy belongs exclusively to SafeLabEnv.
+
 ## User-side prerequisites — precise wording
 
 With the complete artifact, a user does **not** need to install Node/npm,
