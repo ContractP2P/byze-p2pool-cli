@@ -168,7 +168,7 @@ function explainNode(result) {
         ', headers: ' + result.headers,
       'Local/remote daemon: unknown (determined by RPC configuration)',
       operatorGuidance(result)
-    ].join('\\n')
+    ].join('\n')
   }
   return [
     'BYZE_NODE_NOT_READY',
@@ -177,7 +177,7 @@ function explainNode(result) {
       return src + ': ' + o.status + (o.code ? ' (' + o.code + ')' : '')
     }),
     operatorGuidance(result)
-  ].join('\\n')
+  ].join('\n')
 }
 
 async function diagnoseNode(explicit) {
