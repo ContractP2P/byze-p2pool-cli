@@ -103,7 +103,14 @@ def create_handler(cli, token):
                                       check=False)
                 if proc.returncode or len(proc.stdout.encode("utf-8")) > MAX_RPC_OUTPUT:
                     return self.reply(502, {"ok": False, "error": "core-rpc-unavailable"})
-                result = json.loads(proc.stdout)
+                # byze-cli prints objects as JSON, but hash RPCs as plain text.
+                output = proc.stdout.strip()
+                try:
+                    result = json.loads(output)
+                except ValueError:
+                    if len(output) > 4096:
+                        raise ValueError("Unparseable RPC result")
+                    result = output
             except (OSError, ValueError, subprocess.TimeoutExpired):
                 return self.reply(502, {"ok": False, "error": "core-rpc-unavailable"})
             return self.reply(200, {"ok": True, "result": result})
