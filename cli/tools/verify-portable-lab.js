@@ -18,6 +18,8 @@ function check(root) {
     'app/native/linux-x64/byze-rxhash',
     'app/native/linux-x64/native-manifest.json',
     'app/licenses/RandomX-BSD-3-Clause.txt',
+    'bin/byze-cli-lab',
+    'app/tools/byze-lab-remote-cli.js',
     'app/tools/download-core.js',
     'app/THIRD_PARTY-NOTICES.md',
   ]
