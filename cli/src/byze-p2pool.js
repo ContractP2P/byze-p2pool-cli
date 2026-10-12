@@ -193,6 +193,16 @@ async function setupCoreWithExplicitConsent(explicit) {
   if (probe.status !== 'client-missing') {
     throw new Error('Existing Core client found: repair/reuse it; no additional Core download offered.')
   }
+  // An explicitly incorrect path must not mask another installed byze-cli.
+  // A known existing executable, even if temporarily disconnected, blocks
+  // acquisition: repair/reuse it before considering additional software.
+  const searchEnv = {...process.env}
+  delete searchEnv.BYZE_CLI
+  const other = nodeCandidates({env:searchEnv}).find(entry => nodeExecutable(entry.path))
+  if (other) {
+    throw new Error('Existing byze-cli at ' + other.path +
+      ' found outside the explicit override. Repair/reuse it; Core download refused.')
+  }
   if (!stdin.isTTY || !stdout.isTTY) {
     throw new Error('Core acquisition requires an interactive terminal; automated download refused.')
   }
