@@ -22,6 +22,7 @@ cp -R src config node_modules licenses "$stage/app/"
 cp -R native/linux-x64 "$stage/app/native/"
 install -d -m 0755 "$stage/app/tools"
 install -m 0644 tools/test-private-dht.js "$stage/app/tools/"
+install -m 0644 tools/download-core.js "$stage/app/tools/"
 install -m 0644 package.json package-lock.json THIRD_PARTY-NOTICES.md COMPATIBILITY.json "$stage/app/"
 cat > "$stage/bin/byze-p2pool" <<'SH'
 #!/bin/sh
