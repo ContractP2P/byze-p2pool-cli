@@ -62,7 +62,7 @@ class SafeLabEnvBYZEClientTests(unittest.TestCase):
         self.assertEqual(result.stdout, header)
         self.assertEqual(len(result.stdout), 160)
         self.assertRegex(result.stdout, r"^[a-f0-9]{160}$")
-        self.assertIn("printf 'BYZE_RANDOMX_HASH_RAW=%s\\\\n'", script)
+        self.assertIn("printf 'BYZE_RANDOMX_HASH_RAW=%s" + chr(92) + "n'", script)
 
         for invalid in (header[:-1], header + "00", "$" + header,
                         "../etc/passwd", "", None):
