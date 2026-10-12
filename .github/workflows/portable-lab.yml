@@ -50,6 +50,18 @@ jobs:
           .portable-lab/linux-x64/bin/byze-p2pool --version
           .portable-lab/linux-x64/bin/byze-p2pool --help >/dev/null
           .portable-lab/linux-x64/bin/node .portable-lab/linux-x64/app/tools/test-private-dht.js
+          # No local Core client is bundled: diagnostic must fail closed
+          # without prompting for a wallet or starting a new daemon.
+          set +e
+          check_output=$(.portable-lab/linux-x64/bin/byze-p2pool --check-node --byze-cli /nonexistent/byze-cli 2>&1)
+          check_status=$?
+          setup_output=$(.portable-lab/linux-x64/bin/byze-p2pool --setup-core --byze-cli /nonexistent/byze-cli </dev/null 2>&1)
+          setup_status=$?
+          set -e
+          test "$check_status" -eq 3
+          grep -q 'BYZE_NODE_NOT_READY' <<< "$check_output"
+          test "$setup_status" -ne 0
+          grep -q 'requires an interactive terminal' <<< "$setup_output"
       - name: Package experimental complete CLI
         run: |
           set -euo pipefail
