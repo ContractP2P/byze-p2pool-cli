@@ -14,9 +14,14 @@ function assertMainnetReady(info) {
   if (String(info.chain || '') !== 'main') return { ok:false, code:'byze-mainnet-required', chain:String(info.chain || '') }
   if (info.initialblockdownload !== false) return { ok:false, code:'byze-node-not-synchronized' }
   const blocks = Number(info.blocks), headers = Number(info.headers)
-  if (!Number.isFinite(blocks) || blocks < 0) return { ok:false, code:'byze-block-height-invalid' }
-  if (Number.isFinite(headers) && headers - blocks > 2) return { ok:false, code:'byze-node-behind-headers', blocks, headers }
-  return { ok:true, blocks, headers:Number.isFinite(headers) ? headers : blocks, chain:'main' }
+  if (!Number.isSafeInteger(blocks) || blocks < 0) return { ok:false, code:'byze-block-height-invalid' }
+  // A new Core can temporarily report IBD=false with zero blocks and headers.
+  // An empty chain must never be reported as synchronized or permit mining.
+  if (blocks === 0) return { ok:false, code:'byze-blockchain-empty', blocks, headers }
+  if (!Number.isSafeInteger(headers) || headers <= 0) return { ok:false, code:'byze-headers-unavailable', blocks, headers }
+  if (headers < blocks) return { ok:false, code:'byze-headers-behind-blocks', blocks, headers }
+  if (headers - blocks > 2) return { ok:false, code:'byze-node-behind-headers', blocks, headers }
+  return { ok:true, blocks, headers, chain:'main' }
 }
 
 class PeerRateLimiter {

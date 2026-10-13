@@ -11,11 +11,9 @@ function fixture(fn) {
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'p2pool-core-detect-'))
   try {return fn(root)} finally {fs.rmSync(root,{recursive:true,force:true})}
 }
-function mockCli(folder, basename='byze-cli') {
+function mockCli(folder, basename='byze-cli', info={chain:'main',initialblockdownload:false,blocks:1250,headers:1250}) {
   const filename=path.join(folder,basename)
-  const payload=JSON.stringify({
-    chain:'main',initialblockdownload:false,blocks:1250,headers:1250
-  })
+  const payload=JSON.stringify(info)
   fs.writeFileSync(filename,`#!/bin/sh
 printf '%s\\n' '${payload}'
 `,{mode:0o700})
@@ -64,7 +62,10 @@ test('unhealthy Core and failed RPC are diagnosed but never considered ready',as
     const bad=[
       {chain:'test',initialblockdownload:false,blocks:10,headers:10},
       {chain:'main',initialblockdownload:true,blocks:10,headers:10},
-      {chain:'main',initialblockdownload:false,blocks:10,headers:100}
+      {chain:'main',initialblockdownload:false,blocks:10,headers:100},
+      {chain:'main',initialblockdownload:false,blocks:0,headers:0},
+      {chain:'main',initialblockdownload:false,blocks:42,headers:0},
+      {chain:'main',initialblockdownload:false,blocks:42,headers:undefined}
     ]
     for(const chain of bad) {
       const res=await inspectNode({explicit:bin,call:async()=>chain})
@@ -112,6 +113,22 @@ test('real CLI --check-node diagnoses existing executable without wallet or prom
     assert.match(result.stdout,/BYZE_NODE_READY/)
     assert.match(result.stdout,/blocks: 1250/)
     assert.match(result.stdout,/Local\/remote daemon: unknown/)
+  }finally{fs.rmSync(root,{recursive:true,force:true})}
+})
+
+test('a newly installed zero-height BYZE Core cannot report ready or start P2Pool',()=>{
+  if (process.platform==='win32') return
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),'p2pool-core-empty-'))
+  try {
+    const cli=mockCli(root,'byze-cli',
+      {chain:'main',initialblockdownload:false,blocks:0,headers:0})
+    const result=spawnSync(process.execPath,
+      [path.join(__dirname,'..','src','byze-p2pool.js'),'--check-node','--byze-cli',cli],
+      {encoding:'utf8',timeout:9000,env:{...process.env,BYZE_CLI:undefined}})
+    assert.equal(result.status,3,result.stderr)
+    assert.match(result.stdout,/BYZE_NODE_NOT_READY/)
+    assert.match(result.stdout,/byze-blockchain-empty/)
+    assert.doesNotMatch(result.stdout,/BYZE_NODE_READY/)
   }finally{fs.rmSync(root,{recursive:true,force:true})}
 })
 

@@ -197,6 +197,53 @@ EOF
   chmod 0755 "$LAUNCHER"
   "$LAUNCHER" --version
 }
+# Sync status is by block height, not Core's verificationprogress field.
+# Ctrl+C stops this monitor only; it never stops an existing BYZE daemon.
+wait_for_mainnet_sync() {
+  local interval="${BYZE_SYNC_INTERVAL_SECONDS:-30}" max_polls="${BYZE_SYNC_MAX_POLLS:-0}"
+  local polls=0 raw="" blocks="" headers="" ibd="" chain="" percent=""
+  [[ "$interval" =~ ^[0-9]+$ ]] || fail 'Invalid sync poll interval.'
+  [[ "$max_polls" =~ ^[0-9]+$ ]] || fail 'Invalid sync poll limit.'
+  [ -n "$CORE_CLI" ] && [ -x "$CORE_CLI" ] ||
+    fail 'Existing BYZE Core client not found; cannot monitor synchronization.'
+  [ -x "$LAUNCHER" ] ||
+    fail 'P2Pool CLI is not installed; complete installation before monitoring.'
+  log "P2Pool package installed. Waiting for BYZE Core synchronization (mainnet)."
+  log "This may take a while. Progress is based on block heights, not verificationprogress."
+  log "Press Ctrl+C to stop watching; BYZE Core will keep running."
+  while :; do
+    polls=$((polls + 1))
+    raw="$("$CORE_CLI" getblockchaininfo 2>/dev/null || true)"
+    blocks="$(printf '%s\n' "$raw" | /usr/bin/sed -nE 's/.*"blocks"[[:space:]]*:[[:space:]]*([0-9]+).*/\1/p' | head -n 1)"
+    headers="$(printf '%s\n' "$raw" | /usr/bin/sed -nE 's/.*"headers"[[:space:]]*:[[:space:]]*([0-9]+).*/\1/p' | head -n 1)"
+    ibd="$(printf '%s\n' "$raw" | /usr/bin/sed -nE 's/.*"initialblockdownload"[[:space:]]*:[[:space:]]*(true|false).*/\1/p' | head -n 1)"
+    chain="$(printf '%s\n' "$raw" | /usr/bin/sed -nE 's/.*"chain"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' | head -n 1)"
+    if [[ "$blocks" =~ ^[0-9]+$ && "$headers" =~ ^[0-9]+$ ]] && [ "$headers" -gt 0 ]; then
+      percent="$(awk -v b="$blocks" -v h="$headers" 'BEGIN{p=100*b/h;if(p>100)p=100;printf "%.1f",p}')"
+      log "BYZE synchronization: $blocks / $headers blocks ($percent% by height); IBD: ${ibd:-unknown}."
+      if [ "$chain" = main ] && [ "$blocks" -gt 0 ] && [ "$headers" -ge "$blocks" ] &&
+         [ $((headers - blocks)) -le 2 ] && [ "$ibd" = false ]; then
+        if "$LAUNCHER" --check-node >/dev/null 2>&1; then
+          log 'BYZE_NODE_READY. Synchronization confirmed. You can start P2Pool mining.'
+          return 0
+        fi
+        log 'Core heights are current, but P2Pool readiness is still pending.'
+      fi
+    else
+      if [[ "$blocks" =~ ^[0-9]+$ && "$headers" =~ ^[0-9]+$ ]]; then
+        log "BYZE synchronization: $blocks / $headers blocks (waiting for block headers); IBD: ${ibd:-unknown}."
+      else
+        log 'Waiting for BYZE Core RPC / block headers (height unavailable).'
+      fi
+    fi
+    if [ "$max_polls" -gt 0 ] && [ "$polls" -ge "$max_polls" ]; then
+      log 'BYZE_NODE_NOT_READY. Sync monitor limit reached; BYZE Core remains running.'
+      return 2
+    fi
+    sleep "$interval"
+  done
+}
+
 BYZE_CLI="${BYZE_CLI-}"
 case "$MODE" in
   --probe)
@@ -207,6 +254,9 @@ case "$MODE" in
     else
       log 'CORE_ABSENT: no existing Core found.'
     fi ;;
+  --wait-sync)
+    discover_core || fail 'Existing BYZE Core client not found; no installation attempted.'
+    wait_for_mainnet_sync ;;
   --install|--install-core)
     for c in curl tar sha256sum awk grep realpath mktemp; do
       command -v "$c" >/dev/null || fail "Missing prerequisite: $c"
@@ -224,11 +274,7 @@ case "$MODE" in
     start_core
     if [ "$MODE" = --install ]; then
       install_pool
-      if "$LAUNCHER" --check-node; then
-        log 'BYZE_NODE_READY'
-      else
-        log 'BYZE_NODE_NOT_READY: wait for synchronization before mining.'
-      fi
+      wait_for_mainnet_sync
     fi ;;
-  *) fail 'Usage: install-linux.sh [--probe|--install-core|--install]' ;;
+  *) fail 'Usage: install-linux.sh [--probe|--install-core|--install|--wait-sync]' ;;
 esac
