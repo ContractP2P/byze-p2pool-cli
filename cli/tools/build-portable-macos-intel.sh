@@ -72,7 +72,22 @@ NODE_BINARY="$TEMP_ROOT/node-${NODE_VERSION}-${PLATFORM}/bin/node"
   echo 'Symlinked packaging path rejected.' >&2; exit 7;
 }
 rm -rf -- "$STAGE_PARENT"
-mkdir -p "$STAGE/bin" "$STAGE/app/native" "$STAGE/app/tools" "$DIST"
+mkdir -p "$STAGE/bin" "$STAGE/lib" "$STAGE/app/native" "$STAGE/app/tools" "$DIST"
+# The official Intel native miner links to OpenSSL 3 from the CI build host.
+# Bundle that runtime dylib so end users need no Homebrew installation.
+OPENSSL_PREFIX="$(brew --prefix openssl@3)"
+CRYPTO_LIB="$OPENSSL_PREFIX/lib/libcrypto.3.dylib"
+[[ -f "$CRYPTO_LIB" ]] || { echo "Missing OpenSSL 3 runtime in builder." >&2; exit 8; }
+install -m 0644 "$CRYPTO_LIB" "$STAGE/lib/libcrypto.3.dylib"
+printf 'Bundled OpenSSL 3 runtime SHA256: '
+shasum -a 256 "$STAGE/lib/libcrypto.3.dylib"
+# Include the licensing notice for the additional shared runtime.
+cat > "$STAGE/lib/README.txt" <<'NOTICE'
+This test package bundles libcrypto.3.dylib from Homebrew openssl@3.
+OpenSSL 3 is licensed under the Apache License 2.0.
+See https://www.openssl.org/source/license.html and
+https://www.apache.org/licenses/LICENSE-2.0.
+NOTICE
 install -m 0755 "$NODE_BINARY" "$STAGE/bin/node"
 cp -R src config node_modules licenses "$STAGE/app/"
 cp -R native/darwin-x64 "$STAGE/app/native/"
@@ -83,6 +98,8 @@ cat > "$STAGE/bin/byze-p2pool" <<'SH'
 #!/bin/sh
 set -eu
 here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+# Resolve Homebrew-linked Intel native binaries from this package, not the host.
+export DYLD_LIBRARY_PATH="$here/../lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}"
 exec "$here/node" "$here/../app/src/byze-p2pool.js" "$@"
 SH
 chmod 0755 "$STAGE/bin/byze-p2pool"
@@ -113,13 +130,15 @@ Repository: ContractP2P/byze-p2pool-cli
 Source commit: $(git rev-parse HEAD)
 Node runtime: $NODE_VERSION (official archive + SHA256SUMS verified)
 Upstream native pin: d84db8a84ba4a06432fcdddbf1584b89a7e52379
+Includes bundled OpenSSL 3 libcrypto runtime from the package builder.
 No BYZE Core, wallet, RPC credential, or private key is embedded.
 DOC
 
 # Verify complete staged distribution, not just its checkout.
 "$STAGE/bin/byze-p2pool" --version
 "$STAGE/bin/byze-p2pool" --help >/dev/null
-"$STAGE/app/native/$PLATFORM/byze-p2pool-miner" --features | grep -q 'contract-direct-coinbase-v2'
+DYLD_LIBRARY_PATH="$STAGE/lib" "$STAGE/app/native/$PLATFORM/byze-p2pool-miner" --features | grep -q 'contract-direct-coinbase-v2'
+DYLD_LIBRARY_PATH="$STAGE/lib" "$STAGE/app/native/$PLATFORM/byze-rxhash" --help >/dev/null
 "$STAGE/bin/node" "$STAGE/app/tools/test-private-dht.js"
 
 export COPYFILE_DISABLE=1
