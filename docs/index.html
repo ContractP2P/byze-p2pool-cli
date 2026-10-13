@@ -158,7 +158,7 @@
   '/bin/bash "$INSTALLER" --probe',
   '/bin/bash "$INSTALLER" --install',
   ')'
- ].join('\\n')}
+ ].join('\n')}
  function q(v){return "'"+v.replace(/'/g,"'\\''")+"'"}
  function choose(){return osRadios.find(r=>r.checked)?.value||'darwin-arm64'}
  function validWallet(v){return /^byz1[a-z0-9]{8,156}$/.test(v)}
