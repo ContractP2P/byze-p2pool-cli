@@ -111,7 +111,7 @@ jobs:
             BYZE_SYNC_INTERVAL_SECONDS=0 BYZE_SYNC_MAX_POLLS=1 \
             /bin/bash docs/install-macos.sh --install > "$work/empty-chain.txt" 2>&1 && exit 1
           grep -q 'BYZE_NODE_NOT_READY' "$work/empty-chain.txt"
-          grep -q 'blocks: 0' "$work/empty-chain.txt"
+          grep -Fq '0 / 0 blocks (waiting for block headers)' "$work/empty-chain.txt"
           ! grep -q '^BYZE_NODE_READY' "$work/empty-chain.txt"
           test ! -e "$work/curl.calls"
           echo 'PASS: zero-height Core is never reported ready; no download or duplicate daemon'
