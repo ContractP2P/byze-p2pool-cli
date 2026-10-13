@@ -47,6 +47,7 @@ window.BYZE_I18N = Object.freeze({
     "macPending": "macOS Apple Silicon: experimental package not yet available. Installation requires the corresponding GitHub pre-release.",
     "intelPending": "macOS Intel: native binaries exist, but the complete standalone package still needs to be built and tested.",
     "linuxPending": "Linux x64: a complete experimental package exists in GitHub Actions, but has not yet been published in a Release.",
+    "linuxReady": "Linux x64: complete experimental test package published; installer can reuse or install BYZE Core.",
     "installUnavailable": "No complete standalone package is published for this platform yet. Native-only artifacts are not a complete installation.",
     "installReady": "Installation command ready to copy",
     "installPending": "Available after publication of the test pre-release",
@@ -69,7 +70,7 @@ window.BYZE_I18N = Object.freeze({
     "introAria": "Introduction",
     "miningAria": "Custom mining command",
     "intelReady": "macOS Intel: complete experimental CLI package is available. The same guided installer preserves existing BYZE Core or installs official Core with your permission.",
-    "bannerReady": "Complete experimental macOS packages are available. Existing BYZE Core installations are never automatically replaced; a first-time installation requires explicit approval. P2Pool binaries are unsigned and unnotarized."
+    "bannerReady": "Complete experimental P2Pool packages are available for the listed platforms. Existing BYZE Core is never replaced; a new Core installation needs explicit consent. Test binaries are unsigned."
   },
   "fr": {
     "pageTitle": "Installer BYZE P2Pool CLI — Assistant guidé",
@@ -117,6 +118,7 @@ window.BYZE_I18N = Object.freeze({
     "macPending": "macOS Apple Silicon : package expérimental non encore disponible. La préversion GitHub doit d’abord être publiée.",
     "intelPending": "macOS Intel : les binaires natifs existent, mais le package autonome complet doit encore être construit et testé.",
     "linuxPending": "Linux x64 : un package expérimental complet existe dans GitHub Actions, mais il n’est pas encore publié en Release.",
+    "linuxReady": "Linux x64 : package expérimental complet publié ; l'installateur réutilise ou installe BYZE Core.",
     "installUnavailable": "Aucun package autonome complet n’est encore publié pour cette plateforme. Les binaires natifs seuls ne suffisent pas.",
     "installReady": "Commande d’installation prête à copier",
     "installPending": "Disponible après publication de la préversion de test",
@@ -139,7 +141,7 @@ window.BYZE_I18N = Object.freeze({
     "introAria": "Introduction",
     "miningAria": "Commande de minage personnalisée",
     "intelReady": "macOS Intel : package CLI expérimental complet disponible. L'installateur réutilise BYZE Core existant ou propose son installation officielle avec votre accord.",
-    "bannerReady": "Packages macOS expérimentaux complets disponibles. Un BYZE Core existant n'est jamais remplacé automatiquement ; toute première installation nécessite un accord explicite. Binaires P2Pool non signés ni notarizés."
+    "bannerReady": "Des packages P2Pool expérimentaux complets sont disponibles pour les plateformes indiquées. BYZE Core existant n'est jamais remplacé ; son installation nécessite un accord explicite. Binaires de test non signés."
   },
   "es": {
     "pageTitle": "Instalar BYZE P2Pool CLI — Guía de instalación",
@@ -187,6 +189,7 @@ window.BYZE_I18N = Object.freeze({
     "macPending": "macOS Apple Silicon: el paquete experimental todavía no está disponible en GitHub.",
     "intelPending": "macOS Intel: existen binarios nativos, pero falta preparar y probar el paquete autónomo.",
     "linuxPending": "Linux x64: existe un paquete experimental completo en GitHub Actions, aún sin publicar como Release.",
+    "linuxReady": "Linux x64: paquete experimental completo publicado; el instalador reutiliza o instala BYZE Core.",
     "installUnavailable": "No hay un paquete autónomo completo publicado para esta plataforma. Los binarios nativos solos no bastan.",
     "installReady": "Comando de instalación listo para copiar",
     "installPending": "Disponible después de publicar la versión de prueba",
@@ -209,7 +212,7 @@ window.BYZE_I18N = Object.freeze({
     "introAria": "Introducción",
     "miningAria": "Comando de minería personalizado",
     "intelReady": "macOS Intel: paquete experimental completo disponible. Reutiliza BYZE Core existente o instala el oficial con tu autorización.",
-    "bannerReady": "Paquetes experimentales completos para macOS disponibles. Un BYZE Core existente nunca se sustituye automáticamente. La primera instalación requiere permiso. Los binarios de P2Pool no están firmados."
+    "bannerReady": "Hay paquetes experimentales completos de P2Pool para las plataformas indicadas. BYZE Core existente no se sustituye; la instalación nueva requiere permiso. Binarios de prueba sin firmar."
   },
   "pt": {
     "pageTitle": "Instalar BYZE P2Pool CLI — Guia de instalação",
@@ -257,6 +260,7 @@ window.BYZE_I18N = Object.freeze({
     "macPending": "macOS Apple Silicon: pacote experimental ainda não disponível no GitHub.",
     "intelPending": "macOS Intel: os binários nativos existem, mas o pacote autônomo ainda precisa ser criado e testado.",
     "linuxPending": "Linux x64: há um pacote experimental completo no GitHub Actions, ainda não publicado como Release.",
+    "linuxReady": "Linux x64: pacote experimental completo publicado; o instalador reutiliza ou instala BYZE Core.",
     "installUnavailable": "Ainda não há pacote autônomo completo para esta plataforma. Os binários nativos isolados não bastam.",
     "installReady": "Comando de instalação pronto para copiar",
     "installPending": "Disponível após publicar o pré-lançamento de teste",
@@ -279,7 +283,7 @@ window.BYZE_I18N = Object.freeze({
     "introAria": "Introdução",
     "miningAria": "Comando de mineração personalizado",
     "intelReady": "macOS Intel: pacote experimental completo disponível. Reutiliza o BYZE Core existente ou instala a versão oficial com sua autorização.",
-    "bannerReady": "Os pacotes experimentais completos para macOS estão disponíveis. Um BYZE Core existente nunca é substituído automaticamente. A primeira instalação requer consentimento. Os binários P2Pool não são assinados."
+    "bannerReady": "Há pacotes experimentais completos de P2Pool para as plataformas indicadas. O BYZE Core existente nunca é substituído; uma nova instalação requer consentimento. Binários de teste não assinados."
   },
   "zh": {
     "pageTitle": "安装 BYZE P2Pool CLI — 安装向导",
@@ -327,6 +331,7 @@ window.BYZE_I18N = Object.freeze({
     "macPending": "macOS Apple Silicon：实验性软件包尚未发布到 GitHub。",
     "intelPending": "macOS Intel：已有原生程序，但完整独立软件包仍需构建和测试。",
     "linuxPending": "Linux x64：GitHub Actions 中已有实验性完整包，但尚未作为 Release 发布。",
+    "linuxReady": "Linux x64：完整实验包已发布；安装程序可复用或安装 BYZE Core。",
     "installUnavailable": "此平台尚无公开的完整独立安装包。仅原生二进制文件不足以安装。",
     "installReady": "安装命令已可复制",
     "installPending": "测试预发布版本上线后可用",
@@ -349,7 +354,7 @@ window.BYZE_I18N = Object.freeze({
     "introAria": "简介",
     "miningAria": "自定义挖矿命令",
     "intelReady": "macOS Intel：完整实验性 CLI 包已提供。可复用已有 BYZE Core，或经你同意安装官方版本。",
-    "bannerReady": "完整的 macOS 实验性软件包已提供。绝不自动替换已有 BYZE Core；首次安装必须明确同意。P2Pool 二进制文件未经签名或公证。"
+    "bannerReady": "所列平台提供完整的 P2Pool 实验包。绝不替换已有 BYZE Core；新安装须明确同意。测试二进制文件未经签名。"
   },
   "hi": {
     "pageTitle": "BYZE P2Pool CLI इंस्टॉल करें — मार्गदर्शिका",
@@ -397,6 +402,7 @@ window.BYZE_I18N = Object.freeze({
     "macPending": "macOS Apple Silicon: प्रायोगिक पैकेज अभी GitHub पर उपलब्ध नहीं है।",
     "intelPending": "macOS Intel: नेटिव बाइनरी मौजूद हैं, लेकिन पूरा स्वतंत्र पैकेज बनना और टेस्ट होना बाकी है।",
     "linuxPending": "Linux x64: GitHub Actions पर पूरा प्रायोगिक पैकेज है, लेकिन Release के रूप में प्रकाशित नहीं है।",
+    "linuxReady": "Linux x64: पूरा प्रायोगिक पैकेज प्रकाशित है; इंस्टॉलर BYZE Core को दोबारा उपयोग या इंस्टॉल करता है।",
     "installUnavailable": "इस प्लेटफ़ॉर्म का पूरा स्वतंत्र पैकेज अभी प्रकाशित नहीं है। केवल नेटिव बाइनरी पर्याप्त नहीं हैं।",
     "installReady": "इंस्टॉल कमांड कॉपी करने के लिए तैयार",
     "installPending": "टेस्ट प्री-रिलीज़ प्रकाशित होने पर उपलब्ध",
@@ -419,7 +425,7 @@ window.BYZE_I18N = Object.freeze({
     "introAria": "परिचय",
     "miningAria": "अनुकूलित माइनिंग कमांड",
     "intelReady": "macOS Intel: पूरा प्रायोगिक CLI पैकेज उपलब्ध है। मौजूदा BYZE Core को उपयोग करता है या अनुमति से आधिकारिक Core इंस्टॉल करता है।",
-    "bannerReady": "macOS के पूरे प्रायोगिक पैकेज उपलब्ध हैं। मौजूदा BYZE Core को कभी स्वतः नहीं बदला जाता; पहली इंस्टॉलेशन के लिए स्पष्ट अनुमति चाहिए। P2Pool बाइनरी बिना साइन किए हैं।"
+    "bannerReady": "सूचीबद्ध प्लेटफ़ॉर्म के लिए पूरे प्रायोगिक P2Pool पैकेज उपलब्ध हैं। मौजूदा BYZE Core नहीं बदला जाता; नई स्थापना के लिए स्पष्ट अनुमति आवश्यक है। परीक्षण बाइनरी अहस्ताक्षरित हैं।"
   },
   "ar": {
     "pageTitle": "تثبيت BYZE P2Pool CLI — دليل الإعداد",
@@ -467,6 +473,7 @@ window.BYZE_I18N = Object.freeze({
     "macPending": "macOS Apple Silicon: الحزمة التجريبية غير متاحة على GitHub بعد.",
     "intelPending": "macOS Intel: الملفات الأصلية متوفرة، لكن الحزمة المستقلة الكاملة تحتاج إلى بناء واختبار.",
     "linuxPending": "Linux x64: توجد حزمة تجريبية كاملة في GitHub Actions، لكنها لم تُنشر كإصدار بعد.",
+    "linuxReady": "Linux x64: نُشرت الحزمة التجريبية الكاملة؛ يعيد المثبّت استخدام BYZE Core أو يثبّته.",
     "installUnavailable": "لم تُنشر حزمة مستقلة كاملة لهذه المنصة بعد. الملفات الأصلية وحدها غير كافية.",
     "installReady": "أوامر التثبيت جاهزة للنسخ",
     "installPending": "ستتوفر بعد نشر الإصدار التجريبي",
@@ -489,7 +496,7 @@ window.BYZE_I18N = Object.freeze({
     "introAria": "مقدمة",
     "miningAria": "أمر التعدين المخصص",
     "intelReady": "macOS Intel: حزمة CLI تجريبية كاملة متاحة. يُعاد استخدام BYZE Core الموجود أو يُثبّت الرسمي بموافقتك.",
-    "bannerReady": "حزم macOS التجريبية الكاملة متاحة. لا يُستبدل BYZE Core الموجود تلقائياً أبداً؛ التثبيت الأول يتطلب موافقة صريحة. ملفات P2Pool غير موقعة."
+    "bannerReady": "تتوفر حزم P2Pool تجريبية كاملة للأنظمة المدرجة. لا يُستبدل BYZE Core الموجود؛ يتطلب تثبيت نسخة جديدة موافقة صريحة. الملفات التجريبية غير موقعة."
   },
   "ru": {
     "pageTitle": "Установка BYZE P2Pool CLI — руководство",
@@ -537,6 +544,7 @@ window.BYZE_I18N = Object.freeze({
     "macPending": "macOS Apple Silicon: экспериментальный пакет пока недоступен на GitHub.",
     "intelPending": "macOS Intel: нативные файлы есть, но полный автономный пакет ещё нужно собрать и проверить.",
     "linuxPending": "Linux x64: полный экспериментальный пакет есть в GitHub Actions, но он ещё не опубликован как Release.",
+    "linuxReady": "Linux x64: полный экспериментальный пакет опубликован; установщик повторно использует или устанавливает BYZE Core.",
     "installUnavailable": "Для этой платформы ещё нет полного автономного пакета. Одних нативных файлов недостаточно.",
     "installReady": "Команда установки готова к копированию",
     "installPending": "Станет доступно после публикации тестовой версии",
@@ -559,7 +567,7 @@ window.BYZE_I18N = Object.freeze({
     "introAria": "Введение",
     "miningAria": "Персональная команда майнинга",
     "intelReady": "macOS Intel: полный экспериментальный пакет CLI доступен. Используется уже установленный BYZE Core либо с разрешения устанавливается официальный.",
-    "bannerReady": "Полные экспериментальные пакеты macOS доступны. Существующий BYZE Core никогда не заменяется автоматически; первая установка требует явного согласия. Бинарные файлы P2Pool не подписаны."
+    "bannerReady": "Для указанных платформ доступны полные экспериментальные пакеты P2Pool. Существующий BYZE Core не заменяется; новая установка требует согласия. Тестовые файлы не подписаны."
   },
   "ja": {
     "pageTitle": "BYZE P2Pool CLI のインストール — セットアップガイド",
@@ -607,6 +615,7 @@ window.BYZE_I18N = Object.freeze({
     "macPending": "macOS Apple Silicon：実験的パッケージはまだ GitHub に公開されていません。",
     "intelPending": "macOS Intel：ネイティブバイナリはありますが、完全パッケージは未作成・未検証です。",
     "linuxPending": "Linux x64：GitHub Actions に完全な実験用パッケージがありますが、Release は未公開です。",
+    "linuxReady": "Linux x64：実験用完全パッケージが公開されました。既存の BYZE Core を再利用するか、必要時にインストールします。",
     "installUnavailable": "このプラットフォームには完全なパッケージがまだありません。ネイティブバイナリだけではインストールできません。",
     "installReady": "インストールコマンドをコピーできます",
     "installPending": "テスト用プレリリースの公開後に利用可能",
@@ -629,7 +638,7 @@ window.BYZE_I18N = Object.freeze({
     "introAria": "概要",
     "miningAria": "カスタムマイニングコマンド",
     "intelReady": "macOS Intel：完全な実験用 CLI パッケージを利用できます。既存の BYZE Core を再利用し、なければ同意を得て公式版をインストールします。",
-    "bannerReady": "macOS の実験用完全パッケージを利用できます。既存の BYZE Core を自動で置き換えることはありません。初回インストールには明示的な許可が必要です。P2Pool バイナリは未署名です。"
+    "bannerReady": "表示されたプラットフォーム向けに P2Pool の実験用完全パッケージが公開されています。既存の BYZE Core は置き換えません。新規インストールには明示的な同意が必要です。テスト用バイナリは未署名です。"
   },
   "de": {
     "pageTitle": "BYZE P2Pool CLI installieren — Anleitung",
@@ -677,6 +686,7 @@ window.BYZE_I18N = Object.freeze({
     "macPending": "macOS Apple Silicon: experimentelles Paket noch nicht auf GitHub verfügbar.",
     "intelPending": "macOS Intel: native Binärdateien vorhanden, vollständiges Paket muss noch erstellt und getestet werden.",
     "linuxPending": "Linux x64: vollständiges Experimentierpaket in GitHub Actions vorhanden, jedoch noch nicht als Release veröffentlicht.",
+    "linuxReady": "Linux x64: vollständiges Testpaket veröffentlicht; der Installer verwendet BYZE Core erneut oder installiert es.",
     "installUnavailable": "Für diese Plattform ist noch kein vollständiges eigenständiges Paket veröffentlicht. Native Binärdateien allein reichen nicht.",
     "installReady": "Installationsbefehl bereit zum Kopieren",
     "installPending": "Nach Veröffentlichung der Test-Vorabversion verfügbar",
@@ -699,6 +709,6 @@ window.BYZE_I18N = Object.freeze({
     "introAria": "Einführung",
     "miningAria": "Persönlicher Mining-Befehl",
     "intelReady": "macOS Intel: vollständiges experimentelles CLI-Paket verfügbar. Vorhandenes BYZE Core wird wiederverwendet oder nach Zustimmung offiziell installiert.",
-    "bannerReady": "Vollständige experimentelle macOS-Pakete sind verfügbar. Bestehendes BYZE Core wird niemals automatisch ersetzt; die Erstinstallation erfordert ausdrückliche Zustimmung. P2Pool-Binärdateien sind unsigniert."
+    "bannerReady": "Für die aufgeführten Plattformen sind vollständige experimentelle P2Pool-Pakete verfügbar. Bestehendes BYZE Core wird nicht ersetzt; eine Neuinstallation erfordert Zustimmung. Testbinärdateien sind unsigniert."
   }
 });
