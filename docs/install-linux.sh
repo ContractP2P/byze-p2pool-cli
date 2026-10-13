@@ -224,7 +224,13 @@ case "$MODE" in
     start_core
     if [ "$MODE" = --install ]; then
       install_pool
-      if "$LAUNCHER" --check-node; then
+      # Preserve a fail-closed state with older RC3 binary bundles that
+      # can misclassify 0 blocks / 0 headers as synchronized mainnet.
+      tip_height="$("$CORE_CLI" getblockchaininfo 2>/dev/null |
+        sed -nE 's/.*"blocks"[[:space:]]*:[[:space:]]*([0-9]+).*/\1/p' || true)"
+      if [[ ! "$tip_height" =~ ^[0-9]+$ ]] || [ "$tip_height" -eq 0 ]; then
+        log "BYZE_NODE_NOT_READY: chain height $tip_height; wait for synchronization."
+      elif "$LAUNCHER" --check-node; then
         log 'BYZE_NODE_READY'
       else
         log 'BYZE_NODE_NOT_READY: wait for synchronization before mining.'
