@@ -93,7 +93,7 @@
 </div>
 <section class="panel output" aria-label="Custom mining command" data-i18n-aria-label="miningAria">
  <div class="output-heading"><h3 data-i18n="miningTitle">Your mainnet mining command</h3><span class="pill" data-i18n="submission">Block submission enabled</span></div>
- <p class="output-note" data-i18n="miningNote">Run this after installing the complete package and making sure your existing BYZE Core node is synchronized. No --no-submit option is used.</p>
+ <p class="output-note" data-i18n="miningNote">Run after installing the complete package and synchronizing BYZE Core (existing or newly installed). Without --no-submit, real mining may submit blocks to mainnet.</p>
  <div class="code-wrap"><div class="code-header"><span>Terminal · macOS / Linux</span><span>BYZE P2Pool CLI v0.2.5-rc3</span></div><pre id="command">Enter a valid public BYZE address and miner settings.</pre></div>
  <div class="action-row"><button type="button" id="copy" data-i18n="copyCommand" disabled>Copy mining command</button><span class="label-inline" id="copy-status" role="status" aria-live="polite">BYZE address required</span></div>
  <p class="fieldnote" style="margin-top:15px" data-i18n="coreCaution">Real mining can submit blocks to the mainnet. BYZE Core 0.2.4 may have limitations when signing blocks or spending rewards. This installer cannot guarantee payout validity.</p>
@@ -166,7 +166,7 @@
   const platform=choose(),d=catalog[platform],w=wallet.value.trim(),a=alias.value.trim(),n=Number(threads.value);
   const available=releaseReady[platform]===true, mac=platform==='darwin-arm64'||platform==='darwin-x64';
   const release=RELEASES[platform];
-  $('install-status').textContent=available?(platform==='darwin-x64'?t('intelReady'):platform==='linux-x64'?t('installReady'):t('macReady')):t(d.statusKey);
+  $('install-status').textContent=available?(platform==='darwin-x64'?t('intelReady'):platform==='linux-x64'?t('linuxReady'):t('macReady')):t(d.statusKey);
   installCode.textContent=mac?macInstall():platform==='linux-x64'?linuxInstall():t('installUnavailable');
   installCopy.disabled=!available;
   installMsg.textContent=available?t('installReady'):t('installPending');
@@ -174,7 +174,7 @@
   $('installer-platform').textContent=platform==='darwin-x64'?'macOS Intel x64':platform==='darwin-arm64'?'macOS Apple Silicon':'Linux x64';
   $('download-link').href=d.link;
   $('install-hint').textContent=mac?t('macHint'):platform==='linux-x64'?(available?t('macHint'):t('linuxHint')):t('otherHint');
-  $('availability-banner').textContent=releaseReady['linux-x64']?t('macHint'):releaseReady['darwin-x64']?t('bannerReady'):t('bannerText');
+  $('availability-banner').textContent=(releaseReady['linux-x64']||releaseReady['darwin-x64'])?t('bannerReady'):t('bannerText');
   wallet.setAttribute('aria-invalid',w!==''&&!validWallet(w)?'true':'false');
   $('wallet-error').textContent=w!==''&&!validWallet(w)?t('walletError'):'';
   const valid=validWallet(w)&&/^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$/.test(a)&&Number.isInteger(n)&&n>=1&&n<=128;
