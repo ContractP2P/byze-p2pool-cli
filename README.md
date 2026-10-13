@@ -1,18 +1,48 @@
 # BYZE P2Pool CLI
 
-A standalone peer-to-peer CPU miner for BYZE, using RandomX, Hyperswarm, and direct PPLNS coinbase payouts. The Electron **Contract** application is **not required**.
+**Peer-to-peer CPU mining for BYZE** — a standalone RandomX miner using Hyperswarm discovery, direct PPLNS coinbase payouts, and a **0.50% pool fee**. No Electron or Contract desktop application is needed.
 
-> **Status: v0.2.5-rc3 source release candidate (generation v6). Not a validated public binary release.** Live multi-peer payout/soak tests, native bundle packaging/signatures and a publication license are still release gates. See the [release checklist](cli/RELEASE-CHECKLIST.md).
+**[▶ Open the guided installer — macOS Apple Silicon, macOS Intel & Linux x64](https://contractp2p.github.io/byze-p2pool-cli/)**
 
-- Mining payouts are committed directly to the candidate block coinbase; pool fee: **0.50%**.
-- No BYZE private key, seed or wallet passphrase is requested.
-- Requires a synchronized BYZE mainnet node, working `byze-cli`, and Node.js 20+.
-- **Linux x86-64 / Ubuntu 24.04** is the initial intended target; macOS and Windows have CI coverage for the JavaScript source but are **not** advertised as tested mining distributions.
-- The v6 discovery generation is incompatible with v4/v5 peers and PPLNS histories. Coordinate upgrades; a restart starts a new window.
+> **Experimental pre-release · CLI v0.2.5-rc3 · global-epoch-v6.** Native test bundles are published but **unsigned and not yet production-qualified**. Mainnet multi-peer payout validation, spendability checks and signing/release gates remain open. See [release status](cli/RELEASE-CHECKLIST.md). Mining rewards are never guaranteed.
 
-## Obtain and test the current source
+## Choose how to install
 
-The current code is in **this repository's `main` branch**:
+| Option | Best for | What you get |
+| --- | --- | --- |
+| **1. [Guided installation (recommended)](https://contractp2p.github.io/byze-p2pool-cli/)** | Miners who want to get started without compiling | Platform-specific complete test bundle, a BYZE Core detection/reuse check, and personalized mining commands |
+| **2. [Git clone / source installation](#2-install-from-source-developer-path)** | Developers, reviewers and people building their own native components | Editable source, JavaScript tests, and an explicit optional native build |
+
+### 1. Guided installation (recommended)
+
+Open **https://contractp2p.github.io/byze-p2pool-cli/** and:
+
+1. Select **Mac Apple Silicon (ARM64)**, **Mac Intel (x86-64)** or **Linux (x86-64)**.
+2. Enter a **public BYZE receiving address**, a miner alias and the desired CPU thread count. **Never enter a seed phrase or private key.**
+3. Copy **Install the complete package** into your Terminal. The installer checks for an existing BYZE Core first: **existing Core is reused, never reinstalled or upgraded**. If no installation is found, the official Core is offered **only after explicit confirmation**.
+4. If Core is synchronizing, leave it running. The updated guided installer displays **block-height progress every 30 seconds**, for example `BYZE synchronization: 7006 / 21059 blocks (33.3% by height); IBD: true`. Wait for `BYZE_NODE_READY` before mining. The percentage is an **approximation based on block heights**, not Core's `verificationprogress` estimate.
+5. Copy the **personalized mining command** from the website when the node is ready.
+
+The installer fetches a complete platform bundle with bundled Node.js, JavaScript dependencies and verified-by-SHA-256 native RandomX executables: **no Git, npm or compiler is needed for this path**. Downloaded P2Pool bundles are still unsigned experimental artifacts.
+
+**Stopping and resuming synchronization monitoring:** `Ctrl+C` stops only the installer monitor, **not** the running BYZE Core node. To resume without reinstalling, run the already downloaded script with `--wait-sync`, or fetch the current script again:
+
+```bash
+# macOS (uses the file downloaded by the website)
+bash "$HOME/Downloads/byze-p2pool-first-run-macos.sh" --wait-sync
+
+# Linux (download the current installer; no Core installation is performed)
+curl -fL https://contractp2p.github.io/byze-p2pool-cli/install-linux.sh -o /tmp/byze-p2pool-install-linux.sh
+bash /tmp/byze-p2pool-install-linux.sh --wait-sync
+```
+
+The miner command displayed by the website **enables real mainnet block submission**. For diagnostic mining that cannot submit a found block, add `--no-submit` to that command. Neither mode should be used until BYZE Core is fully synchronized and the payout address has been checked for **actual wallet spendability**.
+
+**Experimental complete packages:** [Apple Silicon](https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/v0.2.5-rc3-macos-arm64-test1) · [Mac Intel](https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/v0.2.5-rc3-macos-intel-test1) · [Linux x64](https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/v0.2.5-rc3-linux-x64-test1) · [All releases](https://github.com/ContractP2P/byze-p2pool-cli/releases).
+
+### 2. Install from source (developer path)
+
+Clone the repository and validate the JavaScript source:
 
 ```bash
 git clone https://github.com/ContractP2P/byze-p2pool-cli.git
@@ -24,63 +54,59 @@ npm run release:preflight:source
 node src/byze-p2pool.js --help
 ```
 
-These commands check JavaScript source and the source-RC release metadata. They do **not** establish that a native miner bundle or a live BYZE node is ready. CI also runs an isolated DHT integration check on Linux/Node 22.
+**Requirements:** Git, Node.js **20+**, npm and (for mining) a synchronized BYZE mainnet Core RPC endpoint. These steps **do not install BYZE Core or produce native RandomX binaries**.
 
-For an additional isolated BYZE Core regtest check, see [the CLI technical README](cli/README.md#validation). It requires verified rc4 or later `byzed` and `byze-cli` binaries.
-
-## Running the miner (development testing only)
-
-You need:
-
-1. A synchronized BYZE mainnet node with `getblockchaininfo` reporting `chain=main` and `initialblockdownload=false`.
-2. A public **receiving address that your BYZE wallet can actually spend**, preferably obtained using `getnewaddress` on Byze rc4 or later. Script validation alone does not prove spendability.
-3. Verified managed native miner/verifier binaries for your platform, with their `native-manifest.json`.
-
-**A managed redistributable native bundle is not included in this source RC.** The runtime does not silently compile native code. For explicit developer-only bootstrap from a pinned upstream source, follow [CLI installation / native bootstrap](cli/README.md#developer-only-native-bootstrap). Do not bypass native hash/source verification.
-
-Once the prerequisites exist, from `cli/`:
+If you want to **build the native miner locally** for development, explicitly run:
 
 ```bash
+./install-dev.sh
+```
+
+This developer-only script builds a managed native bundle from a pinned official upstream source; it requires the appropriate platform build tools. It does not replace an installed BYZE Core. See the [technical README](cli/README.md#developer-only-native-bootstrap) for prerequisites and verification details.
+
+After native setup, check your existing Core and run a non-mining preflight:
+
+```bash
+node src/byze-p2pool.js --check-node --byze-cli /absolute/path/to/byze-cli
+
 ./byze-p2pool --dry-run \
   --alias TestMiner \
-  --wallet YOUR_VERIFIED_BYZE_RECEIVING_ADDRESS \
+  --wallet YOUR_VERIFIED_PUBLIC_BYZE_ADDRESS \
   --threads 2 \
   --byze-cli /absolute/path/to/byze-cli
 ```
 
-Only if the dry run succeeds, an opt-in diagnostic session can use `--no-submit` (it **never submits a found network block**):
+Only after the dry-run passes, a diagnostic RandomX session can be started with `--no-submit`:
 
 ```bash
-./byze-p2pool --alias TestMiner \
-  --wallet YOUR_VERIFIED_BYZE_RECEIVING_ADDRESS \
-  --threads 2 --byze-cli /absolute/path/to/byze-cli --no-submit
+./byze-p2pool \
+  --alias TestMiner \
+  --wallet YOUR_VERIFIED_PUBLIC_BYZE_ADDRESS \
+  --threads 2 \
+  --byze-cli /absolute/path/to/byze-cli \
+  --no-submit
 ```
 
-These commands still use **mainnet** policy; do not assume a separate consensus testnet. The isolated regtest integration test uses its own disposable node, not a running mainnet wallet.
+Without `--no-submit`, a found network block **may be submitted to BYZE mainnet**. The source installation does **not** automatically compile missing native code when you run `./byze-p2pool` without performing the developer bootstrap.
 
-## Off-host native binary testing with SafeLabEnv
+## How P2Pool works
 
-For an optional, isolated BYZE native startup smoke and **full-memory
-RandomX mainnet-genesis consensus comparison** through the external
-SafeLabEnv Remote API, see
-[SafeLabEnv remote test runbook](cli/docs/safelabenv-remote-testing.md).
+- Each miner computes **RandomX** hashes locally; P2P peers communicate through **Hyperswarm**.
+- Validated shares contribute to the **PPLNS** payout window, and candidates commit miner payouts plus the **0.50% fee directly in the coinbase**.
+- **Generation v6** has its own discovery topic and PPLNS history; it is **incompatible with older v4/v5 peers**. Coordinate restarts if upgrading a pool.
+- The CLI does not ask for BYZE wallet secrets and uses temporary P2P identities. `validateaddress` does **not** prove that a payout address is spendable. Prefer an address obtained and independently verified on **BYZE Core rc4 or later**. Older Core versions can be reused, but may not confirm spendability.
 
-SafeLabEnv contains no BYZE-specific executor logic. This repository owns
-the native build, expected features, pinned archive and consensus vectors.
-These tests do not require BYZE wallet secrets, a mainnet node or guest
-network access.
+A synchronized node means `chain=main`, a non-empty blockchain, matching/near-matching block and header heights, and `initialblockdownload=false`. **Existing v0.2.5-rc3 binaries may misclassify a freshly started zero-block Core as ready**; the updated website installers guard against this, while a corrected full CLI bundle is pending publication.
 
-## Validation and release readiness
+## Status and technical references
 
-The `main` branch includes PR #2's remote-payout/RPC retry fixes and PR #4's deterministic deferred-share recovery regression. That regression simulates RPC failures; it does **not** replace a live `byzed` outage soak test. Track this in [issue #3](https://github.com/ContractP2P/byze-p2pool-cli/issues/3).
+Public **experimental** bundles exist for Apple Silicon, Intel macOS and Linux x64. ARM64 local mining and Mac Intel clean-host installation have been exercised; this does **not** yet qualify real two-peer PPLNS payouts or prove that a discovered block is spendable. The public packages are **unsigned**, and their third-party notices, licensing and final release signing still need review.
 
-Before any public binary release:
+- [Guided installation website](https://contractp2p.github.io/byze-p2pool-cli/)
+- [CLI documentation and developer bootstrap](cli/README.md)
+- [Security policy](cli/SECURITY.md)
+- [Release and validation checklist](cli/RELEASE-CHECKLIST.md)
+- [Third-party notices](cli/THIRD_PARTY-NOTICES.md)
+- [RPC recovery / soak tracking — issue #3](https://github.com/ContractP2P/byze-p2pool-cli/issues/3)
 
-- Run an isolated multi-peer outage/recovery soak, including share expiry, stale-chain treatment, duplicate prevention, and PPLNS accounting.
-- Independently confirm direct coinbase payouts and the 0.50% pool fee with a real found block.
-- Build, verify and sign managed platform-specific native bundles and publication manifests.
-- Select/document the CLI publication license, retain all third-party notices, and pass `npm run release:preflight`.
-
-See [technical documentation](cli/README.md), [security policy](cli/SECURITY.md), [release checklist](cli/RELEASE-CHECKLIST.md) and [third-party notices](cli/THIRD_PARTY-NOTICES.md).
-
-The CLI's `package.json` currently declares `UNLICENSED`. The upstream native miner and other bundled dependencies retain their own separate licenses. No MIT license is claimed for the CLI source in this repository.
+**Licensing:** `cli/package.json` currently declares `UNLICENSED` for this project's source. Upstream components have their own licenses; no MIT license is asserted for the CLI itself.
