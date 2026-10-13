@@ -1,0 +1,62 @@
+name: Publish verified Linux x64 test pre-release
+# Experimental ONLY, never modifies or ships user Core/wallet data.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-linux-test-once.yml'
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ContractP2P/byze-p2pool-cli
+      TAG: v0.2.5-rc3-linux-x64-test1
+      SOURCE_SHA: 7c5817ec96c46c68e6b324f17c1106163b61b6a2
+      SOURCE_RUN: '38245608358'
+      ARCHIVE: byze-p2pool-cli-complete-0.2.5-rc3-linux-x64.tar.gz
+    steps:
+      - name: Verify source workflow successfully completed on pinned SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh run view "$SOURCE_RUN" -R "$REPO" --json headSha --jq .headSha)" = "$SOURCE_SHA"
+          test "$(gh run view "$SOURCE_RUN" -R "$REPO" --json conclusion --jq .conclusion)" = success
+      - name: Download and verify CI-built Linux bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p candidate release unpack
+          gh run download "$SOURCE_RUN" -R "$REPO" --name byze-p2pool-complete-lab-linux-x64 --dir candidate
+          test -s candidate/SHA256SUMS
+          (cd candidate && sha256sum --check SHA256SUMS)
+          test "$(find candidate -maxdepth 1 -type f -name 'byze-p2pool-cli-complete-0.2.5-rc3-linux-x64-*.tar.gz' | wc -l)" -eq 1
+          source_file="$(find candidate -maxdepth 1 -type f -name 'byze-p2pool-cli-complete-0.2.5-rc3-linux-x64-*.tar.gz' -print -quit)"
+          tar -xzf "$source_file" -C unpack
+          test -x unpack/linux-x64/bin/byze-p2pool
+          test -x unpack/linux-x64/bin/node
+          unpack/linux-x64/bin/byze-p2pool --version
+          unpack/linux-x64/bin/node unpack/linux-x64/app/tools/test-private-dht.js
+          cp -- "$source_file" "release/$ARCHIVE"
+          (cd release && sha256sum "$ARCHIVE" > SHA256SUMS && sha256sum --check SHA256SUMS)
+      - name: Publish experimental Linux test pre-release without overwriting
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then
+            echo 'Experimental release already exists; refusing replacement.'
+            exit 0
+          fi
+          gh release create "$TAG" \
+            "release/$ARCHIVE" release/SHA256SUMS \
+            -R "$REPO" --target "$SOURCE_SHA" \
+            --title 'BYZE P2Pool CLI Linux x64 - Experimental Test 1' \
+            --notes "Experimental Linux x86_64 package from verified CI run $SOURCE_RUN and source SHA $SOURCE_SHA. Includes Node.js 22, RandomX miner/verifier and JS dependencies. No Core, wallets or RPC secrets. Our separate guided install-linux.sh checks for existing BYZE Core and offers signed/pinned official Core rc4 only if absent, with explicit confirmation. Unsigned test pre-release; real multi-peer mining/payouts not production qualified." \
+            --prerelease
+          gh release view "$TAG" -R "$REPO" --json isPrerelease,assets \
+            --jq '{prerelease:.isPrerelease,assets:[.assets[].name]}'
