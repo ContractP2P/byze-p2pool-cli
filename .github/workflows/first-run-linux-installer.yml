@@ -77,6 +77,20 @@ jobs:
           grep -qx '# BYZE_P2POOL_MANAGED_LAUNCHER' "$home/.local/bin/byze-p2pool"
           test -f "$home/byze/build/bin/byze-cli"
           echo 'PASS: no BYZE Core/CLI redownload or replacement'
+          cat > "$home/byze/build/bin/byze-cli" <<'EMPTY_CLI'
+          #!/bin/sh
+          if [ "$1" = getblockchaininfo ]; then
+            printf '{"chain":"main","blocks":0,"headers":0,"initialblockdownload":false}\n'
+            exit 0
+          fi
+          exit 1
+          EMPTY_CLI
+          chmod +x "$home/byze/build/bin/byze-cli"
+          HOME="$home" PATH="$work/mock:$PATH" bash docs/install-linux.sh --install > "$work/empty"
+          grep -q 'BYZE_NODE_NOT_READY' "$work/empty"
+          ! grep -qx 'BYZE_NODE_READY' "$work/empty"
+          test ! -e "$work/curl.log"
+          echo 'PASS: zero-height Core cannot falsely pass installation readiness'
       - name: Core absent without signed public P2Pool asset cannot alter machine
         shell: bash
         run: |
