@@ -1,25 +1,25 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0b1019">
-<meta name="description" content="BYZE P2Pool CLI : assistant d'installation guidée pour macOS et Linux, sans compilation côté utilisateur.">
-<title>Installer BYZE P2Pool CLI — Assistant guidé</title>
+<meta name="description" content="BYZE P2Pool CLI: guided installation on macOS and Linux without compiling source code.">
+<title>Install BYZE P2Pool CLI — Guided setup</title>
 <style>
   :root{color-scheme:dark;--bg:#0a1019;--panel:#111b29;--border:#28374a;--muted:#9aaabd;--txt:#f0f5fc;--accent:#67e3ba;--accent2:#6cb7fa;--warning:#f7cb7d;--radius:17px}
   *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse 650px 450px at 5% 5%,#1c3043 0%,transparent 74%),radial-gradient(ellipse 630px 550px at 100% 25%,#143334 0%,transparent 75%),var(--bg);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--txt)}
   a{color:var(--accent2)}.shell{max-width:1050px;margin:auto;padding:28px 23px 70px}
   .header{display:flex;justify-content:space-between;align-items:center;gap:16px;padding-bottom:34px}
   .brand{display:flex;align-items:center;gap:13px;font-weight:770;letter-spacing:.03em}.brand-mark{width:40px;height:40px;display:grid;place-items:center;border-radius:11px;background:linear-gradient(140deg,#92ffe0,#6aaafa);color:#0b1722;font-size:21px;box-shadow:0 5px 20px #51d5bf33}.brand small{display:block;font-size:11px;font-weight:500;letter-spacing:.11em;color:var(--muted)}
-  .rightlink{font-size:13px;color:var(--muted);text-decoration:none}.rightlink:hover{color:white}
+  .language-picker{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}.language-picker select{font:inherit;color:var(--txt);background:#162536;border:1px solid #4c6078;border-radius:8px;padding:9px 12px;max-width:210px;cursor:pointer}.language-picker select:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}.header-tools{display:flex;align-items:center;gap:16px;flex-wrap:wrap}.rightlink{font-size:13px;color:var(--muted);text-decoration:none}.rightlink:hover{color:white}
   .status{display:inline-flex;align-items:center;gap:8px;font-size:12px;border:1px solid #516477;background:#182635;border-radius:99px;padding:6px 11px;color:#dbe5f0}.dot{height:7px;width:7px;display:inline-block;background:var(--warning);border-radius:50%}
-  .hero{margin:5px 0 37px}.eyebrow{font-size:12px;color:var(--accent);font-weight:800;letter-spacing:.18em;text-transform:uppercase}h1{font-size:clamp(30px,5vw,51px);line-height:1.12;letter-spacing:-.045em;max-width:780px;margin:12px 0 14px}h1 span{color:var(--accent)}.lead{color:var(--muted);font-size:17px;max-width:760px;margin:0}.hero-strip{display:flex;flex-wrap:wrap;gap:14px;margin-top:21px;font-size:13px;color:#bdcbd9}.hero-strip span:before{content:'✓';color:var(--accent);margin-right:8px;font-weight:bold}
+  .hero{margin:5px 0 37px}.eyebrow{font-size:12px;color:var(--accent);font-weight:800;letter-spacing:.18em;text-transform:uppercase}h1{font-size:clamp(30px,5vw,51px);line-height:1.12;letter-spacing:-.045em;max-width:780px;margin:12px 0 14px}h1 span{color:var(--accent)}h1 .headline-plain{color:var(--txt)}.lead{color:var(--muted);font-size:17px;max-width:760px;margin:0}.hero-strip{display:flex;flex-wrap:wrap;gap:14px;margin-top:21px;font-size:13px;color:#bdcbd9}.hero-strip span:before{content:'✓';color:var(--accent);margin-right:8px;font-weight:bold}
   .layout{display:grid;grid-template-columns:1fr 360px;gap:20px;align-items:start}.panel{background:linear-gradient(165deg,#152235f2,#101a28f4);border:1px solid var(--border);border-radius:var(--radius);padding:25px;box-shadow:0 20px 60px #050a1366}
   .section-top{display:flex;align-items:center;gap:11px;margin-bottom:14px}.number{height:29px;width:29px;background:#253c47;color:var(--accent);display:grid;place-items:center;border-radius:9px;font-size:13px;font-weight:800}.section-top h2{font-size:17px;margin:0;letter-spacing:-.01em}.hint{color:var(--muted);font-size:13px;margin:6px 0 16px}
   .os-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.os-choice{position:relative;display:block;cursor:pointer}.os-choice input{position:absolute;opacity:0}.os-choice .os-card{height:105px;border:1px solid #364457;border-radius:12px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;background:#172333;transition:.15s}.os-choice .os-card:hover{border-color:#a1cbd3}.os-choice input:checked+.os-card{border-color:var(--accent);background:#162f34;box-shadow:inset 0 0 0 1px var(--accent)}.os-choice input:focus-visible+.os-card{outline:3px solid var(--accent2);outline-offset:2px}.os-icon{font-size:23px}.os-name{font-size:13px;font-weight:800}.os-sub{font-size:11px;color:var(--muted)}.os-card > div:nth-child(2){line-height:1.25}
   .separator{height:1px;background:var(--border);margin:25px 0}
-  label.fieldlabel{font-size:13px;color:#d1dbe7;font-weight:700;display:block;margin:14px 0 7px}.form-row{display:grid;grid-template-columns:1fr 100px;gap:11px}input[type=text],input[type=number]{font:inherit;border:1px solid #3d5066;background:#091420;color:#f0f5fc;border-radius:9px;width:100%;padding:12px 13px;outline:0}input:focus{border-color:var(--accent);box-shadow:0 0 0 3px #4acfb330}input::placeholder{color:#7c91a8}input[aria-invalid=true]{border-color:#ea9c83}.fieldnote{color:var(--muted);font-size:12px;margin:6px 0}.error{color:#ffbaad;font-size:12px;min-height:20px}.smallrule{margin-top:9px;color:var(--muted);font-size:12px}
+  label.fieldlabel{font-size:13px;color:#d1dbe7;font-weight:700;display:block;margin:14px 0 7px}.form-row{display:grid;grid-template-columns:1fr 100px;gap:11px}input[type=text],input[type=number]{font:inherit;border:1px solid #3d5066;background:#091420;color:#f0f5fc;border-radius:9px;width:100%;padding:12px 13px;outline:0}input:focus{border-color:var(--accent);box-shadow:0 0 0 3px #4acfb330}input::placeholder{color:#7c91a8}#wallet{direction:ltr;text-align:left}pre{direction:ltr;text-align:left;unicode-bidi:plaintext}input[aria-invalid=true]{border-color:#ea9c83}.fieldnote{color:var(--muted);font-size:12px;margin:6px 0}.error{color:#ffbaad;font-size:12px;min-height:20px}.smallrule{margin-top:9px;color:var(--muted);font-size:12px}
   .aside-panel{position:sticky;top:20px}.prelabel{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:0 0 12px}.plan{display:flex;gap:11px;align-items:start;margin-bottom:17px}.circle{display:grid;place-items:center;flex:0 0 auto;background:#203946;color:var(--accent);height:26px;width:26px;border-radius:50%;font-weight:800;font-size:12px}.plan strong{display:block;font-size:13px}.plan p{font-size:12px;color:var(--muted);margin:3px 0 0}.banner{background:#2b291e;border:1px solid #655637;border-radius:10px;color:#f8dfa4;padding:12px 14px;font-size:12px;margin-top:17px}
   .output{margin-top:20px}.output-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}h3{font-size:18px;margin:0 0 8px}.output-note{font-size:13px;color:var(--muted);margin:0 0 12px}.code-wrap{background:#080f19;border:1px solid #314052;border-radius:12px;overflow:hidden}.code-header{display:flex;justify-content:space-between;align-items:center;padding:9px 13px;background:#1a2738;border-bottom:1px solid #314052;color:#adbcd0;font-size:11px}pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;padding:16px;color:#d2faee;font:13px/1.65 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.action-row{display:flex;align-items:center;flex-wrap:wrap;gap:11px;margin-top:13px}button,.actionlink{cursor:pointer;appearance:none;border:0;border-radius:9px;background:var(--accent);color:#06221c;padding:12px 17px;font-size:13px;font-weight:800;text-decoration:none;transition:.15s;display:inline-flex;align-items:center;gap:7px}button:hover,.actionlink:hover{filter:brightness(1.07)}button:disabled{opacity:.42;cursor:not-allowed}.secondary{background:#213247;color:#e1f1f7;border:1px solid #3b516a}button:focus-visible,.actionlink:focus-visible{outline:3px solid var(--accent2);outline-offset:3px}.label-inline{font-size:12px;color:var(--muted)}.release-info{border:1px solid #3c5270;padding:12px;border-radius:11px;background:#142236;font-size:13px;color:#c3d3e2;margin-top:12px}.release-info strong{color:#f0f5fc}.install-mock{margin-top:24px}.install-mock h3{margin-bottom:9px}.install-mock code{font:12px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#0b1724;padding:2px 5px;border-radius:4px;color:#bae7dc}
   .footer{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;color:#94a6b9;font-size:12px;margin-top:30px}.footer a{text-decoration:none}.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}.pill{font-size:11px;color:#b5e9da;background:#183730;border:1px solid #275a4a;border-radius:99px;padding:4px 8px}
@@ -30,66 +30,78 @@
 <body>
 <div class="shell">
 <header class="header">
- <div class="brand"><div class="brand-mark">B</div><div>BYZE P2Pool<small>CLI · INSTALLATION GUIDÉE</small></div></div>
- <a class="rightlink" href="https://github.com/ContractP2P/byze-p2pool-cli" target="_blank" rel="noopener noreferrer">Code source ↗</a>
+ <div class="brand"><div class="brand-mark">B</div><div>BYZE P2Pool<small data-i18n="brand">GUIDED INSTALLATION</small></div></div>
+ <div class="header-tools">
+  <label class="language-picker" for="language-select"><span id="language-label">Language</span>
+   <select id="language-select" aria-label="Language">
+    <option value="en" selected>English</option><option value="fr">Français</option>
+    <option value="es">Español</option><option value="pt">Português (Brasil)</option>
+    <option value="zh">简体中文</option><option value="hi">हिन्दी</option>
+    <option value="ar">العربية</option><option value="ru">Русский</option>
+    <option value="ja">日本語</option><option value="de">Deutsch</option>
+   </select>
+  </label>
+  <a class="rightlink" data-i18n="source" href="https://github.com/ContractP2P/byze-p2pool-cli" target="_blank" rel="noopener noreferrer">Source code ↗</a>
+ </div>
 </header>
 <main>
-<section class="hero" aria-label="Introduction">
- <div class="eyebrow">Simple à installer. Libre de miner.</div>
- <h1>Votre mineur P2Pool,<br><span>sans compilation.</span></h1>
- <p class="lead">Choisissez votre système, indiquez votre adresse BYZE, puis récupérez la commande qui démarre votre mineur. Aucune clé privée, aucune phrase de récupération. Un nœud BYZE Core fonctionnel reste nécessaire.</p>
- <div class="hero-strip"><span>Mineur natif RandomX</span><span>Paiements PPLNS directs</span><span>Frais de pool 0,5 %</span></div>
+<section class="hero" aria-label="Introduction" data-i18n-aria-label="introAria">
+ <div class="eyebrow" data-i18n="eyebrow">Easy to install. Free to mine.</div>
+ <h1><span class="headline-plain" data-i18n="headlineTop">Your P2Pool miner,</span><br><span data-i18n="headlineBottom">without compiling.</span></h1>
+ <p class="lead" data-i18n="intro">Choose your operating system, enter your public BYZE address, and copy the commands to install and start mining. No private keys or recovery phrases. An operational BYZE Core node is required.</p>
+ <div class="hero-strip"><span data-i18n="native">Native RandomX miner</span><span data-i18n="payouts">Direct PPLNS payouts</span><span data-i18n="fee">0.5% pool fee</span></div>
 </section>
 <div class="layout">
 <div class="panel">
- <div class="section-top"><span class="number">01</span><h2>Votre système d'exploitation</h2></div>
- <p class="hint">Sélectionnez la plateforme sur laquelle la CLI sera installée.</p>
- <fieldset style="border:0;margin:0;padding:0"><legend class="visually-hidden">Système d'exploitation</legend><div class="os-grid">
+ <div class="section-top"><span class="number">01</span><h2 data-i18n="osTitle">Your operating system</h2></div>
+ <p class="hint" data-i18n="osHint">Choose the platform on which you want to install the CLI.</p>
+ <fieldset style="border:0;margin:0;padding:0"><legend class="visually-hidden" data-i18n="osLegend">Operating system</legend><div class="os-grid">
   <label class="os-choice"><input type="radio" name="os" value="darwin-arm64" checked><span class="os-card"><span class="os-icon">⌘</span><span><span class="os-name">Mac Apple Silicon</span><br><span class="os-sub">M1 / M2 / M3 / M4 / M5</span></span></span></label>
   <label class="os-choice"><input type="radio" name="os" value="darwin-x64"><span class="os-card"><span class="os-icon">⌘</span><span><span class="os-name">Mac Intel</span><br><span class="os-sub">x86_64</span></span></span></label>
   <label class="os-choice"><input type="radio" name="os" value="linux-x64"><span class="os-card"><span class="os-icon">▣</span><span><span class="os-name">Linux</span><br><span class="os-sub">x86_64 · Ubuntu</span></span></span></label>
  </div></fieldset>
  <div class="separator"></div>
- <div class="section-top"><span class="number">02</span><h2>Configurer le mineur</h2></div>
- <label class="fieldlabel" for="wallet">Adresse publique BYZE de réception</label>
+ <div class="section-top"><span class="number">02</span><h2 data-i18n="configure">Configure your miner</h2></div>
+ <label class="fieldlabel" data-i18n="walletLabel" for="wallet">Public BYZE payout address</label>
  <input id="wallet" type="text" placeholder="byz1…" autocomplete="off" spellcheck="false" maxlength="160" aria-describedby="wallet-help wallet-error">
- <p class="fieldnote" id="wallet-help">Elle recevra les récompenses éventuelles. Ne renseignez jamais votre clé privée ni votre seed.</p>
+ <p class="fieldnote" data-i18n="walletHelp" id="wallet-help">Any rewards will be sent to this address. Never enter your private key or recovery phrase.</p>
  <div class="error" id="wallet-error" aria-live="polite"></div>
  <div class="form-row">
-  <div><label class="fieldlabel" for="alias">Nom du mineur</label><input id="alias" type="text" value="MonMineur" maxlength="32" autocomplete="off" spellcheck="false"></div>
-  <div><label class="fieldlabel" for="threads">Threads CPU</label><input id="threads" type="number" min="1" max="128" value="2" step="1" inputmode="numeric"></div>
+  <div><label class="fieldlabel" data-i18n="minerLabel" for="alias">Miner name</label><input id="alias" type="text" value="MyMiner" maxlength="32" autocomplete="off" spellcheck="false"></div>
+  <div><label class="fieldlabel" data-i18n="threadsLabel" for="threads">CPU threads</label><input id="threads" type="number" min="1" max="128" value="2" step="1" inputmode="numeric"></div>
  </div>
- <p class="smallrule">Le nœud BYZE Core déjà installé sera réutilisé. Aucun téléchargement ni mise à jour de Core n'est effectué par cette page.</p>
+ <p class="smallrule" data-i18n="nodeNote">Your existing BYZE Core node will be reused. This page does not download or update BYZE Core.</p>
  <div class="separator"></div>
- <div class="section-top"><span class="number">03</span><h2>Installer la CLI</h2></div>
+ <div class="section-top"><span class="number">03</span><h2 data-i18n="installTitle">Install the CLI</h2></div>
  <div id="install-status" class="release-info" role="status"></div>
- <p class="fieldnote" id="release-warning">Les commandes Apple Silicon ci-dessous seront utilisables après publication de la préversion GitHub correspondante.</p>
- <div class="code-wrap" style="margin-top:13px"><div class="code-header"><span>Terminal · Installer le package complet</span><span>macOS ARM64</span></div><pre id="install-command">Chargement de la commande…</pre></div>
- <div class="action-row"><button type="button" id="install-copy">Copier l’installation</button><span class="label-inline" id="install-copy-status" role="status" aria-live="polite">Préversion à publier sur GitHub</span></div>
+ <p class="fieldnote" id="release-warning" aria-live="polite"></p>
+ <div class="code-wrap" style="margin-top:13px"><div class="code-header"><span data-i18n="installTerminal">Terminal · Install the complete package</span><span>macOS ARM64</span></div><pre id="install-command">Loading installation commands…</pre></div>
+ <div class="action-row"><button type="button" id="install-copy" data-i18n="installCopy">Copy installation commands</button><span class="label-inline" id="install-copy-status" role="status" aria-live="polite"></span></div>
  <div class="action-row">
-  <a id="download-link" class="actionlink secondary" href="https://github.com/ContractP2P/byze-p2pool-cli/actions" target="_blank" rel="noopener noreferrer">Voir le téléchargement ↗</a>
-  <a class="actionlink secondary" href="https://github.com/ContractP2P/byze-p2pool-cli/releases" target="_blank" rel="noopener noreferrer">Releases officielles ↗</a>
+  <a id="download-link" class="actionlink secondary" href="https://github.com/ContractP2P/byze-p2pool-cli/actions" target="_blank" rel="noopener noreferrer" data-i18n="download">View download ↗</a>
+  <a class="actionlink secondary" href="https://github.com/ContractP2P/byze-p2pool-cli/releases" target="_blank" rel="noopener noreferrer" data-i18n="release">GitHub Releases ↗</a>
  </div>
  <div class="install-mock"><p class="fieldnote" id="install-hint"></p></div>
 </div>
 <aside class="panel aside-panel">
- <p class="prelabel">Installation en trois gestes</p>
- <div class="plan"><span class="circle">1</span><div><strong>Choisir sa plateforme</strong><p>Le bon exécutable natif est proposé.</p></div></div>
- <div class="plan"><span class="circle">2</span><div><strong>Télécharger le package</strong><p>Node.js et les dépendances sont inclus dans le package complet.</p></div></div>
- <div class="plan"><span class="circle">3</span><div><strong>Exécuter la commande</strong><p>L'adresse est renseignée automatiquement dans la ligne de lancement.</p></div></div>
- <div class="banner"><strong>Version de démonstration</strong><br>Le package Apple Silicon possède maintenant un script de construction reproductible à lancer sur le Mac du développeur. Sa GitHub Release de test doit encore être publiée. Les autres plateformes restent expérimentales ; les packages ne sont pas signés ni notarizés.</div>
+ <p class="prelabel" data-i18n="steps">Three steps to get started</p>
+ <div class="plan"><span class="circle">1</span><div><strong data-i18n="step1">Choose your platform</strong><p data-i18n="step1Text">The appropriate native executable is selected.</p></div></div>
+ <div class="plan"><span class="circle">2</span><div><strong data-i18n="step2">Download the package</strong><p data-i18n="step2Text">Node.js and dependencies are included in the complete package.</p></div></div>
+ <div class="plan"><span class="circle">3</span><div><strong data-i18n="step3">Run the command</strong><p data-i18n="step3Text">Your public BYZE address is added to the mining command.</p></div></div>
+ <div class="banner"><strong data-i18n="bannerTitle">Experimental pre-release</strong><p data-i18n="bannerText">The Apple Silicon package is available as an experimental GitHub pre-release. Intel macOS and Linux packages are still in preparation. These binaries are not signed or notarized.</p></div>
 </aside>
 </div>
-<section class="panel output" aria-label="Commande personnalisée">
- <div class="output-heading"><h3>Votre commande de minage réel</h3><span class="pill">Soumission activée</span></div>
- <p class="output-note">À exécuter dans le Terminal <strong>après installation du package complet</strong> et avec un BYZE Core synchronisé, déjà configuré et accessible. Aucun <code>--no-submit</code>.</p>
- <div class="code-wrap"><div class="code-header"><span>Terminal · macOS / Linux</span><span>BYZE P2Pool CLI v0.2.5-rc3</span></div><pre id="command">Saisissez d'abord votre adresse BYZE…</pre></div>
- <div class="action-row"><button type="button" id="copy" disabled>Copier la commande</button><span class="label-inline" id="copy-status" role="status" aria-live="polite">Adresse BYZE requise</span></div>
- <p class="fieldnote" style="margin-top:15px">Le lancement réel peut soumettre des blocs au mainnet. La version 0.2.4 de BYZE Core peut présenter des limites de compatibilité pour la signature et la dépensabilité des récompenses ; cet assistant ne garantit pas la validité des paiements.</p>
+<section class="panel output" aria-label="Custom mining command" data-i18n-aria-label="miningAria">
+ <div class="output-heading"><h3 data-i18n="miningTitle">Your mainnet mining command</h3><span class="pill" data-i18n="submission">Block submission enabled</span></div>
+ <p class="output-note" data-i18n="miningNote">Run this after installing the complete package and making sure your existing BYZE Core node is synchronized. No --no-submit option is used.</p>
+ <div class="code-wrap"><div class="code-header"><span>Terminal · macOS / Linux</span><span>BYZE P2Pool CLI v0.2.5-rc3</span></div><pre id="command">Enter a valid public BYZE address and miner settings.</pre></div>
+ <div class="action-row"><button type="button" id="copy" data-i18n="copyCommand" disabled>Copy mining command</button><span class="label-inline" id="copy-status" role="status" aria-live="polite">BYZE address required</span></div>
+ <p class="fieldnote" style="margin-top:15px" data-i18n="coreCaution">Real mining can submit blocks to the mainnet. BYZE Core 0.2.4 may have limitations when signing blocks or spending rewards. This installer cannot guarantee payout validity.</p>
 </section>
 </main>
-<footer class="footer"><span>BYZE P2Pool CLI · Démonstrateur d'installation · 2026</span><span>L’adresse BYZE reste dans votre navigateur. Seul le statut public de la Release est consulté sur GitHub.</span></footer>
+<footer class="footer"><span data-i18n="footerName">BYZE P2Pool CLI · Experimental installer · 2026</span><span data-i18n="footerPrivacy">Your BYZE address stays in your browser. Only public release status is fetched from GitHub.</span></footer>
 </div>
+<script src="./i18n.js"></script>
 <script>
 'use strict';
 (function(){
@@ -102,10 +114,29 @@
  const MAC_FOLDER='byze-p2pool-0.2.5-rc3-darwin-arm64';
  const MAC_BASE='https://github.com/ContractP2P/byze-p2pool-cli/releases/download/'+MAC_TAG;
  let macReleaseAvailable=false;
+ const translations=window.BYZE_I18N||{en:{}};
+ let currentLang='en';
+ const languageLabels={en:'Language',fr:'Langue',es:'Idioma',pt:'Idioma',zh:'语言',hi:'भाषा',ar:'اللغة',ru:'Язык',ja:'言語',de:'Sprache'};
+ const t=(key,vars={})=>String(translations[currentLang]?.[key]||translations.en?.[key]||key).replace(/\{([a-zA-Z]+)\}/g,(_,k)=>String(vars[k]||''));
+ function applyLanguage(lang){
+  currentLang=Object.prototype.hasOwnProperty.call(translations,lang)?lang:'en';
+  const codes={en:'en',fr:'fr',es:'es',pt:'pt-BR',zh:'zh-CN',hi:'hi',ar:'ar',ru:'ru',ja:'ja',de:'de'};
+  document.documentElement.lang=codes[currentLang];
+  document.documentElement.dir=currentLang==='ar'?'rtl':'ltr';
+  document.title=t('pageTitle');
+  document.querySelector('meta[name="description"]').content=t('metaDescription');
+  document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=t(el.dataset.i18n)});
+  document.querySelectorAll('[data-i18n-aria-label]').forEach(el=>el.setAttribute('aria-label',t(el.dataset.i18nAriaLabel)));
+  $('language-label').textContent=languageLabels[currentLang];
+  $('language-select').setAttribute('aria-label',languageLabels[currentLang]);
+  $('language-select').value=currentLang;
+  render();
+ }
+ $('language-select').addEventListener('change',e=>applyLanguage(e.target.value));
  const catalog={
-  'darwin-arm64':{name:'macOS Apple Silicon',link:'https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/'+MAC_TAG,status:'<strong>Mac ARM64 :</strong> package complet à publier comme préversion GitHub. L’archive comprendra Node.js 22, les dépendances et les exécutables natifs. Aucune compilation chez l’utilisateur.'},
-  'darwin-x64':{name:'macOS Intel',link:'https://github.com/ContractP2P/byze-p2pool-cli/actions/runs/38369030574',status:'<strong>Mac Intel :</strong> binaires natifs compilés ; l’archive autonome doit encore être préparée et testée, notamment sur les anciennes versions de macOS.'},
-  'linux-x64':{name:'Linux x64',link:'https://github.com/ContractP2P/byze-p2pool-cli/actions/runs/38369030224',status:'<strong>Linux x64 :</strong> package complet expérimental disponible dans GitHub Actions, non publié comme GitHub Release définitive.'}
+  'darwin-arm64':{link:'https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/'+MAC_TAG,statusKey:'macPending'},
+  'darwin-x64':{link:'https://github.com/ContractP2P/byze-p2pool-cli/actions/runs/38369030574',statusKey:'intelPending'},
+  'linux-x64':{link:'https://github.com/ContractP2P/byze-p2pool-cli/actions/runs/38369030224',statusKey:'linuxPending'}
  };
  function macInstall(){return [
   '(',
@@ -134,30 +165,30 @@
  function choose(){return osRadios.find(r=>r.checked)?.value||'darwin-arm64'}
  function validWallet(v){return /^byz1[a-z0-9]{8,156}$/.test(v)}
  function render(){
-  const platform=choose(),d=catalog[platform],w=wallet.value.trim(),a=alias.value.trim(),t=Number(threads.value);
-  $('install-status').innerHTML=platform==='darwin-arm64' && macReleaseAvailable?'<strong>Mac ARM64 :</strong> préversion téléchargeable sur GitHub Releases. Package complet incluant Node.js et le mineur natif ; archive SHA-256 vérifiée au moment de l’installation.':d.status;
-  installCode.textContent=platform==='darwin-arm64'?macInstall():'Package autonome non publié pour cette plateforme. Ne pas utiliser les artefacts natifs seuls comme une installation finale.';
+  const platform=choose(),d=catalog[platform],w=wallet.value.trim(),a=alias.value.trim(),n=Number(threads.value);
+  $('install-status').textContent=platform==='darwin-arm64'&&macReleaseAvailable?t('macReady'):t(d.statusKey);
+  installCode.textContent=platform==='darwin-arm64'?macInstall():t('installUnavailable');
   installCopy.disabled=platform!=='darwin-arm64';
-  installMsg.textContent=platform==='darwin-arm64'?(macReleaseAvailable?'Commande prête à installer':'Fonctionnera après publication de la préversion de test'):'Commande d’installation non disponible';
-  $('release-warning').textContent=platform==='darwin-arm64'?(macReleaseAvailable?'Préversion expérimentale disponible : téléchargez uniquement depuis la GitHub Release '+MAC_TAG+'. Les exécutables ne sont pas signés ni notarizés.':'Préversion non encore publiée : cette installation ne fonctionnera que lorsque l’archive et le fichier SHA256SUMS auront été ajoutés à la GitHub Release '+MAC_TAG+'.'):'La publication d’une distribution autonome pour cette plateforme reste à finaliser.';
+  installMsg.textContent=platform==='darwin-arm64'?(macReleaseAvailable?t('installReady'):t('installPending')):t('installDisabled');
+  $('release-warning').textContent=platform==='darwin-arm64'?(macReleaseAvailable?t('releaseReady',{tag:MAC_TAG}):t('releasePending',{tag:MAC_TAG})):t('releaseOther');
   $('download-link').href=d.link;
-  $('install-hint').textContent=platform==='darwin-arm64'?'Le script télécharge uniquement la préversion identifiée ci-dessus, vérifie son SHA-256 puis installe la CLI dans votre dossier utilisateur (~/.local/opt). Aucun sudo, Git, npm ni compilateur n’est requis.':platform==='linux-x64'?'Le package Linux est encore dans GitHub Actions. Après publication en Release, cette section fournira une installation équivalente.':'Ne pas confondre les binaires natifs temporaires et un package complet utilisable sans Node.js.';
+  $('install-hint').textContent=platform==='darwin-arm64'?t('macHint'):platform==='linux-x64'?t('linuxHint'):t('otherHint');
   wallet.setAttribute('aria-invalid',w!==''&&!validWallet(w)?'true':'false');
-  const problem=w===''?'':!validWallet(w)?'Format attendu : une adresse BYZE publique commençant par byz1, sans espace.':'';
-  $('wallet-error').textContent=problem;
-  const valid=validWallet(w)&&/^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$/.test(a)&&Number.isInteger(t)&&t>=1&&t<=128;
+  $('wallet-error').textContent=w!==''&&!validWallet(w)?t('walletError'):'';
+  const valid=validWallet(w)&&/^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$/.test(a)&&Number.isInteger(n)&&n>=1&&n<=128;
   const errors=[];
-  if(a!==''&&!/^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$/.test(a))errors.push('Alias invalide');
-  if(!Number.isInteger(t)||t<1||t>128)errors.push('Threads : de 1 à 128');
-  code.textContent=valid?`${platform==='darwin-arm64'?'"$HOME/.local/bin/byze-p2pool"':'byze-p2pool'} --alias ${q(a)} --wallet ${q(w)} --threads ${t}`:'Saisissez une adresse BYZE publique valide et une configuration correcte.';
-  copy.disabled=!valid;msg.textContent=errors.length?errors.join(' · '):valid?'Prêt à copier':'Adresse BYZE requise';
+  if(a!==''&&!/^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$/.test(a))errors.push(t('aliasError'));
+  if(!Number.isInteger(n)||n<1||n>128)errors.push(t('threadsError'));
+  code.textContent=valid?`${platform==='darwin-arm64'?'"$HOME/.local/bin/byze-p2pool"':'byze-p2pool'} --alias ${q(a)} --wallet ${q(w)} --threads ${n}`:t('commandPrompt');
+  copy.disabled=!valid;
+  msg.textContent=errors.length?errors.join(' · '):valid?t('readyToCopy'):t('walletNeeded');
  }
  for(const el of [...osRadios,wallet,alias,threads])el.addEventListener('input',render);
  async function copyText(value,target){
   try{if(navigator.clipboard&&window.isSecureContext)await navigator.clipboard.writeText(value);
    else{const ta=document.createElement('textarea');ta.value=value;ta.setAttribute('readonly','');ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();if(!document.execCommand('copy'))throw Error('Copie impossible');ta.remove()}
-   target.textContent='Copié ✓';
-  }catch(e){target.textContent='Sélectionnez le texte pour copier';}
+   target.textContent=t('copied');
+  }catch(e){target.textContent=t('copyFailed');}
  }
  installCopy.addEventListener('click',()=>{if(!installCopy.disabled)void copyText(installCode.textContent,installMsg)});
  copy.addEventListener('click',async()=>{
@@ -176,7 +207,7 @@
    render();
   }catch(_) { /* Keep offline preview and explicit publication warning. */ }
  }
- render();
+ applyLanguage('en');
  void checkMacRelease();
 })();
 </script>
