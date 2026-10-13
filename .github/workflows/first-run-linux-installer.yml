@@ -95,3 +95,31 @@ jobs:
           grep -q 'not published' "$work/out"
           test ! -d "$work/home/.local/opt"
           echo 'PASS: no partial Core install on unavailable P2Pool release'
+
+      - name: Real official BYZE Core rc4 signed archive integrity and contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          node cli/tools/download-core.js --dest "$work/verified-core" --platform linux-x64
+          archive="$work/verified-core/byze-core-linux-x86_64.tar.gz"
+          test -s "$archive"
+          tar -tzf "$archive" | grep -Eq '(^|/)byzed$'
+          tar -tzf "$archive" | grep -Eq '(^|/)byze-cli$'
+          echo 'PASS: genuine signed and SHA-256-pinned Core archive contains both executables; no node was started'
+      - name: Validate website installer command JavaScript
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html=Path("docs/index.html").read_text()
+          snippets=re.findall(r'<script>([\s\S]*?)</script>',html)
+          assert len(snippets)==1
+          Path("/tmp/byze-install-site-inline.js").write_text(snippets[0])
+          assert "function linuxInstall()" in snippets[0]
+          assert "'linux-x64'" in snippets[0]
+          PY
+          node --check /tmp/byze-install-site-inline.js
