@@ -96,3 +96,24 @@ jobs:
           grep -q '# BYZE_P2POOL_MANAGED_LAUNCHER' "$home/.local/bin/byze-p2pool"
           test -f "$home/ldev/byze/build/bin/byze-cli"
           echo 'PASS: existing Core untouched, pool launcher configured'
+
+      - name: Existing Core data fails closed without any network access
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          trap 'rm -rf -- "$work"' EXIT
+          mkdir -p "$work/home/Library/Application Support/Byze" "$work/bin"
+          cat > "$work/bin/curl" <<'MOCK'
+          #!/bin/sh
+          echo 'Unexpected network operation' >&2
+          exit 99
+          MOCK
+          chmod +x "$work/bin/curl"
+          if HOME="$work/home" PATH="$work/bin:$PATH" /bin/bash docs/install-macos.sh --install > "$work/output" 2>&1; then
+            echo "ERROR: installer proceeded despite existing Core data"
+            exit 1
+          fi
+          grep -q 'Existing Core footprint:' "$work/output"
+          ! grep -q 'Unexpected network operation' "$work/output"
+          echo 'PASS: existing Core footprint blocked without network access'
