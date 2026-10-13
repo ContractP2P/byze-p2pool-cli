@@ -225,7 +225,7 @@ case "$MODE" in
    # RC3 packages predating the zero-height fix may wrongly consider 0/0
    # synchronized. Fail closed here as well, without replacing the bundle.
    core_blocks="$("$CORE_CLI" getblockchaininfo 2>/dev/null | \
-     /usr/bin/sed -nE 's/.*"blocks"[[:space:]]*:[[:space:]]*([0-9]+).*/\\1/p' || true)"
+     /usr/bin/sed -nE 's/.*"blocks"[[:space:]]*:[[:space:]]*([0-9]+).*/\1/p' || true)"
    if [[ ! "$core_blocks" =~ ^[0-9]+$ ]] || [ "$core_blocks" -eq 0 ]; then
      message "BYZE_NODE_NOT_READY. Core has no confirmed chain height yet (blocks: ${core_blocks:-unknown})."
      message "Wait for blockchain synchronization before mining."
