@@ -2,3 +2,7 @@
 # Native build/cache
 .native-work/
 .native-source-cache/
+
+# Portable precompiled test package staging/output
+.portable-lab/
+dist/
