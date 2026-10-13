@@ -111,9 +111,10 @@
  const installCode=$('install-command'), installCopy=$('install-copy'), installMsg=$('install-copy-status');
  const RELEASES={
   'darwin-arm64':{tag:'v0.2.5-rc3-macos-arm64-test1',archive:'byze-p2pool-cli-complete-0.2.5-rc3-darwin-arm64.tar.gz'},
-  'darwin-x64':{tag:'v0.2.5-rc3-macos-intel-test1',archive:'byze-p2pool-cli-complete-0.2.5-rc3-darwin-x64.tar.gz'}
+  'darwin-x64':{tag:'v0.2.5-rc3-macos-intel-test1',archive:'byze-p2pool-cli-complete-0.2.5-rc3-darwin-x64.tar.gz'},
+  'linux-x64':{tag:'v0.2.5-rc3-linux-x64-test1',archive:'byze-p2pool-cli-complete-0.2.5-rc3-linux-x64.tar.gz'}
  };
- const releaseReady={'darwin-arm64':false,'darwin-x64':false};
+ const releaseReady={'darwin-arm64':false,'darwin-x64':false,'linux-x64':false};
  const translations=window.BYZE_I18N||{en:{}};
  let currentLang='en';
  const languageLabels={en:'Language',fr:'Langue',es:'Idioma',pt:'Idioma',zh:'语言',hi:'भाषा',ar:'اللغة',ru:'Язык',ja:'言語',de:'Sprache'};
@@ -136,7 +137,7 @@
  const catalog={
   'darwin-arm64':{link:'https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/'+RELEASES['darwin-arm64'].tag,statusKey:'macPending'},
   'darwin-x64':{link:'https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/'+RELEASES['darwin-x64'].tag,statusKey:'intelPending'},
-  'linux-x64':{link:'https://github.com/ContractP2P/byze-p2pool-cli/actions/runs/38369030224',statusKey:'linuxPending'}
+  'linux-x64':{link:'https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/'+RELEASES['linux-x64'].tag,statusKey:'linuxPending'}
  };
  function macInstall(){return [
   '(',
@@ -148,6 +149,16 @@
   ')'
  ].join('\n')}
 
+ function linuxInstall(){return [
+  '(',
+  'set -e',
+  'INSTALLER="$(mktemp)"',
+  'trap \'rm -f -- "$INSTALLER"\' EXIT',
+  'curl -fL --retry 3 "https://contractp2p.github.io/byze-p2pool-cli/install-linux.sh" -o "$INSTALLER"',
+  '/bin/bash "$INSTALLER" --probe',
+  '/bin/bash "$INSTALLER" --install',
+  ')'
+ ].join('\\n')}
  function q(v){return "'"+v.replace(/'/g,"'\\''")+"'"}
  function choose(){return osRadios.find(r=>r.checked)?.value||'darwin-arm64'}
  function validWallet(v){return /^byz1[a-z0-9]{8,156}$/.test(v)}
@@ -155,14 +166,14 @@
   const platform=choose(),d=catalog[platform],w=wallet.value.trim(),a=alias.value.trim(),n=Number(threads.value);
   const available=releaseReady[platform]===true, mac=platform==='darwin-arm64'||platform==='darwin-x64';
   const release=RELEASES[platform];
-  $('install-status').textContent=available?(platform==='darwin-x64'?t('intelReady'):t('macReady')):t(d.statusKey);
-  installCode.textContent=mac?macInstall():t('installUnavailable');
-  installCopy.disabled=!mac||!available;
-  installMsg.textContent=mac?(available?t('installReady'):t('installPending')):t('installDisabled');
-  $('release-warning').textContent=mac?(available?t('releaseReady',{tag:release.tag}):t('releasePending',{tag:release.tag})):t('releaseOther');
+  $('install-status').textContent=available?(platform==='darwin-x64'?t('intelReady'):platform==='linux-x64'?t('installReady'):t('macReady')):t(d.statusKey);
+  installCode.textContent=mac?macInstall():platform==='linux-x64'?linuxInstall():t('installUnavailable');
+  installCopy.disabled=!available;
+  installMsg.textContent=available?t('installReady'):t('installPending');
+  $('release-warning').textContent=available?t('releaseReady',{tag:release.tag}):t('releasePending',{tag:release.tag});
   $('installer-platform').textContent=platform==='darwin-x64'?'macOS Intel x64':platform==='darwin-arm64'?'macOS Apple Silicon':'Linux x64';
   $('download-link').href=d.link;
-  $('install-hint').textContent=mac?t('macHint'):platform==='linux-x64'?t('linuxHint'):t('otherHint');
+  $('install-hint').textContent=mac?t('macHint'):platform==='linux-x64'?(available?t('macHint'):t('linuxHint')):t('otherHint');
   $('availability-banner').textContent=releaseReady['darwin-x64']?t('bannerReady'):t('bannerText');
   wallet.setAttribute('aria-invalid',w!==''&&!validWallet(w)?'true':'false');
   $('wallet-error').textContent=w!==''&&!validWallet(w)?t('walletError'):'';
@@ -170,7 +181,7 @@
   const errors=[];
   if(a!==''&&!/^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$/.test(a))errors.push(t('aliasError'));
   if(!Number.isInteger(n)||n<1||n>128)errors.push(t('threadsError'));
-  code.textContent=valid?`${mac?'"$HOME/.local/bin/byze-p2pool"':'byze-p2pool'} --alias ${q(a)} --wallet ${q(w)} --threads ${n}`:t('commandPrompt');
+  code.textContent=valid?`"$HOME/.local/bin/byze-p2pool" --alias ${q(a)} --wallet ${q(w)} --threads ${n}`:t('commandPrompt');
   copy.disabled=!valid;
   msg.textContent=errors.length?errors.join(' · '):valid?t('readyToCopy'):t('walletNeeded');
  }
@@ -187,7 +198,7 @@
   await copyText(code.textContent,msg);
  });
  async function checkReleases(){
-  for(const platform of ['darwin-arm64','darwin-x64']){
+  for(const platform of ['darwin-arm64','darwin-x64','linux-x64']){
    const wanted=RELEASES[platform];
    try {
     // Public release metadata only. Wallet, alias and CPU settings stay local.
