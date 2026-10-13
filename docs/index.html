@@ -174,7 +174,7 @@
   $('installer-platform').textContent=platform==='darwin-x64'?'macOS Intel x64':platform==='darwin-arm64'?'macOS Apple Silicon':'Linux x64';
   $('download-link').href=d.link;
   $('install-hint').textContent=mac?t('macHint'):platform==='linux-x64'?(available?t('macHint'):t('linuxHint')):t('otherHint');
-  $('availability-banner').textContent=releaseReady['darwin-x64']?t('bannerReady'):t('bannerText');
+  $('availability-banner').textContent=releaseReady['linux-x64']?t('macHint'):releaseReady['darwin-x64']?t('bannerReady'):t('bannerText');
   wallet.setAttribute('aria-invalid',w!==''&&!validWallet(w)?'true':'false');
   $('wallet-error').textContent=w!==''&&!validWallet(w)?t('walletError'):'';
   const valid=validWallet(w)&&/^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$/.test(a)&&Number.isInteger(n)&&n>=1&&n<=128;
