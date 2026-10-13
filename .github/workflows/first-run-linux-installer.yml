@@ -1,0 +1,152 @@
+name: Linux first-run installer (BYZE Core preservation)
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, fix/core-detection-before-network-preflight]
+permissions:
+  contents: read
+jobs:
+  no-duplicate-core:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate shell syntax and offline Core discovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n docs/install-linux.sh
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          mkdir -p "$work/home" "$work/mock"
+          cat > "$work/mock/curl" <<'CURL'
+          #!/bin/sh
+          echo UNEXPECTED_CURL >> "$CURL_LOG"
+          exit 99
+          CURL
+          chmod +x "$work/mock/curl"
+          export CURL_LOG="$work/curl.log"
+          HOME="$work/home" PATH="$work/mock:$PATH" bash docs/install-linux.sh --probe > "$work/clean"
+          grep -q 'CORE_ABSENT' "$work/clean"
+          mkdir -p "$work/home/.byze"
+          HOME="$work/home" PATH="$work/mock:$PATH" bash docs/install-linux.sh --probe > "$work/data"
+          grep -q 'CORE_FOUND' "$work/data"
+          grep -q 'DO_NOT_REINSTALL' "$work/data"
+          if HOME="$work/home" PATH="$work/mock:$PATH" bash docs/install-linux.sh --install > "$work/blocked" 2>&1; then
+            echo 'Existing Core data must block install' >&2; exit 1
+          fi
+          grep -q 'Existing Core footprint' "$work/blocked"
+          test ! -e "$work/curl.log"
+          test -d "$work/home/.byze"
+          echo 'PASS: existing Core data preserved without a network request'
+      - name: Reuse existing Core and P2Pool without downloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          home="$work/home"
+          mkdir -p "$home/byze/build/bin" "$home/.local/opt/byze-p2pool-0.2.5-rc3-linux-x64/bin" "$work/mock"
+          cat > "$home/byze/build/bin/byze-cli" <<'CLI'
+          #!/bin/sh
+          if [ "$1" = getblockchaininfo ]; then
+            printf '{"chain":"main","blocks":5,"headers":5}\n'
+            exit 0
+          fi
+          exit 1
+          CLI
+          cat > "$home/.local/opt/byze-p2pool-0.2.5-rc3-linux-x64/bin/byze-p2pool" <<'POOL'
+          #!/bin/sh
+          if [ "$1" = --version ]; then echo 0.2.5-rc3; exit 0; fi
+          if [ "$1" = --check-node ]; then echo BYZE_NODE_READY; exit 0; fi
+          exit 1
+          POOL
+          cat > "$work/mock/curl" <<'CURL'
+          #!/bin/sh
+          echo 'Network must not be needed for existing Core + pool' >&2
+          exit 99
+          CURL
+          chmod +x "$home/byze/build/bin/byze-cli" \
+            "$home/.local/opt/byze-p2pool-0.2.5-rc3-linux-x64/bin/byze-p2pool" "$work/mock/curl"
+          HOME="$home" PATH="$work/mock:$PATH" bash docs/install-linux.sh --install > "$work/result"
+          grep -q 'CORE_ACTION: REUSE_ONLY' "$work/result"
+          grep -q 'BYZE_NODE_READY' "$work/result"
+          grep -qx '# BYZE_P2POOL_MANAGED_LAUNCHER' "$home/.local/bin/byze-p2pool"
+          test -f "$home/byze/build/bin/byze-cli"
+          echo 'PASS: no BYZE Core/CLI redownload or replacement'
+      - name: Core absent without signed public P2Pool asset cannot alter machine
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          mkdir -p "$work/home" "$work/mock"
+          cat > "$work/mock/curl" <<'CURL'
+          #!/bin/sh
+          exit 22
+          CURL
+          chmod +x "$work/mock/curl"
+          if HOME="$work/home" PATH="$work/mock:$PATH" bash docs/install-linux.sh --install > "$work/out" 2>&1; then
+            echo 'Expected fail-closed without Linux release' >&2; exit 1
+          fi
+          grep -q 'not published' "$work/out"
+          test ! -d "$work/home/.local/opt"
+          echo 'PASS: no partial Core install on unavailable P2Pool release'
+
+
+      - name: Validate official BYZE Core rc4 signature, contents and clean-host installation
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          node cli/tools/download-core.js --dest "$work/verified-core" --platform linux-x64
+          archive="$work/verified-core/byze-core-linux-x86_64.tar.gz"
+          test -s "$archive"
+          tar -tzf "$archive" > "$work/archive-files"
+          grep -Eq '(^|/)byzed$' "$work/archive-files"
+          grep -Eq '(^|/)byze-cli$' "$work/archive-files"
+          echo 'PASS: signed and SHA-256-pinned official Core archive includes executables'
+      - name: Validate website installer command JavaScript
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html=Path("docs/index.html").read_text()
+          scripts=re.findall(r'<script>([\s\S]*?)</script>',html)
+          assert len(scripts)==1, "Expected one inline script"
+          Path("/tmp/byze-install-site-inline.js").write_text(scripts[0])
+          assert "function linuxInstall()" in scripts[0]
+          assert "'linux-x64'" in scripts[0]
+          PY
+          node --check /tmp/byze-install-site-inline.js
+      - name: Clean Linux host installs real Core into new directory but never auto-starts
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          mkdir -p "$work/home"
+          # Linux script(1) provides the terminal needed for consent.
+          # Reject START; never run byzed or touch a blockchain wallet.
+          set +e
+          printf 'NO\nINSTALL\nDECLINE\n' | \
+            script -q -e -c "env HOME=$work/home bash docs/install-linux.sh --install-core" /dev/null \
+            > "$work/out" 2>&1
+          status=$?
+          set -e
+          test "$status" -ne 0
+          grep -q 'CORE_INSTALLED:' "$work/out"
+          found_cli="$(find "$work/home/.local/opt" -type f -name byze-cli -print -quit)"
+          found_daemon="$(find "$work/home/.local/opt" -type f -name byzed -print -quit)"
+          test -x "$found_cli"
+          test -x "$found_daemon"
+          test ! -e "$work/home/.byze"
+          HOME="$work/home" bash docs/install-linux.sh --probe > "$work/probe"
+          grep -q 'CORE_ACTION: REUSE_ONLY' "$work/probe"
+          echo 'PASS: clean install succeeds, no daemon started, re-run recognizes existing Core'

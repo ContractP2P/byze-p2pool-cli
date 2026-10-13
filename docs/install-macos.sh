@@ -95,6 +95,13 @@ preflight() {
    fail "Unmanaged P2Pool launcher exists; refusing overwrite."
  fi
  [ ! -L "$MARKER" ] || fail "Core path marker is a symlink."
+ # An already installed complete package is reused even when offline.
+ if [ -d "$CLI_HOME" ] && [ -x "$CLI_HOME/bin/byze-p2pool" ]; then
+   message "Existing P2Pool package found; no release download needed."
+   return 0
+ fi
+ [ ! -e "$CLI_HOME" ] && [ ! -L "$CLI_HOME" ] ||
+   fail "Incomplete P2Pool package exists; refusing overwrite."
  # Fail before provisioning Core when the P2Pool platform package is absent.
  curl --silent --show-error --fail --location --head --max-time 30 \
    "$CLI_URL/$CLI_TAR" -o /dev/null ||
@@ -195,13 +202,19 @@ case "$MODE" in
    fi ;;
  --install)
    message "BYZE P2Pool full installation for $PLATFORM"
-   preflight
+   # Inspect local installations before any network operation. A detected
+   # footprint with no usable byze-cli must fail closed even when offline.
+   local_core_absent=0
    if discover_core; then
      message "CORE_FOUND: $CORE_EVIDENCE"
      message "CORE_ACTION: REUSE_ONLY; no download, replacement or upgrade."
    elif [ -n "$CORE_EVIDENCE" ]; then
      fail "Existing Core footprint: $CORE_EVIDENCE. Core will NOT be reinstalled. Set BYZE_CLI to its client location."
    else
+     local_core_absent=1
+   fi
+   preflight
+   if [ "$local_core_absent" -eq 1 ]; then
      TMP="$(mktemp -d "${TMPDIR:-/tmp}/byze-install.XXXXXXXX")"
      install_new_core
    fi
