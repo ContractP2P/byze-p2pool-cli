@@ -70,12 +70,12 @@
   <div><label class="fieldlabel" data-i18n="minerLabel" for="alias">Miner name</label><input id="alias" type="text" value="MyMiner" maxlength="32" autocomplete="off" spellcheck="false"></div>
   <div><label class="fieldlabel" data-i18n="threadsLabel" for="threads">CPU threads</label><input id="threads" type="number" min="1" max="128" value="2" step="1" inputmode="numeric"></div>
  </div>
- <p class="smallrule" data-i18n="nodeNote">Your existing BYZE Core node will be reused. This page does not download or update BYZE Core.</p>
+ <p class="smallrule" data-i18n="nodeNote">An existing BYZE Core node is always reused without reinstalling it. If none exists, the official node can be installed with your permission.</p>
  <div class="separator"></div>
  <div class="section-top"><span class="number">03</span><h2 data-i18n="installTitle">Install the CLI</h2></div>
  <div id="install-status" class="release-info" role="status"></div>
  <p class="fieldnote" id="release-warning" aria-live="polite"></p>
- <div class="code-wrap" style="margin-top:13px"><div class="code-header"><span data-i18n="installTerminal">Terminal · Install the complete package</span><span>macOS ARM64</span></div><pre id="install-command">Loading installation commands…</pre></div>
+ <div class="code-wrap" style="margin-top:13px"><div class="code-header"><span data-i18n="installTerminal">Terminal · Install the complete package</span><span id="installer-platform">macOS ARM64</span></div><pre id="install-command">Loading installation commands…</pre></div>
  <div class="action-row"><button type="button" id="install-copy" data-i18n="installCopy">Copy installation commands</button><span class="label-inline" id="install-copy-status" role="status" aria-live="polite"></span></div>
  <div class="action-row">
   <a id="download-link" class="actionlink secondary" href="https://github.com/ContractP2P/byze-p2pool-cli/actions" target="_blank" rel="noopener noreferrer" data-i18n="download">View download ↗</a>
@@ -88,7 +88,7 @@
  <div class="plan"><span class="circle">1</span><div><strong data-i18n="step1">Choose your platform</strong><p data-i18n="step1Text">The appropriate native executable is selected.</p></div></div>
  <div class="plan"><span class="circle">2</span><div><strong data-i18n="step2">Download the package</strong><p data-i18n="step2Text">Node.js and dependencies are included in the complete package.</p></div></div>
  <div class="plan"><span class="circle">3</span><div><strong data-i18n="step3">Run the command</strong><p data-i18n="step3Text">Your public BYZE address is added to the mining command.</p></div></div>
- <div class="banner"><strong data-i18n="bannerTitle">Experimental pre-release</strong><p data-i18n="bannerText">The Apple Silicon package is available as an experimental GitHub pre-release. Intel macOS and Linux packages are still in preparation. These binaries are not signed or notarized.</p></div>
+ <div class="banner"><strong data-i18n="bannerTitle">Experimental pre-release</strong><p id="availability-banner" data-i18n="bannerText">The Apple Silicon package is available as an experimental GitHub pre-release. Intel macOS and Linux packages are still in preparation. These binaries are not signed or notarized.</p></div>
 </aside>
 </div>
 <section class="panel output" aria-label="Custom mining command" data-i18n-aria-label="miningAria">
@@ -109,11 +109,11 @@
  const osRadios=[...document.querySelectorAll('input[name="os"]')];
  const wallet=$('wallet'),alias=$('alias'),threads=$('threads'),code=$('command'),copy=$('copy'),msg=$('copy-status');
  const installCode=$('install-command'), installCopy=$('install-copy'), installMsg=$('install-copy-status');
- const MAC_TAG='v0.2.5-rc3-macos-arm64-test1';
- const MAC_ARCHIVE='byze-p2pool-cli-complete-0.2.5-rc3-darwin-arm64.tar.gz';
- const MAC_FOLDER='byze-p2pool-0.2.5-rc3-darwin-arm64';
- const MAC_BASE='https://github.com/ContractP2P/byze-p2pool-cli/releases/download/'+MAC_TAG;
- let macReleaseAvailable=false;
+ const RELEASES={
+  'darwin-arm64':{tag:'v0.2.5-rc3-macos-arm64-test1',archive:'byze-p2pool-cli-complete-0.2.5-rc3-darwin-arm64.tar.gz'},
+  'darwin-x64':{tag:'v0.2.5-rc3-macos-intel-test1',archive:'byze-p2pool-cli-complete-0.2.5-rc3-darwin-x64.tar.gz'}
+ };
+ const releaseReady={'darwin-arm64':false,'darwin-x64':false};
  const translations=window.BYZE_I18N||{en:{}};
  let currentLang='en';
  const languageLabels={en:'Language',fr:'Langue',es:'Idioma',pt:'Idioma',zh:'语言',hi:'भाषा',ar:'اللغة',ru:'Язык',ja:'言語',de:'Sprache'};
@@ -134,52 +134,43 @@
  }
  $('language-select').addEventListener('change',e=>applyLanguage(e.target.value));
  const catalog={
-  'darwin-arm64':{link:'https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/'+MAC_TAG,statusKey:'macPending'},
-  'darwin-x64':{link:'https://github.com/ContractP2P/byze-p2pool-cli/actions/runs/38369030574',statusKey:'intelPending'},
+  'darwin-arm64':{link:'https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/'+RELEASES['darwin-arm64'].tag,statusKey:'macPending'},
+  'darwin-x64':{link:'https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/'+RELEASES['darwin-x64'].tag,statusKey:'intelPending'},
   'linux-x64':{link:'https://github.com/ContractP2P/byze-p2pool-cli/actions/runs/38369030224',statusKey:'linuxPending'}
  };
  function macInstall(){return [
   '(',
   'set -e',
-  'ARCHIVE='+MAC_ARCHIVE,
-  'BASE='+MAC_BASE,
-  'DIR="$HOME/Downloads/byze-p2pool-install"',
-  'mkdir -p "$DIR" "$HOME/.local/opt" "$HOME/.local/bin"',
-  'curl -fL --retry 3 "$BASE/$ARCHIVE" -o "$DIR/$ARCHIVE"',
-  'curl -fL --retry 3 "$BASE/SHA256SUMS" -o "$DIR/SHA256SUMS"',
-  '( cd "$DIR" && shasum -a 256 -c SHA256SUMS )',
-  'tar -xzf "$DIR/$ARCHIVE" -C "$HOME/.local/opt"',
-  'LAUNCHER="$HOME/.local/bin/byze-p2pool"',
-  'if [ -L "$LAUNCHER" ]; then rm "$LAUNCHER"; fi',
-  'if [ -e "$LAUNCHER" ] && ! grep -q "^# BYZE_P2POOL_MANAGED_LAUNCHER$" "$LAUNCHER"; then echo "Existing unmanaged launcher, refusing overwrite: $LAUNCHER" >&2; exit 1; fi',
-  'cat > "$LAUNCHER" <<\'BYZE_LAUNCHER\'',
-  '#!/bin/sh',
-  '# BYZE_P2POOL_MANAGED_LAUNCHER',
-  'exec "$HOME/.local/opt/'+MAC_FOLDER+'/bin/byze-p2pool" "$@"',
-  'BYZE_LAUNCHER',
-  'chmod 0755 "$LAUNCHER"',
-  '"$LAUNCHER" --version',
+  'INSTALLER="$HOME/Downloads/byze-p2pool-first-run-macos.sh"',
+  'curl -fL --retry 3 "https://contractp2p.github.io/byze-p2pool-cli/install-macos.sh" -o "$INSTALLER"',
+  '/bin/bash "$INSTALLER" --probe',
+  '/bin/bash "$INSTALLER" --install',
   ')'
  ].join('\n')}
+
  function q(v){return "'"+v.replace(/'/g,"'\\''")+"'"}
  function choose(){return osRadios.find(r=>r.checked)?.value||'darwin-arm64'}
  function validWallet(v){return /^byz1[a-z0-9]{8,156}$/.test(v)}
  function render(){
   const platform=choose(),d=catalog[platform],w=wallet.value.trim(),a=alias.value.trim(),n=Number(threads.value);
-  $('install-status').textContent=platform==='darwin-arm64'&&macReleaseAvailable?t('macReady'):t(d.statusKey);
-  installCode.textContent=platform==='darwin-arm64'?macInstall():t('installUnavailable');
-  installCopy.disabled=platform!=='darwin-arm64';
-  installMsg.textContent=platform==='darwin-arm64'?(macReleaseAvailable?t('installReady'):t('installPending')):t('installDisabled');
-  $('release-warning').textContent=platform==='darwin-arm64'?(macReleaseAvailable?t('releaseReady',{tag:MAC_TAG}):t('releasePending',{tag:MAC_TAG})):t('releaseOther');
+  const available=releaseReady[platform]===true, mac=platform==='darwin-arm64'||platform==='darwin-x64';
+  const release=RELEASES[platform];
+  $('install-status').textContent=available?(platform==='darwin-x64'?t('intelReady'):t('macReady')):t(d.statusKey);
+  installCode.textContent=mac?macInstall():t('installUnavailable');
+  installCopy.disabled=!mac||!available;
+  installMsg.textContent=mac?(available?t('installReady'):t('installPending')):t('installDisabled');
+  $('release-warning').textContent=mac?(available?t('releaseReady',{tag:release.tag}):t('releasePending',{tag:release.tag})):t('releaseOther');
+  $('installer-platform').textContent=platform==='darwin-x64'?'macOS Intel x64':platform==='darwin-arm64'?'macOS Apple Silicon':'Linux x64';
   $('download-link').href=d.link;
-  $('install-hint').textContent=platform==='darwin-arm64'?t('macHint'):platform==='linux-x64'?t('linuxHint'):t('otherHint');
+  $('install-hint').textContent=mac?t('macHint'):platform==='linux-x64'?t('linuxHint'):t('otherHint');
+  $('availability-banner').textContent=releaseReady['darwin-x64']?t('bannerReady'):t('bannerText');
   wallet.setAttribute('aria-invalid',w!==''&&!validWallet(w)?'true':'false');
   $('wallet-error').textContent=w!==''&&!validWallet(w)?t('walletError'):'';
   const valid=validWallet(w)&&/^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$/.test(a)&&Number.isInteger(n)&&n>=1&&n<=128;
   const errors=[];
   if(a!==''&&!/^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$/.test(a))errors.push(t('aliasError'));
   if(!Number.isInteger(n)||n<1||n>128)errors.push(t('threadsError'));
-  code.textContent=valid?`${platform==='darwin-arm64'?'"$HOME/.local/bin/byze-p2pool"':'byze-p2pool'} --alias ${q(a)} --wallet ${q(w)} --threads ${n}`:t('commandPrompt');
+  code.textContent=valid?`${mac?'"$HOME/.local/bin/byze-p2pool"':'byze-p2pool'} --alias ${q(a)} --wallet ${q(w)} --threads ${n}`:t('commandPrompt');
   copy.disabled=!valid;
   msg.textContent=errors.length?errors.join(' · '):valid?t('readyToCopy'):t('walletNeeded');
  }
@@ -195,20 +186,21 @@
   if(copy.disabled)return;
   await copyText(code.textContent,msg);
  });
- async function checkMacRelease(){
-  try {
-   // Public release metadata only. Wallet/alias/thread values never leave the browser.
-   const endpoint='https://api.github.com/repos/ContractP2P/byze-p2pool-cli/releases/tags/'+encodeURIComponent(MAC_TAG);
-   const response=await fetch(endpoint,{credentials:'omit',cache:'no-store'});
-   if(!response.ok)return;
-   const release=await response.json();
-   const assets=Array.isArray(release.assets)?release.assets:[];
-   macReleaseAvailable=!release.draft && assets.some(a=>a.name===MAC_ARCHIVE) && assets.some(a=>a.name==='SHA256SUMS');
+ async function checkReleases(){
+  for(const platform of ['darwin-arm64','darwin-x64']){
+   const wanted=RELEASES[platform];
+   try {
+    // Public release metadata only. Wallet, alias and CPU settings stay local.
+    const response=await fetch('https://api.github.com/repos/ContractP2P/byze-p2pool-cli/releases/tags/'+encodeURIComponent(wanted.tag),{credentials:'omit',cache:'no-store'});
+    if(!response.ok)continue;
+    const release=await response.json(),assets=Array.isArray(release.assets)?release.assets:[];
+    releaseReady[platform]=!release.draft&&assets.some(a=>a.name===wanted.archive)&&assets.some(a=>a.name==='SHA256SUMS');
+   }catch(_) { /* A missing release never enables installation. */ }
    render();
-  }catch(_) { /* Keep offline preview and explicit publication warning. */ }
+  }
  }
  applyLanguage('en');
- void checkMacRelease();
+ void checkReleases();
 })();
 </script>
 </body>

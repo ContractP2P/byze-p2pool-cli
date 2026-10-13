@@ -1,0 +1,98 @@
+name: First-run macOS installer (Core preservation)
+
+on:
+  push:
+    branches:
+      - feature/first-run-core-preserving-macos-installer
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  installer:
+    name: Guard existing BYZE Core on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Shell syntax and read-only detection
+        shell: bash
+        run: |
+          set -euo pipefail
+          /bin/bash -n docs/install-macos.sh
+          work="$(mktemp -d)"
+          trap 'rm -rf -- "$work"' EXIT
+          home="$work/home"
+          mkdir -p "$home"
+          HOME="$home" /bin/bash docs/install-macos.sh --probe > "$work/clean.txt"
+          grep -q 'CORE_ABSENT' "$work/clean.txt"
+          mkdir -p "$home/Library/Application Support/Byze"
+          HOME="$home" /bin/bash docs/install-macos.sh --probe > "$work/existing-data.txt"
+          grep -q 'CORE_FOUND' "$work/existing-data.txt"
+          grep -q 'DO_NOT_REINSTALL' "$work/existing-data.txt"
+          rm -rf "$home/Library/Application Support/Byze"
+          mkdir -p "$home/ldev/byze/build/bin"
+          printf '#!/bin/sh\nexit 0\n' > "$home/ldev/byze/build/bin/byze-cli"
+          chmod +x "$home/ldev/byze/build/bin/byze-cli"
+          HOME="$home" /bin/bash docs/install-macos.sh --probe > "$work/existing-client.txt"
+          grep -q 'CORE_FOUND' "$work/existing-client.txt"
+          grep -q 'REUSE_ONLY' "$work/existing-client.txt"
+      - name: Existing Core installation cannot trigger a Core download
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          trap 'rm -rf -- "$work"' EXIT
+          home="$work/home"
+          mock="$work/mockbin"
+          mkdir -p "$home/ldev/byze/build/bin" "$home/.local/opt" "$mock"
+          cat > "$home/ldev/byze/build/bin/byze-cli" <<'CLI'
+          #!/bin/sh
+          if [ "$1" = "getblockchaininfo" ]; then
+            echo '{"chain":"main","blocks":999,"headers":999}'
+            exit 0
+          fi
+          exit 1
+          CLI
+          chmod 700 "$home/ldev/byze/build/bin/byze-cli"
+          case "$(uname -m)" in
+            x86_64) plat="darwin-x64" ;;
+            arm64) plat="darwin-arm64" ;;
+            *) exit 1 ;;
+          esac
+          pool="$home/.local/opt/byze-p2pool-0.2.5-rc3-$plat/bin"
+          mkdir -p "$pool"
+          cat > "$pool/byze-p2pool" <<'POOL'
+          #!/bin/sh
+          if [ "$1" = "--version" ]; then echo "0.2.5-rc3"; exit 0; fi
+          if [ "$1" = "--check-node" ]; then echo "BYZE_NODE_READY"; exit 0; fi
+          exit 1
+          POOL
+          chmod 700 "$pool/byze-p2pool"
+          cat > "$mock/curl" <<'CURL'
+          #!/bin/sh
+          printf 'curl:%s\n' "$*" >> "$CURL_CALLS"
+          case " $* " in *" --head "*) exit 0;; esac
+          echo "Unexpected Core/Pool download!" >&2
+          exit 71
+          CURL
+          chmod 700 "$mock/curl"
+          CURL_CALLS="$work/curl.calls" PATH="$mock:$PATH" HOME="$home" \
+            /bin/bash docs/install-macos.sh --install > "$work/install.txt"
+          grep -q 'CORE_ACTION: REUSE_ONLY' "$work/install.txt"
+          grep -q 'BYZE_NODE_READY' "$work/install.txt"
+          test "$(wc -l < "$work/curl.calls" | tr -d ' ')" = 1
+          grep -q -- '--head' "$work/curl.calls"
+          grep -q '# BYZE_P2POOL_MANAGED_LAUNCHER' "$home/.local/bin/byze-p2pool"
+          test -f "$home/ldev/byze/build/bin/byze-cli"
+          echo 'PASS: existing Core untouched, pool launcher configured'
