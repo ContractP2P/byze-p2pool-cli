@@ -37,7 +37,7 @@ npm run release:preflight:source
 node - <<'JS'
 const {nativeBundleStatus, EXPECTED_NATIVE_SOURCE_COMMIT}=require('./src/mining/native-components')
 const s=nativeBundleStatus()
-if(s.platformKey!=='darwin-arm64' || !s.miner.ok || !s.verifier.ok ||
+if(s.platformKey!=='darwin-x64' || !s.miner.ok || !s.verifier.ok ||
   s.miner.feature!=='contract-direct-coinbase-v2' ||
   s.miner.sourceCommit!==EXPECTED_NATIVE_SOURCE_COMMIT ||
   s.verifier.sourceCommit!==EXPECTED_NATIVE_SOURCE_COMMIT) {
