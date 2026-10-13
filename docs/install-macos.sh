@@ -95,6 +95,13 @@ preflight() {
    fail "Unmanaged P2Pool launcher exists; refusing overwrite."
  fi
  [ ! -L "$MARKER" ] || fail "Core path marker is a symlink."
+ # An already installed complete package is reused even when offline.
+ if [ -d "$CLI_HOME" ] && [ -x "$CLI_HOME/bin/byze-p2pool" ]; then
+   message "Existing P2Pool package found; no release download needed."
+   return 0
+ fi
+ [ ! -e "$CLI_HOME" ] && [ ! -L "$CLI_HOME" ] ||
+   fail "Incomplete P2Pool package exists; refusing overwrite."
  # Fail before provisioning Core when the P2Pool platform package is absent.
  curl --silent --show-error --fail --location --head --max-time 30 \
    "$CLI_URL/$CLI_TAR" -o /dev/null ||
