@@ -96,7 +96,8 @@ jobs:
           test ! -d "$work/home/.local/opt"
           echo 'PASS: no partial Core install on unavailable P2Pool release'
 
-      - name: Real official BYZE Core rc4 signed archive integrity and contents
+
+      - name: Validate official BYZE Core rc4 signature, contents and clean-host installation
         shell: bash
         run: |
           set -euo pipefail
@@ -106,8 +107,9 @@ jobs:
           archive="$work/verified-core/byze-core-linux-x86_64.tar.gz"
           test -s "$archive"
           tar -tzf "$archive" > "$work/archive-files"
-          grep -Eq '(^|/)byzed
-          echo 'PASS: genuine signed and SHA-256-pinned Core archive contains both executables; no node was started'
+          grep -Eq '(^|/)byzed$' "$work/archive-files"
+          grep -Eq '(^|/)byze-cli$' "$work/archive-files"
+          echo 'PASS: signed and SHA-256-pinned official Core archive includes executables'
       - name: Validate website installer command JavaScript
         shell: bash
         run: |
@@ -116,49 +118,13 @@ jobs:
           from pathlib import Path
           import re
           html=Path("docs/index.html").read_text()
-          snippets=re.findall(r'<script>([\s\S]*?)</script>',html)
-          assert len(snippets)==1
-          Path("/tmp/byze-install-site-inline.js").write_text(snippets[0])
-          assert "function linuxInstall()" in snippets[0]
-          assert "'linux-x64'" in snippets[0]
+          scripts=re.findall(r'<script>([\s\S]*?)</script>',html)
+          assert len(scripts)==1, "Expected one inline script"
+          Path("/tmp/byze-install-site-inline.js").write_text(scripts[0])
+          assert "function linuxInstall()" in scripts[0]
+          assert "'linux-x64'" in scripts[0]
           PY
           node --check /tmp/byze-install-site-inline.js
- "$work/archive-files"
-          grep -Eq '(^|/)byze-cli
-          echo 'PASS: genuine signed and SHA-256-pinned Core archive contains both executables; no node was started'
-      - name: Validate website installer command JavaScript
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          html=Path("docs/index.html").read_text()
-          snippets=re.findall(r'<script>([\s\S]*?)</script>',html)
-          assert len(snippets)==1
-          Path("/tmp/byze-install-site-inline.js").write_text(snippets[0])
-          assert "function linuxInstall()" in snippets[0]
-          assert "'linux-x64'" in snippets[0]
-          PY
-          node --check /tmp/byze-install-site-inline.js
- "$work/archive-files"
-          echo 'PASS: genuine signed and SHA-256-pinned Core archive contains both executables; no node was started'
-      - name: Validate website installer command JavaScript
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          html=Path("docs/index.html").read_text()
-          snippets=re.findall(r'<script>([\s\S]*?)</script>',html)
-          assert len(snippets)==1
-          Path("/tmp/byze-install-site-inline.js").write_text(snippets[0])
-          assert "function linuxInstall()" in snippets[0]
-          assert "'linux-x64'" in snippets[0]
-          PY
-          node --check /tmp/byze-install-site-inline.js
-
       - name: Clean Linux host installs real Core into new directory but never auto-starts
         shell: bash
         run: |
@@ -166,8 +132,8 @@ jobs:
           work="$(mktemp -d)"
           trap 'rm -rf "$work"' EXIT
           mkdir -p "$work/home"
-          # script(1) allocates the genuine TTY required for consent. Reject START,
-          # so no daemon/network/wallet is ever launched by this CI canary.
+          # Linux script(1) provides the terminal needed for consent.
+          # Reject START; never run byzed or touch a blockchain wallet.
           set +e
           printf 'NO\nINSTALL\nDECLINE\n' | \
             script -q -e -c "env HOME=$work/home bash docs/install-linux.sh --install-core" /dev/null \
@@ -181,7 +147,6 @@ jobs:
           test -x "$found_cli"
           test -x "$found_daemon"
           test ! -e "$work/home/.byze"
-          # Idempotency: the fully installed Core is now found on the next run.
           HOME="$work/home" bash docs/install-linux.sh --probe > "$work/probe"
           grep -q 'CORE_ACTION: REUSE_ONLY' "$work/probe"
-          echo 'PASS: clean host Core install, no daemon startup, existing install detected on retry'
+          echo 'PASS: clean install succeeds, no daemon started, re-run recognizes existing Core'
