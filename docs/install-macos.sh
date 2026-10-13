@@ -206,10 +206,10 @@ wait_for_mainnet_sync() {
   while :; do
     polls=$((polls + 1))
     raw="$("$CORE_CLI" getblockchaininfo 2>/dev/null || true)"
-    blocks="$(printf '%s\n' "$raw" | /usr/bin/sed -nE 's/^[[:space:]]*"blocks"[[:space:]]*:[[:space:]]*([0-9]+).*/\1/p' | head -n 1)"
-    headers="$(printf '%s\n' "$raw" | /usr/bin/sed -nE 's/^[[:space:]]*"headers"[[:space:]]*:[[:space:]]*([0-9]+).*/\1/p' | head -n 1)"
-    ibd="$(printf '%s\n' "$raw" | /usr/bin/sed -nE 's/^[[:space:]]*"initialblockdownload"[[:space:]]*:[[:space:]]*(true|false).*/\1/p' | head -n 1)"
-    chain="$(printf '%s\n' "$raw" | /usr/bin/sed -nE 's/^[[:space:]]*"chain"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' | head -n 1)"
+    blocks="$(printf '%s\n' "$raw" | /usr/bin/sed -nE 's/.*"blocks"[[:space:]]*:[[:space:]]*([0-9]+).*/\1/p' | head -n 1)"
+    headers="$(printf '%s\n' "$raw" | /usr/bin/sed -nE 's/.*"headers"[[:space:]]*:[[:space:]]*([0-9]+).*/\1/p' | head -n 1)"
+    ibd="$(printf '%s\n' "$raw" | /usr/bin/sed -nE 's/.*"initialblockdownload"[[:space:]]*:[[:space:]]*(true|false).*/\1/p' | head -n 1)"
+    chain="$(printf '%s\n' "$raw" | /usr/bin/sed -nE 's/.*"chain"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' | head -n 1)"
     if [[ "$blocks" =~ ^[0-9]+$ && "$headers" =~ ^[0-9]+$ ]] && [ "$headers" -gt 0 ]; then
       percent="$(awk -v b="$blocks" -v h="$headers" 'BEGIN{p=100*b/h;if(p>100)p=100;printf "%.1f",p}')"
       message "BYZE synchronization: $blocks / $headers blocks ($percent% by height); IBD: ${ibd:-unknown}."
