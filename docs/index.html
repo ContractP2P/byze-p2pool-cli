@@ -108,6 +108,7 @@
   'linux-x64':{name:'Linux x64',link:'https://github.com/ContractP2P/byze-p2pool-cli/actions/runs/38369030224',status:'<strong>Linux x64 :</strong> package complet expérimental disponible dans GitHub Actions, non publié comme GitHub Release définitive.'}
  };
  function macInstall(){return [
+  '(',
   'set -e',
   'ARCHIVE='+MAC_ARCHIVE,
   'BASE='+MAC_BASE,
@@ -117,8 +118,17 @@
   'curl -fL --retry 3 "$BASE/SHA256SUMS" -o "$DIR/SHA256SUMS"',
   '( cd "$DIR" && shasum -a 256 -c SHA256SUMS )',
   'tar -xzf "$DIR/$ARCHIVE" -C "$HOME/.local/opt"',
-  'ln -sfn "$HOME/.local/opt/'+MAC_FOLDER+'/bin/byze-p2pool" "$HOME/.local/bin/byze-p2pool"',
-  '"$HOME/.local/bin/byze-p2pool" --version'
+  'LAUNCHER="$HOME/.local/bin/byze-p2pool"',
+  'if [ -L "$LAUNCHER" ]; then rm "$LAUNCHER"; fi',
+  'if [ -e "$LAUNCHER" ] && ! grep -q "^# BYZE_P2POOL_MANAGED_LAUNCHER$" "$LAUNCHER"; then echo "Existing unmanaged launcher, refusing overwrite: $LAUNCHER" >&2; exit 1; fi',
+  'cat > "$LAUNCHER" <<\'BYZE_LAUNCHER\'',
+  '#!/bin/sh',
+  '# BYZE_P2POOL_MANAGED_LAUNCHER',
+  'exec "$HOME/.local/opt/'+MAC_FOLDER+'/bin/byze-p2pool" "$@"',
+  'BYZE_LAUNCHER',
+  'chmod 0755 "$LAUNCHER"',
+  '"$LAUNCHER" --version',
+  ')'
  ].join('\n')}
  function q(v){return "'"+v.replace(/'/g,"'\\''")+"'"}
  function choose(){return osRadios.find(r=>r.checked)?.value||'darwin-arm64'}
