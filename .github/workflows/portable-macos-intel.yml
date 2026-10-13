@@ -1,0 +1,112 @@
+name: Complete experimental macOS Intel P2Pool package
+
+# End-user archive is built and tested in CI; it is NOT automatically published.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - feature/intel-standalone-package-ci
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  package-macos-intel:
+    name: Complete CLI / macOS Intel x86_64
+    runs-on: macos-15-intel
+    timeout-minutes: 75
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '12.0'
+    defaults:
+      run:
+        working-directory: cli
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: cli/package-lock.json
+
+      - name: Install native build tools (CI only)
+        run: |
+          brew install cmake boost openssl@3 pkg-config
+          echo "CMAKE_PREFIX_PATH=$(brew --prefix boost):$(brew --prefix openssl@3)" >> "$GITHUB_ENV"
+
+      - name: Run source and DHT checks
+        run: |
+          npm ci
+          npm run check
+          npm test
+          npm run test:dht
+          npm run release:preflight:source
+
+      - name: Rebuild native miner/verifier from pinned official source
+        run: |
+          rm -rf native/darwin-x64
+          npm run native:bootstrap-official
+          npm run native:ensure
+
+      - name: Assemble and test the standalone package
+        run: |
+          bash -n tools/build-portable-macos-intel.sh
+          bash tools/build-portable-macos-intel.sh
+          test -s dist/byze-p2pool-cli-complete-0.2.5-rc3-darwin-x64.tar.gz
+          ( cd dist && shasum -a 256 -c SHA256SUMS )
+          testdir=$(mktemp -d)
+          trap 'rm -rf -- "$testdir"' EXIT
+          tar -xzf dist/byze-p2pool-cli-complete-0.2.5-rc3-darwin-x64.tar.gz -C "$testdir"
+          cli="$testdir/byze-p2pool-0.2.5-rc3-darwin-x64/bin/byze-p2pool"
+          "$cli" --version
+          "$cli" --help >/dev/null
+          "$testdir/byze-p2pool-0.2.5-rc3-darwin-x64/bin/node" \
+            "$testdir/byze-p2pool-0.2.5-rc3-darwin-x64/app/tools/test-private-dht.js"
+
+      - name: Inspect native runtime library dependencies
+        run: |
+          set -euo pipefail
+          for bin in \
+            .portable-lab/macos-x64/byze-p2pool-0.2.5-rc3-darwin-x64/bin/node \
+            .portable-lab/macos-x64/byze-p2pool-0.2.5-rc3-darwin-x64/app/native/darwin-x64/byze-p2pool-miner \
+            .portable-lab/macos-x64/byze-p2pool-0.2.5-rc3-darwin-x64/app/native/darwin-x64/byze-rxhash
+          do
+            echo "Runtime libraries for $bin:"
+            otool -L "$bin"
+            external=$(otool -L "$bin" | grep -E '/(opt/homebrew|usr/local/(Cellar|opt|lib))/' || true)
+            unexpected=""
+            if [ -n "$external" ]; then
+              unexpected=$(printf '%s\n' "$external" | grep -vF '/usr/local/opt/openssl@3/lib/libcrypto.3.dylib' || true)
+            fi
+            if [ -n "$unexpected" ]; then
+              echo "Unexpected external Homebrew libraries: $unexpected" >&2
+              exit 1
+            fi
+          done
+          root=".portable-lab/macos-x64/byze-p2pool-0.2.5-rc3-darwin-x64"
+          test -s "$root/lib/libcrypto.3.dylib"
+          miner="$root/app/native/darwin-x64/byze-p2pool-miner"
+          library_path="$(cd "$root/lib" && pwd)"
+          # Check dyld actually uses the packaged OpenSSL runtime.
+          native_out=$(DYLD_PRINT_LIBRARIES=1 DYLD_LIBRARY_PATH="$library_path" "$miner" --features 2>&1)
+          printf '%s\\n' "$native_out" | grep -F 'contract-direct-coinbase-v2'
+          printf '%s\\n' "$native_out" | grep -F "$library_path/libcrypto.3.dylib"
+          echo "Standalone Intel runtime uses bundled OpenSSL: OK"
+
+      - name: Upload temporary Intel test package
+        uses: actions/upload-artifact@v4
+        with:
+          name: byze-p2pool-complete-macos-intel-test
+          path: |
+            cli/dist/byze-p2pool-cli-complete-0.2.5-rc3-darwin-x64.tar.gz
+            cli/dist/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
