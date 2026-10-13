@@ -81,7 +81,10 @@ jobs:
             echo "Runtime libraries for $bin:"
             otool -L "$bin"
             external=$(otool -L "$bin" | grep -E '/(opt/homebrew|usr/local/(Cellar|opt|lib))/' || true)
-            unexpected=$(printf '%s\\n' "$external" | grep -vE '/usr/local/opt/openssl@3/lib/libcrypto\\.3\\.dylib' || true)
+            unexpected=""
+            if [ -n "$external" ]; then
+              unexpected=$(printf '%s\n' "$external" | grep -vF '/usr/local/opt/openssl@3/lib/libcrypto.3.dylib' || true)
+            fi
             if [ -n "$unexpected" ]; then
               echo "Unexpected external Homebrew libraries: $unexpected" >&2
               exit 1
