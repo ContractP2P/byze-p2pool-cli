@@ -198,6 +198,8 @@ wait_for_mainnet_sync() {
   [[ "$max_polls" =~ ^[0-9]+$ ]] || fail 'Invalid sync poll limit.'
   [ -n "$CORE_CLI" ] && [ -x "$CORE_CLI" ] ||
     fail 'Existing BYZE Core client not found; cannot monitor synchronization.'
+  [ -x "$LAUNCHER" ] ||
+    fail 'P2Pool CLI is not installed; complete installation before monitoring.'
   message "P2Pool package installed. Waiting for BYZE Core synchronization (mainnet)."
   message "This may take a while. Progress is based on block heights, not verificationprogress."
   message "Press Ctrl+C to stop watching; BYZE Core will keep running."
@@ -220,7 +222,11 @@ wait_for_mainnet_sync() {
         message 'Core heights are current, but P2Pool readiness is still pending.'
       fi
     else
-      message 'Waiting for BYZE Core RPC / block headers (height unavailable).'
+      if [[ "$blocks" =~ ^[0-9]+$ && "$headers" =~ ^[0-9]+$ ]]; then
+        message "BYZE synchronization: $blocks / $headers blocks (waiting for block headers); IBD: ${ibd:-unknown}."
+      else
+        message 'Waiting for BYZE Core RPC / block headers (height unavailable).'
+      fi
     fi
     if [ "$max_polls" -gt 0 ] && [ "$polls" -ge "$max_polls" ]; then
       message 'BYZE_NODE_NOT_READY. Sync monitor limit reached; BYZE Core remains running.'
