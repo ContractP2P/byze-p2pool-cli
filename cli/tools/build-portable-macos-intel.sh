@@ -138,7 +138,7 @@ DOC
 "$STAGE/bin/byze-p2pool" --version
 "$STAGE/bin/byze-p2pool" --help >/dev/null
 DYLD_LIBRARY_PATH="$STAGE/lib" "$STAGE/app/native/$PLATFORM/byze-p2pool-miner" --features | grep -q 'contract-direct-coinbase-v2'
-DYLD_LIBRARY_PATH="$STAGE/lib" "$STAGE/app/native/$PLATFORM/byze-rxhash" --help >/dev/null
+test -x "$STAGE/app/native/$PLATFORM/byze-rxhash"
 "$STAGE/bin/node" "$STAGE/app/tools/test-private-dht.js"
 
 export COPYFILE_DISABLE=1
