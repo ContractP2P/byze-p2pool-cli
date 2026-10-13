@@ -52,9 +52,12 @@ jobs:
             echo 'Experimental release already exists; refusing replacement.'
             exit 0
           fi
+          # GITHUB_TOKEN can create a tag for this workflow's HEAD commit;
+          # targeting the older artifact SOURCE_SHA may fail with HTTP 403.
+          # SOURCE_SHA remains pinned and verified above as binary provenance.
           gh release create "$TAG" \
             "release/$ARCHIVE" release/SHA256SUMS \
-            -R "$REPO" --target "$SOURCE_SHA" \
+            -R "$REPO" --target "$GITHUB_SHA" \
             --title 'BYZE P2Pool CLI Linux x64 - Experimental Test 1' \
             --notes "Experimental Linux x86_64 package from verified CI run $SOURCE_RUN and source SHA $SOURCE_SHA. Includes Node.js 22, RandomX miner/verifier and JS dependencies. No Core, wallets or RPC secrets. Our separate guided install-linux.sh checks for existing BYZE Core and offers signed/pinned official Core rc4 only if absent, with explicit confirmation. Unsigned test pre-release; real multi-peer mining/payouts not production qualified." \
             --prerelease
