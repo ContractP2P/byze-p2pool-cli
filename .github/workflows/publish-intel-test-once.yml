@@ -1,0 +1,79 @@
+name: Publish one-time Intel test pre-release
+
+# One-time bootstrap only: triggered when THIS workflow is first merged.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-intel-test-once.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ContractP2P/byze-p2pool-cli
+      TAG: v0.2.5-rc3-macos-intel-test1
+      SOURCE_SHA: 69a428659728dded57c1e046f73400c3e3bd39bc
+      SOURCE_RUN: '38395465844'
+      ARCHIVE: byze-p2pool-cli-complete-0.2.5-rc3-darwin-x64.tar.gz
+    steps:
+      - name: Verify source workflow completed at pinned source commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then
+            echo "The Intel test release already exists; refusing to replace it."
+            exit 0
+          fi
+          sha=$(gh run view "$SOURCE_RUN" -R "$REPO" --json headSha --jq .headSha)
+          conclusion=$(gh run view "$SOURCE_RUN" -R "$REPO" --json conclusion --jq .conclusion)
+          test "$sha" = "$SOURCE_SHA"
+          test "$conclusion" = success
+          echo "Pinned successful Intel packaging run: $SOURCE_RUN"
+
+      - name: Download complete Intel CI package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p candidate
+          gh run download "$SOURCE_RUN" -R "$REPO" \
+            --name byze-p2pool-complete-macos-intel-test \
+            --dir candidate
+          test -s "candidate/$ARCHIVE"
+          test -s candidate/SHA256SUMS
+
+      - name: Verify release asset checksum and portable contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd candidate && sha256sum --check SHA256SUMS)
+          mkdir -p unpack
+          tar -xzf "candidate/$ARCHIVE" -C unpack
+          test -x unpack/byze-p2pool-0.2.5-rc3-darwin-x64/bin/byze-p2pool
+          test -s unpack/byze-p2pool-0.2.5-rc3-darwin-x64/lib/libcrypto.3.dylib
+          echo "Intel candidate package + bundled OpenSSL: verified"
+
+      - name: Publish experimental pre-release (never overwrite existing release)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then
+            echo "Release already exists; no changes made."
+            exit 0
+          fi
+          gh release create "$TAG" \
+            "candidate/$ARCHIVE" candidate/SHA256SUMS \
+            -R "$REPO" \
+            --target "$SOURCE_SHA" \
+            --title "BYZE P2Pool CLI - macOS Intel x64 - Experimental Test 1" \
+            --notes "Experimental standalone macOS Intel x64 package. Built and tested by GitHub Actions from source commit $SOURCE_SHA, including pinned native RandomX components, Node.js 22 and bundled OpenSSL runtime. Requires BYZE Core: the guided installer preserves any existing Core installation and only offers a fresh official installation with explicit user consent. Not signed/notarized; production payouts and live P2P interoperability are not yet fully qualified." \
+            --prerelease
+          gh release view "$TAG" -R "$REPO" \
+            --json isDraft,isPrerelease,assets \
+            --jq '{draft:.isDraft,prerelease:.isPrerelease,assets:[.assets[].name]}'
