@@ -21,7 +21,7 @@ window.BYZE_I18N = Object.freeze({
     "walletHelp": "Any rewards will be sent to this address. Never enter your private key or recovery phrase.",
     "minerLabel": "Miner name",
     "threadsLabel": "CPU threads",
-    "nodeNote": "Your existing BYZE Core node will be reused. This page does not download or update BYZE Core.",
+    "nodeNote": "Already have BYZE Core? It will be detected and reused without reinstalling or upgrading. If it is absent, the installer offers to install official Core after explicit confirmation.",
     "installTitle": "Install the CLI",
     "installTerminal": "Terminal · Install the complete package",
     "installCopy": "Copy installation commands",
@@ -54,7 +54,7 @@ window.BYZE_I18N = Object.freeze({
     "releaseReady": "Experimental pre-release available: download only from GitHub Release {tag}. Unsigned and unnotarized binaries.",
     "releasePending": "Pre-release not found: installation will work after archive and SHA256SUMS are published under {tag}.",
     "releaseOther": "A complete release has not yet been published for this platform.",
-    "macHint": "Downloads the published package, verifies SHA-256 and installs in ~/.local/opt. No sudo, Git, npm or compiler required.",
+    "macHint": "Checks for an existing BYZE Core first. If absent, asks permission to install official Core. Downloads a complete P2Pool package, verifies SHA-256 and starts the node if approved. No Git, npm or compiler.",
     "linuxHint": "The experimental Linux package is currently in GitHub Actions. A public installation command will be available after a Release is published.",
     "otherHint": "Native-only binaries are not a complete standalone package.",
     "walletError": "Enter a public BYZE address starting with byz1, without spaces.",
@@ -67,7 +67,9 @@ window.BYZE_I18N = Object.freeze({
     "copyFailed": "Select the text to copy",
     "loading": "Loading installation commands…",
     "introAria": "Introduction",
-    "miningAria": "Custom mining command"
+    "miningAria": "Custom mining command",
+    "intelReady": "macOS Intel: complete experimental CLI package is available. The same guided installer preserves existing BYZE Core or installs official Core with your permission.",
+    "bannerReady": "Complete experimental macOS packages are available. Existing BYZE Core installations are never automatically replaced; a first-time installation requires explicit approval. P2Pool binaries are unsigned and unnotarized."
   },
   "fr": {
     "pageTitle": "Installer BYZE P2Pool CLI — Assistant guidé",
@@ -89,7 +91,7 @@ window.BYZE_I18N = Object.freeze({
     "walletHelp": "Les récompenses éventuelles seront envoyées à cette adresse. Ne saisissez jamais votre clé privée ni votre phrase de récupération.",
     "minerLabel": "Nom du mineur",
     "threadsLabel": "Threads CPU",
-    "nodeNote": "Votre nœud BYZE Core actuel sera réutilisé. Cette page ne télécharge ni ne met à jour BYZE Core.",
+    "nodeNote": "BYZE Core déjà installé ? Il sera détecté et réutilisé, sans réinstallation ni mise à jour. S'il est absent, l'installateur proposera d'installer le Core officiel après confirmation explicite.",
     "installTitle": "Installer la CLI",
     "installTerminal": "Terminal · Installer le package complet",
     "installCopy": "Copier l’installation",
@@ -122,7 +124,7 @@ window.BYZE_I18N = Object.freeze({
     "releaseReady": "Préversion expérimentale disponible : téléchargez uniquement depuis la GitHub Release {tag}. Binaires non signés et non notarizés.",
     "releasePending": "Préversion introuvable : l’installation fonctionnera après publication de l’archive et de SHA256SUMS sous {tag}.",
     "releaseOther": "Aucune Release complète n’a encore été publiée pour cette plateforme.",
-    "macHint": "Télécharge le package publié, vérifie SHA-256 et installe dans ~/.local/opt. Aucun sudo, Git, npm ni compilateur.",
+    "macHint": "Recherche d'abord BYZE Core. S'il est absent, demande l'autorisation d'installer le Core officiel. Télécharge ensuite P2Pool, vérifie SHA-256 et démarre le nœud avec votre accord. Aucun Git, npm ou compilateur.",
     "linuxHint": "Le package expérimental Linux se trouve actuellement dans GitHub Actions. Une commande publique sera proposée après sa publication en Release.",
     "otherHint": "Les seuls binaires natifs ne constituent pas un package autonome complet.",
     "walletError": "Saisissez une adresse BYZE publique commençant par byz1, sans espace.",
@@ -135,7 +137,9 @@ window.BYZE_I18N = Object.freeze({
     "copyFailed": "Sélectionnez le texte à copier",
     "loading": "Chargement des commandes…",
     "introAria": "Introduction",
-    "miningAria": "Commande de minage personnalisée"
+    "miningAria": "Commande de minage personnalisée",
+    "intelReady": "macOS Intel : package CLI expérimental complet disponible. L'installateur réutilise BYZE Core existant ou propose son installation officielle avec votre accord.",
+    "bannerReady": "Packages macOS expérimentaux complets disponibles. Un BYZE Core existant n'est jamais remplacé automatiquement ; toute première installation nécessite un accord explicite. Binaires P2Pool non signés ni notarizés."
   },
   "es": {
     "pageTitle": "Instalar BYZE P2Pool CLI — Guía de instalación",
@@ -157,7 +161,7 @@ window.BYZE_I18N = Object.freeze({
     "walletHelp": "Las posibles recompensas se enviarán a esta dirección. Nunca introduzcas tu clave privada ni tu frase de recuperación.",
     "minerLabel": "Nombre del minero",
     "threadsLabel": "Hilos de CPU",
-    "nodeNote": "Se utilizará tu nodo BYZE Core existente. Esta página no descarga ni actualiza BYZE Core.",
+    "nodeNote": "¿Ya tienes BYZE Core? Se detectará y reutilizará sin reinstalarlo ni actualizarlo. Si no está instalado, se solicitará tu autorización antes de instalar la versión oficial.",
     "installTitle": "Instalar la CLI",
     "installTerminal": "Terminal · Instalar el paquete completo",
     "installCopy": "Copiar instalación",
@@ -190,7 +194,7 @@ window.BYZE_I18N = Object.freeze({
     "releaseReady": "Versión experimental disponible: descarga solo desde GitHub Release {tag}. Binarios sin firma ni notarización.",
     "releasePending": "Versión no encontrada: la instalación estará disponible tras publicar el archivo y SHA256SUMS en {tag}.",
     "releaseOther": "Todavía no hay un paquete completo publicado para esta plataforma.",
-    "macHint": "Descarga el paquete, verifica SHA-256 e instala en ~/.local/opt. No requiere sudo, Git, npm ni compilador.",
+    "macHint": "Primero comprueba si existe BYZE Core. Si no está, pide permiso para instalarlo. Después descarga P2Pool, verifica SHA-256 e inicia el nodo con autorización. No requiere Git, npm ni compilador.",
     "linuxHint": "El paquete Linux experimental está en GitHub Actions. Habrá un comando público cuando se publique una Release.",
     "otherHint": "Los binarios nativos solos no son un paquete autónomo completo.",
     "walletError": "Introduce una dirección pública BYZE que empiece por byz1, sin espacios.",
@@ -203,7 +207,9 @@ window.BYZE_I18N = Object.freeze({
     "copyFailed": "Selecciona el texto para copiar",
     "loading": "Cargando comandos…",
     "introAria": "Introducción",
-    "miningAria": "Comando de minería personalizado"
+    "miningAria": "Comando de minería personalizado",
+    "intelReady": "macOS Intel: paquete experimental completo disponible. Reutiliza BYZE Core existente o instala el oficial con tu autorización.",
+    "bannerReady": "Paquetes experimentales completos para macOS disponibles. Un BYZE Core existente nunca se sustituye automáticamente. La primera instalación requiere permiso. Los binarios de P2Pool no están firmados."
   },
   "pt": {
     "pageTitle": "Instalar BYZE P2Pool CLI — Guia de instalação",
@@ -225,7 +231,7 @@ window.BYZE_I18N = Object.freeze({
     "walletHelp": "Possíveis recompensas serão enviadas para esse endereço. Nunca informe sua chave privada ou frase de recuperação.",
     "minerLabel": "Nome do minerador",
     "threadsLabel": "Threads da CPU",
-    "nodeNote": "Seu nó BYZE Core existente será utilizado. Esta página não baixa nem atualiza o BYZE Core.",
+    "nodeNote": "Já tem BYZE Core? Ele será detectado e reutilizado, sem reinstalação nem atualização. Se estiver ausente, o instalador pedirá sua autorização para instalar o Core oficial.",
     "installTitle": "Instalar a CLI",
     "installTerminal": "Terminal · Instalar pacote completo",
     "installCopy": "Copiar instalação",
@@ -258,7 +264,7 @@ window.BYZE_I18N = Object.freeze({
     "releaseReady": "Pré-lançamento experimental disponível: baixe apenas da GitHub Release {tag}. Binários sem assinatura ou notarização.",
     "releasePending": "Pré-lançamento não encontrado: a instalação funcionará quando o arquivo e o SHA256SUMS forem publicados em {tag}.",
     "releaseOther": "Ainda não foi publicado um pacote completo para esta plataforma.",
-    "macHint": "Baixa o pacote publicado, verifica SHA-256 e instala em ~/.local/opt. Não precisa de sudo, Git, npm ou compilador.",
+    "macHint": "Verifica primeiro se BYZE Core já existe. Caso não exista, solicita autorização para instalá-lo. Depois baixa P2Pool, verifica SHA-256 e inicia o nó com permissão. Sem Git, npm ou compilador.",
     "linuxHint": "O pacote Linux experimental está no GitHub Actions. Um comando público estará disponível após o lançamento.",
     "otherHint": "Binários nativos isolados não formam um pacote autônomo completo.",
     "walletError": "Informe um endereço BYZE público começando com byz1, sem espaços.",
@@ -271,7 +277,9 @@ window.BYZE_I18N = Object.freeze({
     "copyFailed": "Selecione o texto para copiar",
     "loading": "Carregando comandos…",
     "introAria": "Introdução",
-    "miningAria": "Comando de mineração personalizado"
+    "miningAria": "Comando de mineração personalizado",
+    "intelReady": "macOS Intel: pacote experimental completo disponível. Reutiliza o BYZE Core existente ou instala a versão oficial com sua autorização.",
+    "bannerReady": "Os pacotes experimentais completos para macOS estão disponíveis. Um BYZE Core existente nunca é substituído automaticamente. A primeira instalação requer consentimento. Os binários P2Pool não são assinados."
   },
   "zh": {
     "pageTitle": "安装 BYZE P2Pool CLI — 安装向导",
@@ -293,7 +301,7 @@ window.BYZE_I18N = Object.freeze({
     "walletHelp": "如获得奖励，奖励将发送到此地址。切勿输入私钥或助记词。",
     "minerLabel": "矿工名称",
     "threadsLabel": "CPU 线程数",
-    "nodeNote": "将使用你现有的 BYZE Core 节点。本页面不会下载或升级 BYZE Core。",
+    "nodeNote": "已经安装 BYZE Core？安装程序会检测并复用，不会重新安装或升级。若未安装，只有在你明确同意后才安装官方 Core。",
     "installTitle": "安装 CLI",
     "installTerminal": "终端 · 安装完整软件包",
     "installCopy": "复制安装命令",
@@ -326,7 +334,7 @@ window.BYZE_I18N = Object.freeze({
     "releaseReady": "实验性预发布版本已上线：请仅从 GitHub Release {tag} 下载。二进制文件未签名或公证。",
     "releasePending": "未找到预发布版本：在 {tag} 发布归档和 SHA256SUMS 后才能安装。",
     "releaseOther": "此平台尚未发布完整版本。",
-    "macHint": "下载发布包，验证 SHA-256 后安装到 ~/.local/opt。无需 sudo、Git、npm 或编译器。",
+    "macHint": "先检查已有 BYZE Core。若不存在，会询问是否安装官方版本。随后下载完整 P2Pool 包、验证 SHA-256，并在获得许可后启动节点。无需 Git、npm 或编译器。",
     "linuxHint": "实验性 Linux 包目前位于 GitHub Actions；发布 Release 后才提供安装命令。",
     "otherHint": "仅原生二进制文件不是完整的独立安装包。",
     "walletError": "请输入以 byz1 开头且不含空格的公开 BYZE 地址。",
@@ -339,7 +347,9 @@ window.BYZE_I18N = Object.freeze({
     "copyFailed": "请选择文本后复制",
     "loading": "正在加载安装命令…",
     "introAria": "简介",
-    "miningAria": "自定义挖矿命令"
+    "miningAria": "自定义挖矿命令",
+    "intelReady": "macOS Intel：完整实验性 CLI 包已提供。可复用已有 BYZE Core，或经你同意安装官方版本。",
+    "bannerReady": "完整的 macOS 实验性软件包已提供。绝不自动替换已有 BYZE Core；首次安装必须明确同意。P2Pool 二进制文件未经签名或公证。"
   },
   "hi": {
     "pageTitle": "BYZE P2Pool CLI इंस्टॉल करें — मार्गदर्शिका",
@@ -361,7 +371,7 @@ window.BYZE_I18N = Object.freeze({
     "walletHelp": "संभावित इनाम इस पते पर भेजे जाएँगे। कभी भी निजी कुंजी या रिकवरी फ़्रेज़ दर्ज न करें।",
     "minerLabel": "माइनर का नाम",
     "threadsLabel": "CPU थ्रेड",
-    "nodeNote": "आपका मौजूदा BYZE Core नोड इस्तेमाल होगा। यह पेज BYZE Core डाउनलोड या अपडेट नहीं करता।",
+    "nodeNote": "BYZE Core पहले से है? इंस्टॉलर उसे पहचानकर दोबारा इस्तेमाल करेगा, न पुनः इंस्टॉल करेगा न अपग्रेड। नहीं होने पर आधिकारिक Core इंस्टॉल करने से पहले अनुमति मांगेगा।",
     "installTitle": "CLI इंस्टॉल करें",
     "installTerminal": "टर्मिनल · पूरा पैकेज इंस्टॉल करें",
     "installCopy": "इंस्टॉल कमांड कॉपी करें",
@@ -394,7 +404,7 @@ window.BYZE_I18N = Object.freeze({
     "releaseReady": "प्रायोगिक प्री-रिलीज़ उपलब्ध: केवल GitHub Release {tag} से डाउनलोड करें। बाइनरी साइन या नोटराइज़ नहीं हैं।",
     "releasePending": "प्री-रिलीज़ नहीं मिली: {tag} पर आर्काइव और SHA256SUMS प्रकाशित होने के बाद इंस्टॉल करें।",
     "releaseOther": "इस प्लेटफ़ॉर्म का पूरा Release अभी प्रकाशित नहीं हुआ है।",
-    "macHint": "पैकेज डाउनलोड कर SHA-256 जाँचता है और ~/.local/opt में इंस्टॉल करता है। sudo, Git, npm या कंपाइलर नहीं चाहिए।",
+    "macHint": "पहले मौजूदा BYZE Core की जाँच होती है। नहीं होने पर आधिकारिक Core इंस्टॉल करने की अनुमति मांगी जाती है। फिर P2Pool डाउनलोड, SHA-256 सत्यापन और अनुमति से नोड शुरू होता है। Git, npm या कंपाइलर नहीं चाहिए।",
     "linuxHint": "प्रायोगिक Linux पैकेज अभी GitHub Actions में है। Release प्रकाशित होने पर कमांड उपलब्ध होगी।",
     "otherHint": "केवल नेटिव बाइनरी पूरा स्वतंत्र पैकेज नहीं हैं।",
     "walletError": "बिना स्पेस वाला, byz1 से शुरू होने वाला सार्वजनिक BYZE पता भरें।",
@@ -407,7 +417,9 @@ window.BYZE_I18N = Object.freeze({
     "copyFailed": "कॉपी करने के लिए टेक्स्ट चुनें",
     "loading": "इंस्टॉल कमांड लोड हो रही हैं…",
     "introAria": "परिचय",
-    "miningAria": "अनुकूलित माइनिंग कमांड"
+    "miningAria": "अनुकूलित माइनिंग कमांड",
+    "intelReady": "macOS Intel: पूरा प्रायोगिक CLI पैकेज उपलब्ध है। मौजूदा BYZE Core को उपयोग करता है या अनुमति से आधिकारिक Core इंस्टॉल करता है।",
+    "bannerReady": "macOS के पूरे प्रायोगिक पैकेज उपलब्ध हैं। मौजूदा BYZE Core को कभी स्वतः नहीं बदला जाता; पहली इंस्टॉलेशन के लिए स्पष्ट अनुमति चाहिए। P2Pool बाइनरी बिना साइन किए हैं।"
   },
   "ar": {
     "pageTitle": "تثبيت BYZE P2Pool CLI — دليل الإعداد",
@@ -429,7 +441,7 @@ window.BYZE_I18N = Object.freeze({
     "walletHelp": "ستُرسل أي مكافآت محتملة إلى هذا العنوان. لا تُدخل المفتاح الخاص أو عبارة الاسترداد أبداً.",
     "minerLabel": "اسم المُعدّن",
     "threadsLabel": "خيوط المعالج",
-    "nodeNote": "ستُستخدم عقدة BYZE Core الحالية. لا تُنزّل هذه الصفحة BYZE Core ولا تحدّثه.",
+    "nodeNote": "هل BYZE Core مثبت بالفعل؟ سيكتشفه المثبّت ويعيد استخدامه دون إعادة تثبيت أو تحديث. إن لم يكن موجوداً، فستُطلب موافقتك الصريحة قبل تثبيت النسخة الرسمية.",
     "installTitle": "تثبيت CLI",
     "installTerminal": "الطرفية · تثبيت الحزمة الكاملة",
     "installCopy": "نسخ أوامر التثبيت",
@@ -462,7 +474,7 @@ window.BYZE_I18N = Object.freeze({
     "releaseReady": "الإصدار التجريبي متاح: نزّل فقط من GitHub Release {tag}. الملفات غير موقعة وغير موثقة.",
     "releasePending": "لم يُعثر على الإصدار: سيعمل التثبيت بعد نشر الأرشيف وSHA256SUMS في {tag}.",
     "releaseOther": "لم يُنشر إصدار كامل لهذه المنصة بعد.",
-    "macHint": "ينزّل الحزمة ويتحقق من SHA-256 ويثبّتها في ~/.local/opt. دون sudo أو Git أو npm أو مُترجم.",
+    "macHint": "يفحص BYZE Core الموجود أولاً. إن لم يوجد، يطلب الإذن بتثبيت النسخة الرسمية. بعدها ينزّل P2Pool ويتحقق من SHA-256 ويشغّل العقدة بعد الموافقة، دون Git أو npm أو مُترجم.",
     "linuxHint": "حزمة Linux التجريبية موجودة حالياً في GitHub Actions. ستتوفر أوامر عامة بعد نشر Release.",
     "otherHint": "الملفات الأصلية وحدها ليست حزمة مستقلة كاملة.",
     "walletError": "أدخل عنوان BYZE عاماً يبدأ بـ byz1 دون مسافات.",
@@ -475,7 +487,9 @@ window.BYZE_I18N = Object.freeze({
     "copyFailed": "حدد النص لنسخه",
     "loading": "جارٍ تحميل أوامر التثبيت…",
     "introAria": "مقدمة",
-    "miningAria": "أمر التعدين المخصص"
+    "miningAria": "أمر التعدين المخصص",
+    "intelReady": "macOS Intel: حزمة CLI تجريبية كاملة متاحة. يُعاد استخدام BYZE Core الموجود أو يُثبّت الرسمي بموافقتك.",
+    "bannerReady": "حزم macOS التجريبية الكاملة متاحة. لا يُستبدل BYZE Core الموجود تلقائياً أبداً؛ التثبيت الأول يتطلب موافقة صريحة. ملفات P2Pool غير موقعة."
   },
   "ru": {
     "pageTitle": "Установка BYZE P2Pool CLI — руководство",
@@ -497,7 +511,7 @@ window.BYZE_I18N = Object.freeze({
     "walletHelp": "Возможные вознаграждения поступят на этот адрес. Никогда не вводите приватный ключ или seed-фразу.",
     "minerLabel": "Имя майнера",
     "threadsLabel": "Потоки CPU",
-    "nodeNote": "Будет использован существующий узел BYZE Core. Эта страница не загружает и не обновляет BYZE Core.",
+    "nodeNote": "BYZE Core уже установлен? Установщик обнаружит и повторно использует его без переустановки или обновления. При отсутствии Core потребуется отдельное подтверждение установки официальной версии.",
     "installTitle": "Установить CLI",
     "installTerminal": "Терминал · Установка полного пакета",
     "installCopy": "Копировать установку",
@@ -530,7 +544,7 @@ window.BYZE_I18N = Object.freeze({
     "releaseReady": "Экспериментальная версия доступна: скачивайте только из GitHub Release {tag}. Файлы не подписаны и не нотарифицированы.",
     "releasePending": "Версия не найдена: установка заработает после публикации архива и SHA256SUMS в {tag}.",
     "releaseOther": "Полный релиз для этой платформы пока не опубликован.",
-    "macHint": "Скачивает пакет, проверяет SHA-256 и устанавливает в ~/.local/opt. Не нужны sudo, Git, npm и компилятор.",
+    "macHint": "Сначала ищет существующий BYZE Core. Если его нет, запрашивает разрешение на установку официальной версии. Затем загружает P2Pool, проверяет SHA-256 и запускает узел с согласия пользователя. Git, npm и компилятор не нужны.",
     "linuxHint": "Экспериментальный пакет Linux находится в GitHub Actions. Команда появится после публикации Release.",
     "otherHint": "Отдельные нативные файлы не являются полным автономным пакетом.",
     "walletError": "Введите публичный адрес BYZE, начинающийся с byz1, без пробелов.",
@@ -543,7 +557,9 @@ window.BYZE_I18N = Object.freeze({
     "copyFailed": "Выделите текст для копирования",
     "loading": "Загрузка команд установки…",
     "introAria": "Введение",
-    "miningAria": "Персональная команда майнинга"
+    "miningAria": "Персональная команда майнинга",
+    "intelReady": "macOS Intel: полный экспериментальный пакет CLI доступен. Используется уже установленный BYZE Core либо с разрешения устанавливается официальный.",
+    "bannerReady": "Полные экспериментальные пакеты macOS доступны. Существующий BYZE Core никогда не заменяется автоматически; первая установка требует явного согласия. Бинарные файлы P2Pool не подписаны."
   },
   "ja": {
     "pageTitle": "BYZE P2Pool CLI のインストール — セットアップガイド",
@@ -565,7 +581,7 @@ window.BYZE_I18N = Object.freeze({
     "walletHelp": "報酬が発生した場合、このアドレスへ送金されます。秘密鍵やリカバリーフレーズは入力しないでください。",
     "minerLabel": "マイナー名",
     "threadsLabel": "CPU スレッド数",
-    "nodeNote": "既存の BYZE Core ノードを利用します。このページでは BYZE Core のダウンロードや更新は行いません。",
+    "nodeNote": "BYZE Core が既にありますか？再インストールや更新をせず検出して再利用します。存在しない場合のみ、明示的な同意を得て公式 Core をインストールします。",
     "installTitle": "CLI をインストール",
     "installTerminal": "ターミナル · 完全パッケージのインストール",
     "installCopy": "インストールコマンドをコピー",
@@ -598,7 +614,7 @@ window.BYZE_I18N = Object.freeze({
     "releaseReady": "実験的プレリリース公開中：GitHub Release {tag} からのみダウンロードしてください。未署名・未公証のバイナリです。",
     "releasePending": "プレリリースが見つかりません：{tag} にアーカイブと SHA256SUMS が公開されると利用できます。",
     "releaseOther": "このプラットフォームの完全な Release はまだ公開されていません。",
-    "macHint": "公開パッケージをダウンロードし SHA-256 を検証して ~/.local/opt に配置します。sudo、Git、npm、コンパイラーは不要です。",
+    "macHint": "既存の BYZE Core を最初に確認します。なければ公式 Core のインストール許可を求めます。その後 P2Pool をダウンロードし SHA-256 を検証して、同意後にノードを起動します。Git、npm、コンパイラーは不要です。",
     "linuxHint": "Linux 実験用パッケージは GitHub Actions にあります。Release 公開後にインストールコマンドを提供します。",
     "otherHint": "ネイティブバイナリだけでは完全パッケージになりません。",
     "walletError": "byz1 で始まる、空白のない公開 BYZE アドレスを入力してください。",
@@ -611,7 +627,9 @@ window.BYZE_I18N = Object.freeze({
     "copyFailed": "文字列を選択してコピーしてください",
     "loading": "インストールコマンドを読み込み中…",
     "introAria": "概要",
-    "miningAria": "カスタムマイニングコマンド"
+    "miningAria": "カスタムマイニングコマンド",
+    "intelReady": "macOS Intel：完全な実験用 CLI パッケージを利用できます。既存の BYZE Core を再利用し、なければ同意を得て公式版をインストールします。",
+    "bannerReady": "macOS の実験用完全パッケージを利用できます。既存の BYZE Core を自動で置き換えることはありません。初回インストールには明示的な許可が必要です。P2Pool バイナリは未署名です。"
   },
   "de": {
     "pageTitle": "BYZE P2Pool CLI installieren — Anleitung",
@@ -633,7 +651,7 @@ window.BYZE_I18N = Object.freeze({
     "walletHelp": "Mögliche Belohnungen gehen an diese Adresse. Gib niemals deinen privaten Schlüssel oder deine Wiederherstellungsphrase ein.",
     "minerLabel": "Miner-Name",
     "threadsLabel": "CPU-Threads",
-    "nodeNote": "Dein bestehender BYZE-Core-Knoten wird verwendet. Diese Seite lädt BYZE Core nicht herunter und aktualisiert es nicht.",
+    "nodeNote": "BYZE Core ist bereits installiert? Es wird erkannt und ohne Neuinstallation oder Upgrade weiterverwendet. Fehlt es, fragt der Installer vor der Installation des offiziellen Core ausdrücklich nach deiner Zustimmung.",
     "installTitle": "CLI installieren",
     "installTerminal": "Terminal · Vollständiges Paket installieren",
     "installCopy": "Installationsbefehle kopieren",
@@ -666,7 +684,7 @@ window.BYZE_I18N = Object.freeze({
     "releaseReady": "Experimentelle Vorabversion verfügbar: nur aus GitHub Release {tag} herunterladen. Dateien sind nicht signiert oder notarisiert.",
     "releasePending": "Vorabversion nicht gefunden: Installation nach Veröffentlichung von Archiv und SHA256SUMS unter {tag} möglich.",
     "releaseOther": "Für diese Plattform gibt es noch keinen vollständigen Release.",
-    "macHint": "Lädt das Paket herunter, prüft SHA-256 und installiert nach ~/.local/opt. Kein sudo, Git, npm oder Compiler nötig.",
+    "macHint": "Prüft zuerst, ob BYZE Core existiert. Andernfalls wird um Erlaubnis zur Installation gebeten. Danach wird P2Pool heruntergeladen, SHA-256 geprüft und der Knoten mit Zustimmung gestartet. Ohne Git, npm oder Compiler.",
     "linuxHint": "Das experimentelle Linux-Paket liegt in GitHub Actions. Nach einem Release steht der Installationsbefehl bereit.",
     "otherHint": "Nur native Binärdateien sind kein vollständiges Paket.",
     "walletError": "Gib eine öffentliche BYZE-Adresse ein, die mit byz1 beginnt und keine Leerzeichen enthält.",
@@ -679,6 +697,8 @@ window.BYZE_I18N = Object.freeze({
     "copyFailed": "Text zum Kopieren markieren",
     "loading": "Installationsbefehle werden geladen…",
     "introAria": "Einführung",
-    "miningAria": "Persönlicher Mining-Befehl"
+    "miningAria": "Persönlicher Mining-Befehl",
+    "intelReady": "macOS Intel: vollständiges experimentelles CLI-Paket verfügbar. Vorhandenes BYZE Core wird wiederverwendet oder nach Zustimmung offiziell installiert.",
+    "bannerReady": "Vollständige experimentelle macOS-Pakete sind verfügbar. Bestehendes BYZE Core wird niemals automatisch ersetzt; die Erstinstallation erfordert ausdrückliche Zustimmung. P2Pool-Binärdateien sind unsigniert."
   }
 });
