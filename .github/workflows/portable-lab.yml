@@ -1,0 +1,86 @@
+name: Complete experimental P2Pool lab bundle
+
+# Deliberately separate from signed production releases.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/complete-p2pool-lab-bundle-v1
+
+permissions:
+  contents: read
+
+jobs:
+  package-linux-x64:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    defaults:
+      run:
+        working-directory: cli
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: cli/package-lock.json
+      - name: Prepare native build toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake git pkg-config libboost-dev libssl-dev
+      - name: Validate source and install locked dependencies
+        run: |
+          npm ci
+          npm run check
+          npm test
+          npm run test:dht
+          python3 -m unittest discover -s tests -p 'test_byze_lab_rpc_relay.py' -q
+          npm run release:preflight:source
+      - name: Build managed natives only from pinned official miner source
+        run: |
+          rm -rf native/linux-x64
+          npm run native:bootstrap-official
+          npm run native:ensure
+      - name: Stage and self-test complete portable CLI
+        run: |
+          bash -n tools/build-portable-lab.sh
+          bash tools/build-portable-lab.sh
+          .portable-lab/linux-x64/bin/byze-p2pool --version
+          .portable-lab/linux-x64/bin/byze-p2pool --help >/dev/null
+          .portable-lab/linux-x64/bin/node .portable-lab/linux-x64/app/tools/test-private-dht.js
+          # No local Core client is bundled: diagnostic must fail closed
+          # without prompting for a wallet or starting a new daemon.
+          set +e
+          check_output=$(.portable-lab/linux-x64/bin/byze-p2pool --check-node --byze-cli /nonexistent/byze-cli 2>&1)
+          check_status=$?
+          setup_output=$(.portable-lab/linux-x64/bin/byze-p2pool --setup-core --byze-cli /nonexistent/byze-cli </dev/null 2>&1)
+          setup_status=$?
+          set -e
+          test "$check_status" -eq 3
+          grep -q 'BYZE_NODE_NOT_READY' <<< "$check_output"
+          test "$setup_status" -ne 0
+          grep -q 'requires an interactive terminal' <<< "$setup_output"
+      - name: Package experimental complete CLI
+        run: |
+          set -euo pipefail
+          mkdir -p ../portable-artifacts
+          archive="byze-p2pool-cli-complete-0.2.5-rc3-linux-x64-$(git rev-parse --short=12 HEAD).tar.gz"
+          tar -czf "../portable-artifacts/$archive" -C .portable-lab linux-x64
+          (
+            cd ../portable-artifacts
+            sha256sum "$archive" > SHA256SUMS
+            printf '%s\n' "EXPERIMENTAL; NOT A SIGNED RELEASE" \
+              "Includes bundled Node.js runtime, locked JS dependencies, and native miner/verifier." \
+              "External synchronized BYZE Core + authenticated local byze-cli RPC remain required." \
+              "Contains no wallet, RPC credentials or mainnet node." > BUILD-INFO.txt
+          )
+      - uses: actions/upload-artifact@v4
+        with:
+          name: byze-p2pool-complete-lab-linux-x64
+          path: portable-artifacts/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
