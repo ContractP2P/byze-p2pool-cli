@@ -91,8 +91,8 @@ jobs:
             /bin/bash docs/install-macos.sh --install > "$work/install.txt"
           grep -q 'CORE_ACTION: REUSE_ONLY' "$work/install.txt"
           grep -q 'BYZE_NODE_READY' "$work/install.txt"
-          test "$(wc -l < "$work/curl.calls" | tr -d ' ')" = 1
-          grep -q -- '--head' "$work/curl.calls"
+          # Existing complete P2Pool + Core must not even contact the network.
+          test ! -e "$work/curl.calls"
           grep -q '# BYZE_P2POOL_MANAGED_LAUNCHER' "$home/.local/bin/byze-p2pool"
           test -f "$home/ldev/byze/build/bin/byze-cli"
           echo 'PASS: existing Core untouched, pool launcher configured'
