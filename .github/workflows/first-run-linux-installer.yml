@@ -53,7 +53,7 @@ jobs:
           cat > "$home/byze/build/bin/byze-cli" <<'CLI'
           #!/bin/sh
           if [ "$1" = getblockchaininfo ]; then
-            printf '{"chain":"main","blocks":5,"headers":5}\n'
+            printf '{"chain":"main","blocks":5,"headers":5,"initialblockdownload":false}\n'
             exit 0
           fi
           exit 1
@@ -86,11 +86,40 @@ jobs:
           exit 1
           EMPTY_CLI
           chmod +x "$home/byze/build/bin/byze-cli"
-          HOME="$home" PATH="$work/mock:$PATH" bash docs/install-linux.sh --install > "$work/empty"
+          HOME="$home" PATH="$work/mock:$PATH" \
+            BYZE_SYNC_INTERVAL_SECONDS=0 BYZE_SYNC_MAX_POLLS=1 \
+            bash docs/install-linux.sh --install > "$work/empty" 2>&1 && exit 1
           grep -q 'BYZE_NODE_NOT_READY' "$work/empty"
           ! grep -qx 'BYZE_NODE_READY' "$work/empty"
           test ! -e "$work/curl.log"
           echo 'PASS: zero-height Core cannot falsely pass installation readiness'
+          cat > "$home/byze/build/bin/byze-cli" <<'SYNC_CLI'
+          #!/bin/sh
+          if [ "$1" = getblockchaininfo ]; then
+            n=0
+            if [ -f "$SYNC_READS" ]; then n="$(cat "$SYNC_READS")"; fi
+            n=$((n + 1))
+            echo "$n" > "$SYNC_READS"
+            case "$n" in
+              1) printf '{"chain":"main","blocks":250,"headers":1000,"initialblockdownload":true}\n' ;;
+              2) printf '{"chain":"main","blocks":500,"headers":1000,"initialblockdownload":true}\n' ;;
+              *) printf '{"chain":"main","blocks":1000,"headers":1000,"initialblockdownload":false}\n' ;;
+            esac
+            exit 0
+          fi
+          exit 1
+          SYNC_CLI
+          chmod +x "$home/byze/build/bin/byze-cli"
+          SYNC_READS="$work/sync-count" HOME="$home" PATH="$work/mock:$PATH" \
+            BYZE_SYNC_INTERVAL_SECONDS=0 BYZE_SYNC_MAX_POLLS=4 \
+            bash docs/install-linux.sh --wait-sync > "$work/progress"
+          grep -Fq '250 / 1000 blocks (25.0% by height); IBD: true' "$work/progress"
+          grep -Fq '500 / 1000 blocks (50.0% by height); IBD: true' "$work/progress"
+          grep -Fq '1000 / 1000 blocks (100.0% by height); IBD: false' "$work/progress"
+          grep -q 'BYZE_NODE_READY' "$work/progress"
+          test ! -e "$work/curl.log"
+          echo 'PASS: resumable percent-by-height monitoring never downloads or starts Core'
+
       - name: Core absent without signed public P2Pool asset cannot alter machine
         shell: bash
         run: |
