@@ -158,3 +158,30 @@ jobs:
           assert "'linux-x64'" in snippets[0]
           PY
           node --check /tmp/byze-install-site-inline.js
+
+      - name: Clean Linux host installs real Core into new directory but never auto-starts
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          mkdir -p "$work/home"
+          # script(1) allocates the genuine TTY required for consent. Reject START,
+          # so no daemon/network/wallet is ever launched by this CI canary.
+          set +e
+          printf 'NO\nINSTALL\nDECLINE\n' | \
+            script -q -e -c "env HOME=$work/home bash docs/install-linux.sh --install-core" /dev/null \
+            > "$work/out" 2>&1
+          status=$?
+          set -e
+          test "$status" -ne 0
+          grep -q 'CORE_INSTALLED:' "$work/out"
+          found_cli="$(find "$work/home/.local/opt" -type f -name byze-cli -print -quit)"
+          found_daemon="$(find "$work/home/.local/opt" -type f -name byzed -print -quit)"
+          test -x "$found_cli"
+          test -x "$found_daemon"
+          test ! -e "$work/home/.byze"
+          # Idempotency: the fully installed Core is now found on the next run.
+          HOME="$work/home" bash docs/install-linux.sh --probe > "$work/probe"
+          grep -q 'CORE_ACTION: REUSE_ONLY' "$work/probe"
+          echo 'PASS: clean host Core install, no daemon startup, existing install detected on retry'
