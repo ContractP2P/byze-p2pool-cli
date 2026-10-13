@@ -80,11 +80,22 @@ jobs:
           do
             echo "Runtime libraries for $bin:"
             otool -L "$bin"
-            if otool -L "$bin" | grep -E '/(opt/homebrew|usr/local/(Cellar|opt|lib))/' ; then
-              echo "External Homebrew library detected: package is not yet fully portable" >&2
+            external=$(otool -L "$bin" | grep -E '/(opt/homebrew|usr/local/(Cellar|opt|lib))/' || true)
+            unexpected=$(printf '%s\\n' "$external" | grep -vE '/usr/local/opt/openssl@3/lib/libcrypto\\.3\\.dylib' || true)
+            if [ -n "$unexpected" ]; then
+              echo "Unexpected external Homebrew libraries: $unexpected" >&2
               exit 1
             fi
           done
+          root=".portable-lab/macos-x64/byze-p2pool-0.2.5-rc3-darwin-x64"
+          test -s "$root/lib/libcrypto.3.dylib"
+          miner="$root/app/native/darwin-x64/byze-p2pool-miner"
+          library_path="$(cd "$root/lib" && pwd)"
+          # Check dyld actually uses the packaged OpenSSL runtime.
+          native_out=$(DYLD_PRINT_LIBRARIES=1 DYLD_LIBRARY_PATH="$library_path" "$miner" --features 2>&1)
+          printf '%s\\n' "$native_out" | grep -F 'contract-direct-coinbase-v2'
+          printf '%s\\n' "$native_out" | grep -F "$library_path/libcrypto.3.dylib"
+          echo "Standalone Intel runtime uses bundled OpenSSL: OK"
 
       - name: Upload temporary Intel test package
         uses: actions/upload-artifact@v4
