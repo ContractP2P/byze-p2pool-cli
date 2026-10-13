@@ -4,6 +4,7 @@ name: Experimental native test bundles
 on:
   push:
     branches:
+      - main
       - build/native-test-bundles
   workflow_dispatch:
 
