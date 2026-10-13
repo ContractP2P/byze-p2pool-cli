@@ -197,7 +197,7 @@ EOF
   chmod 0755 "$LAUNCHER"
   "$LAUNCHER" --version
 }
-BYZE_CLI="\${BYZE_CLI-}"
+BYZE_CLI="${BYZE_CLI-}"
 case "$MODE" in
   --probe)
     if discover_core; then
