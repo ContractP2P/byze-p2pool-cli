@@ -96,6 +96,25 @@ jobs:
           grep -q '# BYZE_P2POOL_MANAGED_LAUNCHER' "$home/.local/bin/byze-p2pool"
           test -f "$home/ldev/byze/build/bin/byze-cli"
           echo 'PASS: existing Core untouched, pool launcher configured'
+          # Regression: an unsynchronized, zero-block Core must not be
+          # labelled READY, even if the reused rc3 bundle says otherwise.
+          cat > "$home/ldev/byze/build/bin/byze-cli" <<'ZERO_CORE'
+          #!/bin/sh
+          if [ "$1" = "getblockchaininfo" ]; then
+            echo '{"chain":"main","blocks":0,"headers":0,"initialblockdownload":false}'
+            exit 0
+          fi
+          exit 1
+          ZERO_CORE
+          chmod 700 "$home/ldev/byze/build/bin/byze-cli"
+          CURL_CALLS="$work/curl.calls" PATH="$mock:$PATH" HOME="$home" \
+            /bin/bash docs/install-macos.sh --install > "$work/empty-chain.txt"
+          grep -q 'BYZE_NODE_NOT_READY' "$work/empty-chain.txt"
+          grep -q 'blocks: 0' "$work/empty-chain.txt"
+          ! grep -q '^BYZE_NODE_READY' "$work/empty-chain.txt"
+          test ! -e "$work/curl.calls"
+          echo 'PASS: zero-height Core is never reported ready; no download or duplicate daemon'
+
 
       - name: Existing Core data fails closed without any network access
         shell: bash
