@@ -28,11 +28,14 @@ The installer fetches a complete platform bundle with bundled Node.js, JavaScrip
 **Stopping and resuming synchronization monitoring:** `Ctrl+C` stops only the installer monitor, **not** the running BYZE Core node. To resume without reinstalling, run the already downloaded script with `--wait-sync`, or fetch the current script again:
 
 ```bash
-# macOS (uses the file downloaded by the website)
+# macOS: refresh the public installer script, then resume monitoring
+curl -fL --retry 3 https://contractp2p.github.io/byze-p2pool-cli/install-macos.sh \
+  -o "$HOME/Downloads/byze-p2pool-first-run-macos.sh"
 bash "$HOME/Downloads/byze-p2pool-first-run-macos.sh" --wait-sync
 
-# Linux (download the current installer; no Core installation is performed)
-curl -fL https://contractp2p.github.io/byze-p2pool-cli/install-linux.sh -o /tmp/byze-p2pool-install-linux.sh
+# Linux: fetch the current installer script, then resume monitoring
+curl -fL https://contractp2p.github.io/byze-p2pool-cli/install-linux.sh \
+  -o /tmp/byze-p2pool-install-linux.sh
 bash /tmp/byze-p2pool-install-linux.sh --wait-sync
 ```
 
