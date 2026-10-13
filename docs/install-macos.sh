@@ -195,13 +195,19 @@ case "$MODE" in
    fi ;;
  --install)
    message "BYZE P2Pool full installation for $PLATFORM"
-   preflight
+   # Inspect local installations before any network operation. A detected
+   # footprint with no usable byze-cli must fail closed even when offline.
+   local_core_absent=0
    if discover_core; then
      message "CORE_FOUND: $CORE_EVIDENCE"
      message "CORE_ACTION: REUSE_ONLY; no download, replacement or upgrade."
    elif [ -n "$CORE_EVIDENCE" ]; then
      fail "Existing Core footprint: $CORE_EVIDENCE. Core will NOT be reinstalled. Set BYZE_CLI to its client location."
    else
+     local_core_absent=1
+   fi
+   preflight
+   if [ "$local_core_absent" -eq 1 ]; then
      TMP="$(mktemp -d "${TMPDIR:-/tmp}/byze-install.XXXXXXXX")"
      install_new_core
    fi
