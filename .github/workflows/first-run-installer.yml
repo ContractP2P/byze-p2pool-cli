@@ -59,7 +59,7 @@ jobs:
           cat > "$home/ldev/byze/build/bin/byze-cli" <<'CLI'
           #!/bin/sh
           if [ "$1" = "getblockchaininfo" ]; then
-            echo '{"chain":"main","blocks":999,"headers":999}'
+            echo '{"chain":"main","blocks":999,"headers":999,"initialblockdownload":false}'
             exit 0
           fi
           exit 1
@@ -108,12 +108,43 @@ jobs:
           ZERO_CORE
           chmod 700 "$home/ldev/byze/build/bin/byze-cli"
           CURL_CALLS="$work/curl.calls" PATH="$mock:$PATH" HOME="$home" \
-            /bin/bash docs/install-macos.sh --install > "$work/empty-chain.txt"
+            BYZE_SYNC_INTERVAL_SECONDS=0 BYZE_SYNC_MAX_POLLS=1 \
+            /bin/bash docs/install-macos.sh --install > "$work/empty-chain.txt" 2>&1 && exit 1
           grep -q 'BYZE_NODE_NOT_READY' "$work/empty-chain.txt"
           grep -q 'blocks: 0' "$work/empty-chain.txt"
           ! grep -q '^BYZE_NODE_READY' "$work/empty-chain.txt"
           test ! -e "$work/curl.calls"
           echo 'PASS: zero-height Core is never reported ready; no download or duplicate daemon'
+          # A live monitor can be resumed without rerunning the installer or
+          # modifying the existing daemon; it reports percentage by block height.
+          count="$work/reads"
+          cat > "$home/ldev/byze/build/bin/byze-cli" <<'SYNC_CORE'
+          #!/bin/sh
+          if [ "$1" = "getblockchaininfo" ]; then
+            n=0
+            if [ -f "$SYNC_READS" ]; then n="$(cat "$SYNC_READS")"; fi
+            n=$((n + 1))
+            echo "$n" > "$SYNC_READS"
+            case "$n" in
+              1) echo '{"chain":"main","blocks":500,"headers":1000,"initialblockdownload":true}' ;;
+              2) echo '{"chain":"main","blocks":750,"headers":1000,"initialblockdownload":true}' ;;
+              *) echo '{"chain":"main","blocks":1000,"headers":1000,"initialblockdownload":false}' ;;
+            esac
+            exit 0
+          fi
+          exit 1
+          SYNC_CORE
+          chmod 700 "$home/ldev/byze/build/bin/byze-cli"
+          SYNC_READS="$count" HOME="$home" PATH="$mock:$PATH" \
+            BYZE_SYNC_INTERVAL_SECONDS=0 BYZE_SYNC_MAX_POLLS=4 \
+            /bin/bash docs/install-macos.sh --wait-sync > "$work/progress"
+          grep -Fq '500 / 1000 blocks (50.0% by height); IBD: true' "$work/progress"
+          grep -Fq '750 / 1000 blocks (75.0% by height); IBD: true' "$work/progress"
+          grep -Fq '1000 / 1000 blocks (100.0% by height); IBD: false' "$work/progress"
+          grep -q 'BYZE_NODE_READY' "$work/progress"
+          test ! -e "$work/curl.calls"
+          echo 'PASS: percentage progresses to 100% without modifying or restarting Core'
+
 
 
       - name: Existing Core data fails closed without any network access
