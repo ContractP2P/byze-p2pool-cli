@@ -48,15 +48,28 @@ test('block report masks wallet addresses, reconciles all outputs and fails clos
   assert.equal(report.blockReport({...c,totalSats:'100000'}, {verified:true,confirmations:6}),null)
   assert.equal(report.abbreviateWallet('@everyone'),'unresolved')
 })
-test('activity reports only a bounded fresh partial sample',()=>{
+test('activity report shows only locally timed observed miners and hashrate',()=>{
   const now=Date.parse('2026-10-14T20:00:00.000Z')
   const sample={schema:1,source:'hyperswarm-partial',observedAt:new Date(now).toISOString(),connectedPeers:3,validPresences:2,activeMiners:2,hashrateSamples:1,observedHashrateHps:2600}
-  const msg=report.activityReport({tip:21500,activity:sample,now})
-  assert.match(msg,/2/)
-  assert.match(msg,/~2\.60 kH\/s/)
-  assert.match(msg,/partial/i)
-  assert.match(report.activityReport({tip:21500,activity:sample,now:now+125000}),/unavailable/)
-  assert.match(report.activityReport({tip:21500,activity:null,now}),/does not mean the pool is empty/)
+  const msg=report.activityReport({activity:sample,now})
+  assert.equal(msg,[
+    '**BYZE P2Pool · Activity Report**',
+    'Latest observation · <t:'+Math.floor(now/1000)+':t>',
+    '',
+    '**2** Active miners observed',
+    '**~2.60 kH/s** Observed hashrate'
+  ].join('\n'))
+  assert.doesNotMatch(msg,/chain tip|peers reached|telemetry|partial|healthy|coverage|entire network|independently measured/i)
+  const missing=report.activityReport({activity:null,now})
+  assert.match(missing,/Latest observation · unavailable/)
+  assert.match(missing,/\*\*unavailable\*\* Active miners observed/)
+  assert.match(missing,/\*\*unavailable\*\* Observed hashrate/)
+  const stale=report.activityReport({activity:sample,now:now+125000})
+  assert.match(stale,/Latest observation · unavailable/)
+  const noPresences={...sample,validPresences:0,activeMiners:0,hashrateSamples:0,observedHashrateHps:0}
+  assert.match(report.activityReport({activity:noPresences,now}),/\*\*unavailable\*\* Active miners observed/)
+  const noHashrate={...sample,hashrateSamples:0,observedHashrateHps:0}
+  assert.match(report.activityReport({activity:noHashrate,now}),/\*\*unavailable\*\* Observed hashrate/)
   assert.equal(report.normalizeActivity({...sample,activeMiners:42},now),null)
   assert.equal(report.normalizeActivity({...sample,observedHashrateHps:Infinity},now),null)
 })

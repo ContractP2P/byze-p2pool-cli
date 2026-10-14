@@ -11,6 +11,11 @@ on:
         type: boolean
         required: true
         default: true
+      force_activity:
+        description: 'Manual live test: send activity even if already posted this hour (requires dry_run=false)'
+        type: boolean
+        required: true
+        default: false
 
 permissions:
   contents: read
@@ -50,6 +55,7 @@ jobs:
           BYZE_EVIDENCE_FILE: ${{ runner.temp }}/byze-chain-monitor/evidence.json
           BYZE_ACTIVITY_FILE: ${{ runner.temp }}/byze-chain-monitor/activity.json
           MONITOR_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == true }}
+          MONITOR_FORCE_ACTIVITY: ${{ github.event_name == 'workflow_dispatch' && inputs.force_activity == true && inputs.dry_run == false }}
         run: node cli/tools/chain-monitor/run.cjs
       - name: Upload public chain evidence (no secrets)
         if: ${{ always() }}
