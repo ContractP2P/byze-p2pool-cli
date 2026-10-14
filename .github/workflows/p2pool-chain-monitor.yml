@@ -36,8 +36,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           DISCORD_WEBHOOK_URL: ${{ secrets.BYZE_P2POOL_DISCORD_WEBHOOK }}
-          BYZE_TIP_URL: ${{ vars.BYZE_TIP_URL }}
-          BYZE_BLOCK_URL_TEMPLATE: ${{ vars.BYZE_BLOCK_URL_TEMPLATE }}
+          BYZE_TIP_URL: ${{ vars.BYZE_TIP_URL || 'https://explorer.byze.org/api/status' }}
+          BYZE_BLOCK_URL_TEMPLATE: ${{ vars.BYZE_BLOCK_URL_TEMPLATE || 'https://explorer.byze.org/api/block/{id}' }}
           BYZE_TX_URL_TEMPLATE: ${{ vars.BYZE_TX_URL_TEMPLATE }}
           BYZE_VALUE_MODE: ${{ vars.BYZE_VALUE_MODE }}
           BYZE_EVIDENCE_FILE: ${{ runner.temp }}/byze-chain-monitor/evidence.json
