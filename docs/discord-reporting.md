@@ -33,12 +33,13 @@ Fields: height, hash, coinbaseTxid, pplnsTipId (prefix ps: plus 64 hex character
 
 - Existing Actions variable: BYZE_MONITOR_ENABLED=true.
 - Existing Actions secret: BYZE_P2POOL_DISCORD_WEBHOOK, pointing to the desired #p2pool-reports channel.
-- Run the workflow manually using dry_run=true before activation. It prints both report formats and preserves chain observations in an Actions evidence artifact but sends no messages or state mutations.
+- Run the workflow manually using `dry_run=true` before activation. It prints the report previews and preserves chain observations in an Actions evidence artifact but sends no messages or state mutations.
+- To test a real Discord message immediately when the current UTC hour already has a report, manually choose `dry_run=false` and `force_activity=true`. This explicit option bypasses the hourly activity gate for that manual run only; scheduled runs remain capped. Do not enable it for routine publication.
 - Run offline tests:
 
     node --test cli/tools/chain-monitor/core.test.cjs cli/tools/chain-monitor/run.test.cjs cli/tools/chain-monitor/reports.test.cjs
 
-The workflow runs at minutes 17 and 47 UTC, subject to GitHub scheduling delays. Activity posts are capped at once per 60 minutes. Verified block reports are deduplicated by block hash. A successful webhook followed by failed state persistence may result in repeat delivery.
+The workflow runs at minutes 17 and 47 UTC, subject to GitHub scheduling delays. Routine activity posts are capped at once per UTC clock hour (manual forced tests are the documented exception). Verified block reports are deduplicated by block hash. A successful webhook followed by failed state persistence may result in repeat delivery.
 
 The explorer scan stops on unexpected or malformed blockchain data. An unavailable P2P observer does not block the scan: the activity post labels values unavailable. The observer sends a protocol hello only and needs no BYZE daemon, wallet secrets, or miner callbacks. Real P2P discovery from a GitHub-hosted observer was confirmed on 2026-10-14 with one active miner and a recent 2.86 kH/s sample. This single observation does not establish full-network coverage.
 
