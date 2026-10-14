@@ -31,7 +31,15 @@ jobs:
         with:
           node-version: '22'
       - name: Offline unit tests
-        run: node --test cli/tools/chain-monitor/core.test.cjs cli/tools/chain-monitor/run.test.cjs
+        run: node --test cli/tools/chain-monitor/core.test.cjs cli/tools/chain-monitor/run.test.cjs cli/tools/chain-monitor/reports.test.cjs
+      - name: Install passive observer dependencies
+        continue-on-error: true
+        run: npm ci --prefix cli --ignore-scripts --no-audit --no-fund
+      - name: Sample P2P miner activity (read-only)
+        continue-on-error: true
+        env:
+          BYZE_ACTIVITY_FILE: ${{ runner.temp }}/byze-chain-monitor/activity.json
+        run: node cli/tools/chain-monitor/observe-p2p.cjs
       - name: Inspect blockchain (no mining / no P2P connections)
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -41,6 +49,7 @@ jobs:
           BYZE_TX_URL_TEMPLATE: ${{ vars.BYZE_TX_URL_TEMPLATE }}
           BYZE_VALUE_MODE: ${{ vars.BYZE_VALUE_MODE }}
           BYZE_EVIDENCE_FILE: ${{ runner.temp }}/byze-chain-monitor/evidence.json
+          BYZE_ACTIVITY_FILE: ${{ runner.temp }}/byze-chain-monitor/activity.json
           MONITOR_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == true }}
         run: node cli/tools/chain-monitor/run.cjs
       - name: Upload public chain evidence (no secrets)

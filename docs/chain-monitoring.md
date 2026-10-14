@@ -1,6 +1,8 @@
+> **Discord reporting update:** See [discord-reporting.md](discord-reporting.md) for the two current Discord formats, strict block-attribution gate and privacy controls. This earlier Stage 1 specification describes the original chain candidate discovery, not current Discord notifications.
+
 # BYZE P2Pool external chain monitor (Stage 1)
 
-**Status: live explorer endpoints verified from GitHub Actions on 2026-10-14; read-only 36-block dry-run passed (7 fee-address candidates, all with expected 0.5% fee). Discord reporting remains disabled until the webhook secret and activation variable are configured.**
+**Status: explorer endpoints were verified from GitHub Actions on 2026-10-14. The 7 fee-address matches were candidates, NOT confirmed P2Pool blocks. Discord now has an hourly observed-activity report and only attribution-reviewed block payout reports; posting remains disabled until configured.**
 
 This is a separate, read-only GitHub Actions observer of `explorer.byze.org`. It does not use Hyperswarm, does not run Byze Core, does not contact miners, does not access wallets, and **requires no changes to the mining CLI**. It is complementary to `cli/tools/audit-mainnet-coinbase.js`, whose existing safety standard and matching policy it follows. It does not claim to replace the complete native-node audit or P2P PPLNS evidence.
 
@@ -54,11 +56,11 @@ The schedule is at minute 17 and 47 (UTC), roughly every half hour; GitHub timin
 - A fee-output match is **only a candidate**, not independent identification of the P2Pool's origin or correct PPLNS distribution; a real attribution needs miner logs and share-window evidence.
 - Requires at least six confirmations before notifying about a *new* fee-output candidate, and rechecks recent block hashes for observed reorganizations.
 - Saves full output-address/script/satoshi evidence for candidate coinbases as a 14-day downloadable Actions artifact (no wallet secrets; addresses are public chain data).
-- Posts at most once per run, on new confirmed candidates, observed reorgs, or after 24h without a report. Keeps state and deduplicates candidate hashes in a **single public repository issue** created on first live run. Do not close or modify that issue.
+- Logs fee candidates and observed reorgs to Actions evidence only (no candidate-only Discord messages). Posts an observed P2P activity report at most once per hour, plus one payout breakdown per independently reviewed and 6+-confirmation P2Pool block. Keeps state/deduplication in a **single public repository issue** created on first live run. Do not close or modify that issue.
 - Uses repository `GITHUB_TOKEN` with `issues:write` and `contents:read` only; no GitHub PAT, Cloudflare deployment or VPS. If the webhook fails, the run fails and does not advance the cursor. GitHub reruns might therefore repeat a previously delivered Discord message (at-least-once delivery).
 - Every HTTP request must remain on `https://explorer.byze.org` and return valid, bounded JSON; redirects, unexpected chain, malformed blocks or partial responses cause the run to fail closed.
 - No network requests are necessary for the offline unit tests: `node --test cli/tools/chain-monitor/core.test.cjs cli/tools/chain-monitor/run.test.cjs`.
 
-## Not included in Stage 1
+## Limitations
 
-Hashrate, miner count, accepted/stale/deferred shares, P2P outages, and exact PPLNS share weights are **not recorded on-chain**. An independent passive Hyperswarm observer would be Stage 2, after the chain data pipeline is proven. The BYZE CLI must never call a monitoring API or HTTP endpoint to support either stage.
+Hashrate, miner count, accepted/stale/deferred shares and exact PPLNS share weights are **not recorded on-chain**. An experimental read-only Hyperswarm observer now samples signed presence and *unsigned, self-reported* hashrate from visible peers; it does not independently verify all miner shares or establish whole-network membership. Independent PPLNS validation and automated block attribution are still separate work. The BYZE mining CLI never calls a monitoring HTTP endpoint.
