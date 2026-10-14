@@ -66,12 +66,10 @@ const { assertMainnetReady, PeerRateLimiter, ValidationGate } = require('./secur
 const { candidates: nodeCandidates, executable: nodeExecutable, inspectNode, operatorGuidance } = require('./node-discovery')
 
 const APP_VERSION = require('../package.json').version
-const CONTRACT_ID = 'org.contract.byze-p2pool'
-const CONTRACT_VERSION = '0.1.3'
-const CONTRACT_SOURCE_HASH = '0ba509a74eb5f475ce41f152349fe49a7d19e4fbd6c14c1833632c61681a0b66'
-const BUILTIN_PUBLISHER_KEY = '77a412df63379feff5e8a0cdef364b10377d7fcd0d2753f6000b48bf5b4e523e'
-const POOL_ID = 'byze-main-p2pool-v1'
-const SECURITY_GENERATION = 'coinbase-binding-v2-global-epoch-v6'
+const {
+  CONTRACT_ID, CONTRACT_VERSION, CONTRACT_SOURCE_HASH,
+  BUILTIN_PUBLISHER_KEY, POOL_ID, SECURITY_GENERATION
+} = require('./mining/network-identity')
 const CELL_MAX_MEMBERS = 20
 const WORK_EPOCH_MS = 60_000
 const RELAY_TERM_MS = 10 * 60_000
