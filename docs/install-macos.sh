@@ -22,10 +22,12 @@ trap cleanup EXIT
 case "$(uname -m)" in
  x86_64)
    PLATFORM="darwin-x64"; CORE_ARCH="x86_64"; CORE_SHA="$CORE_SHA_X64"
-   CLI_TAG="v0.2.5-rc3-macos-intel-test1" ;;
+   CLI_TAG="v0.2.5-rc3-macos-intel-test1"
+   CLI_SHA="bbe0988ff7ce919648e3d5f6b91015793e3db5cc98f27e090ea17ca682986ec8" ;;
  arm64)
    PLATFORM="darwin-arm64"; CORE_ARCH="arm64"; CORE_SHA="$CORE_SHA_ARM"
-   CLI_TAG="v0.2.5-rc3-macos-arm64-test1" ;;
+   CLI_TAG="v0.2.5-rc3-macos-arm64-test1"
+   CLI_SHA="a9b2a7275cf6f28255d156c78e14ad5d02faab7a32e3fbb1af3fbe46cd9d3a13" ;;
  *) fail "Unsupported CPU architecture." ;;
 esac
 CORE_ZIP="byze-core-macos-$CORE_ARCH.zip"
@@ -165,7 +167,9 @@ install_pool() {
    curl --fail --location --retry 3 --silent --show-error "$CLI_URL/SHA256SUMS" -o "$TMP/SHA256SUMS"
    matched="$(grep -E "^[a-fA-F0-9]{64} [ *]$CLI_TAR\$" "$TMP/SHA256SUMS" || true)"
    [ "$(printf '%s\n' "$matched" | grep -c . || true)" -eq 1 ] || fail "Invalid pool checksum manifest."
+   [ "$(printf '%s\n' "$matched" | cut -d ' ' -f1 | tr '[:upper:]' '[:lower:]')" = "$CLI_SHA" ] || fail "P2Pool release manifest differs from pinned SHA-256."
    ( cd "$TMP" && printf '%s\n' "$matched" | shasum -a 256 -c - ) || fail "Pool checksum mismatch."
+   ( cd "$TMP" && printf '%s  %s\n' "$CLI_SHA" "$CLI_TAR" | shasum -a 256 -c - ) || fail "P2Pool pinned SHA-256 mismatch."
    mkdir -p "$stage"
    /usr/bin/tar -xzf "$TMP/$CLI_TAR" -C "$stage"
    [ -x "$stage/$CLI_FOLDER/bin/byze-p2pool" ] || fail "Unexpected pool archive layout."
