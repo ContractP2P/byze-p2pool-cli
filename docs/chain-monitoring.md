@@ -1,6 +1,6 @@
 # BYZE P2Pool external chain monitor (Stage 1)
 
-**Status: code ready for review, live explorer endpoints unverified. No external posting is enabled by default.**
+**Status: live explorer endpoints verified from GitHub Actions on 2026-10-14; read-only 36-block dry-run passed (7 fee-address candidates, all with expected 0.5% fee). Discord reporting remains disabled until the webhook secret and activation variable are configured.**
 
 This is a separate, read-only GitHub Actions observer of `explorer.byze.org`. It does not use Hyperswarm, does not run Byze Core, does not contact miners, does not access wallets, and **requires no changes to the mining CLI**. It is complementary to `cli/tools/audit-mainnet-coinbase.js`, whose existing safety standard and matching policy it follows. It does not claim to replace the complete native-node audit or P2P PPLNS evidence.
 
@@ -12,9 +12,9 @@ Verified in the GitHub source tree:
 - Existing auditor scans coinbases from a local Byze Core node, explicitly identifies **candidate** blocks and does not claim origin or PPLNS accuracy based only on fee matching.
 - Offline tests verify Byze bech32m address decoding, fee-script matching, exact satoshi accounting, detection of changed block hashes, delayed confirmations, and scan limits.
 
-**Not yet verified:** precise public JSON API paths and payload shapes exposed by `explorer.byze.org`. Neither HTTP explorer block routes nor their decoded coinbase shapes should be guessed. The job deliberately refuses to run without explicit, validated endpoint variables. It does not publish partial or speculative results.
+**Verified live endpoints:** `https://explorer.byze.org/api/status` returns `chain: main` and `blocks`; `https://explorer.byze.org/api/block/{height}` returns a decoded block including the coinbase transaction in `tx[0]`, with `vin`, `vout` and BYZ-denominated `value`. Both URLs are configured as workflow defaults. On 2026-10-14 a 36-block read-only scan of heights 21063–21098 completed on a GitHub-hosted runner: 7 coinbase fee-address candidates, all with a 0.5% fee match. The explorer is an external service and future errors stop reporting rather than generate partial reports.
 
-## Set up after verifying the explorer JSON API
+## Configure Discord and activate the monitor
 
 In `ContractP2P/byze-p2pool-cli` → **Settings → Secrets and variables → Actions**:
 
@@ -22,9 +22,9 @@ Repository **variables**:
 
 | Variable | Value | Required |
 | --- | --- | --- |
-| `BYZE_TIP_URL` | Verified HTTPS JSON URL on `explorer.byze.org` returning mainnet block height (`blocks`, `height`, etc.) | yes |
-| `BYZE_BLOCK_URL_TEMPLATE` | Verified HTTPS JSON URL for decoded block by **height**; include literal `{id}` placeholder | yes |
-| `BYZE_TX_URL_TEMPLATE` | Verified HTTPS JSON URL for decoded coinbase by txid, with `{id}` placeholder | only when the block endpoint returns txids instead of full txs |
+| `BYZE_TIP_URL` | Optional override; default `https://explorer.byze.org/api/status` | no |
+| `BYZE_BLOCK_URL_TEMPLATE` | Optional override; default `https://explorer.byze.org/api/block/{id}` | no |
+| `BYZE_TX_URL_TEMPLATE` | Not needed with the verified block endpoint, which already returns the decoded coinbase | no |
 | `BYZE_VALUE_MODE` | `byz` (default, Core-style output decimal) or `sats` (only if explorer's `value` fields are explicitly integer satoshis) | optional |
 | `BYZE_MONITOR_ENABLED` | `true` only **after** a successful manual `dry_run` and Discord webhook creation | activation |
 
@@ -32,7 +32,7 @@ Repository **secret**:
 
 - `BYZE_P2POOL_DISCORD_WEBHOOK`: Discord webhook URL of the intended `#p2pool-reports` channel. Never commit this URL or paste it into an issue.
 
-How to validate endpoints: open the official explorer in a browser, inspect **Network → Fetch/XHR** requests, check exact URL, response status, content-type JSON, and JSON shape. Look for a recent block where first transaction is a decoded coinbase, with `vin[].coinbase`, `vout[].value` and an output address or script. If the explorer returns only transaction IDs, confirm the separate decoded-tx endpoint too.
+The API route and schema validation was performed from a temporary GitHub Actions probe and was followed by an actual monitor dry-run. Do not replace the verified routes with guessed URLs. The production workflow validates decoded coinbase and output fields each run.
 
 Do **not** use routes from the historic `pool.byze.org` Stratum dashboard: its data is not evidence about our independent v6 P2Pool.
 
@@ -42,8 +42,8 @@ On the default branch after merge:
 
 1. Open **Actions → BYZE P2Pool — read-only blockchain monitor → Run workflow**.
 2. Keep `dry_run=true` (the default). The workflow will scan recent blocks and generate a readable log and a `byze-chain-evidence` artifact; it will not post Discord or update monitoring state.
-3. Verify the hashes/fees shown against the explorer and inspect the artifact. If any schema or endpoint is incompatible, the job fails **without publishing**.
-4. Add the Discord webhook secret. Set `BYZE_MONITOR_ENABLED=true` to enable the schedule. A manual `dry_run=false` can also activate one real run and state update deliberately.
+3. Verify the hashes/fees shown against the explorer and inspect the artifact. The first live dry-run from GitHub Actions already passed, but this check should be repeated after merging. If the explorer changes schema, the job fails **without publishing**.
+4. Add the Discord webhook secret. Set `BYZE_MONITOR_ENABLED=true` under repository Actions **Variables** to enable the schedule. A manual `dry_run=false` can also activate one real run and state update deliberately. Without the webhook, enabled runs fail safely; do not enable until the secret is present.
 
 The schedule is at minute 17 and 47 (UTC), roughly every half hour; GitHub timing is not guaranteed. GitHub also automatically disables scheduled workflows in public repositories after 60 days of inactivity. No workaround creates fake commits here; operators must watch and re-enable the scheduled workflow if needed.
 
