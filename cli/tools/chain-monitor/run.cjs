@@ -7,6 +7,8 @@ const {
   policy, tipHeight, blockMetadata, coinbaseTx, evaluateBlock, makeScanRange,
   summarize, stateFromScan
 } = require('./core.cjs')
+const {activityReport,blockReport}=require('./reports.cjs')
+const {verifiedAttributions,eligibleBlock}=require('./block-proof.cjs')
 const GITHUB_API='https://api.github.com'
 const MARKER='<!-- byze-p2pool-chain-monitor-state-v1 -->'
 const dryRun=process.env.MONITOR_DRY_RUN==='true'
@@ -21,6 +23,7 @@ const valueMode=process.env.BYZE_VALUE_MODE||'byz'
 const minConfirmations=Number(process.env.BYZE_CONFIRMATIONS||'6')
 const scanMax=Number(process.env.BYZE_SCAN_MAX||'160')
 const timeoutMs=12000
+const activityPath=process.env.BYZE_ACTIVITY_FILE||''
 
 function requireExplorerUrl(url) {
   const u=new URL(url)
@@ -103,14 +106,52 @@ async function main() {
   }
   const {state,newCandidates,reorgs}=stateFromScan(loaded.state,{tip,blocks},candidates,minConfirmations,Date.now())
   const digest={checked:{tip,start:range.start,blocks:blocks.length,minConfirmations},newCandidates,reorgs}
-  const shouldReport=!!newCandidates.length||!!reorgs.length||Date.now()-Number(loaded.state?.lastReportAt||0)>=24*60*60*1000
-  const message=summarize(digest)
-  const evidence={schema:1,source:origin,observedAt:new Date().toISOString(),scope:'Read-only coinbase fee candidates; never proof of pool identity or PPLNS accounting',feeAddress:policy.feeAddress,feeBasisPoints:policy.feeBasisPoints,tip,range,candidates,reorgs,newCandidates:newCandidates.map(x=>x.hash),report:message}
-  if(process.env.BYZE_EVIDENCE_FILE){const target=path.resolve(process.env.BYZE_EVIDENCE_FILE);fs.mkdirSync(path.dirname(target),{recursive:true});fs.writeFileSync(target,JSON.stringify(evidence,null,2)+'\n',{flag:'w',mode:0o600})}
-  console.log(JSON.stringify({dryRun,tip,range,feeAddress:policy.feeAddress,feeCandidateCount:candidates.length,newConfirmedCandidates:newCandidates.length,reorgs,shouldReport,report:message},null,2))
+  const technicalReport=summarize(digest) // Retained in Actions evidence; never sent as public pool attribution.
+  const reviewed=verifiedAttributions()
+  const previouslyPosted=new Set(loaded.state?.publishedBlocks||[])
+  const blockMessages=[]
+  for(const candidate of candidates) {
+    const confirmations=tip-candidate.height+1
+    if(previouslyPosted.has(candidate.hash) ||
+       !eligibleBlock(candidate,reviewed.get(candidate.hash),confirmations))continue
+    const message=blockReport(candidate,{verified:true,confirmations})
+    if(!message)throw Error('Reviewed block has incomplete or invalid payout outputs at '+candidate.height)
+    blockMessages.push({hash:candidate.hash,height:candidate.height,message})
+  }
+  let activity=null
+  if(activityPath && fs.existsSync(activityPath)) {
+    try {activity=JSON.parse(fs.readFileSync(activityPath,'utf8'))}
+    catch {console.error('P2Pool snapshot malformed; activity metrics will be marked unavailable')}
+  }
+  const activityDue=Date.now()-Number(loaded.state?.lastActivityAt||0)>=60*60*1000
+  const activityMessage=activityReport({tip,activity})
+  const evidence={schema:2,source:origin,observedAt:new Date().toISOString(),
+    scope:'Blockchain fee candidates are unverified; P2Pool block reports require reviewed attribution',
+    feeAddress:policy.feeAddress,feeBasisPoints:policy.feeBasisPoints,tip,range,
+    candidates,reorgs,newCandidates:newCandidates.map(x=>x.hash),reviewedBlocks:blockMessages.map(x=>x.hash),
+    activity,technicalReport,activityReport:activityMessage,
+    blockReports:blockMessages.map(x=>x.message)}
+  if(process.env.BYZE_EVIDENCE_FILE){
+    const target=path.resolve(process.env.BYZE_EVIDENCE_FILE)
+    fs.mkdirSync(path.dirname(target),{recursive:true})
+    fs.writeFileSync(target,JSON.stringify(evidence,null,2)+'\n',{flag:'w',mode:0o600})
+  }
+  console.log(JSON.stringify({dryRun,tip,range,
+    feeCandidateCount:candidates.length,unverifiedCandidates:newCandidates.length,
+    reviewedBlocksReady:blockMessages.length,reorgs,activityDue,
+    activityReport:activityMessage,blockReports:blockMessages.map(x=>x.message)},null,2))
   if(dryRun)return
-  if(shouldReport){await sendDiscord(message);state.lastReportAt=Date.now()}
-  else state.lastReportAt=Number(loaded.state?.lastReportAt||0)
+  // Fail closed: no payout report for a mere fee-address candidate.
+  for(const row of blockMessages) {
+    await sendDiscord(row.message)
+    previouslyPosted.add(row.hash)
+  }
+  state.publishedBlocks=[...previouslyPosted].slice(-1200)
+  if(activityDue) {
+    await sendDiscord(activityMessage)
+    state.lastActivityAt=Date.now()
+  } else state.lastActivityAt=Number(loaded.state?.lastActivityAt||0)
+  state.lastReportAt=Number(loaded.state?.lastReportAt||0) // legacy field; no old candidate digest to Discord
   await persist(loaded.issue,state)
 }
 main().catch(e=>{console.error('BYZE_CHAIN_MONITOR_FAILED:',e.message);process.exitCode=1})
