@@ -1,0 +1,36 @@
+name: Temporary BYZE explorer endpoint probe
+on:
+  push:
+    branches: [feature/external-chain-monitor-gh-actions-20261014]
+    paths: [.github/workflows/probe-byze-explorer.yml]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Inspect explorer endpoint shapes without secrets
+        shell: bash
+        run: |
+          node <<'JS'
+          (async()=>{
+            async function read(path) {
+              try {
+                const r=await fetch('https://explorer.byze.org'+path,{headers:{Accept:'application/json,text/html,*/*'},signal:AbortSignal.timeout(10000)});
+                const t=await r.text();
+                console.log('PROBE',path,'HTTP',r.status,'content-type',r.headers.get('content-type'),'bytes',t.length,'sample',t.slice(0,1450).replace(/\n/g,' '));
+                return t;
+              } catch(e){console.log('PROBE_ERROR',path,String(e.message));return ''}
+            }
+            const home=await read('/');
+            console.log('HOME_JS', [...home.matchAll(/<script[^>]+src=["']([^"']+)/g)].map(x=>x[1]).slice(0,12).join(' | '));
+            await read('/api/status');
+            await read('/api/blocks?limit=2');
+            for(const p of ['/api/block/21098','/api/blocks/21098','/api/tx/0000000000000000000000000000000000000000000000000000000000000000']){
+              await read(p);
+            }
+            const js=[...home.matchAll(/<script[^>]+src=["']([^"']+)/g)].map(x=>x[1]).filter(x=>x.endsWith('.js')&&x.startsWith('/')).slice(0,3);
+            for(const path of js){const body=await read(path);console.log('JS_API_STRINGS',path,[...new Set([...body.matchAll(/\/api\/[a-z][a-z0-9/_?=\$\{\}.-]{2,80}/gi)].map(m=>m[0]))].slice(0,30));}
+          })().catch(e=>{console.error(e);process.exitCode=1});
+          JS
