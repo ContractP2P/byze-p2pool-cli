@@ -57,7 +57,7 @@ The schedule is at minute 17 and 47 (UTC), roughly every half hour; GitHub timin
 - Posts at most once per run, on new confirmed candidates, observed reorgs, or after 24h without a report. Keeps state and deduplicates candidate hashes in a **single public repository issue** created on first live run. Do not close or modify that issue.
 - Uses repository `GITHUB_TOKEN` with `issues:write` and `contents:read` only; no GitHub PAT, Cloudflare deployment or VPS. If the webhook fails, the run fails and does not advance the cursor. GitHub reruns might therefore repeat a previously delivered Discord message (at-least-once delivery).
 - Every HTTP request must remain on `https://explorer.byze.org` and return valid, bounded JSON; redirects, unexpected chain, malformed blocks or partial responses cause the run to fail closed.
-- No network requests are necessary for the offline unit tests: `node --test cli/tools/chain-monitor/core.test.cjs`.
+- No network requests are necessary for the offline unit tests: `node --test cli/tools/chain-monitor/core.test.cjs cli/tools/chain-monitor/run.test.cjs`.
 
 ## Not included in Stage 1
 
