@@ -36,4 +36,4 @@ The explorer scan stops on unexpected or malformed blockchain data. An unavailab
 - Counts are observed peer identities, not guaranteed to be unique humans or wallet owners. Peer discovery may show only a subset of the network.
 - The payout table displays **addresses receiving coinbase outputs**, not necessarily distinct miners. It uses the actual payment amounts, not current hashrate or a live PPLNS estimate.
 - Abbreviated wallets are not anonymous: amounts and complete receiving addresses remain public on the blockchain. No alias-to-wallet association is published.
-- No mining CLI update is required. Network identity values are shared by the miner and observer modules to avoid future mismatches.
+- No mining CLI update is required. The observer imports the existing miner's exported network identity constants; the mining CLI code remains unchanged.
