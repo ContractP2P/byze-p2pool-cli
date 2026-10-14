@@ -1,0 +1,53 @@
+name: BYZE P2Pool — read-only blockchain monitor
+
+on:
+  # At minute 17 and 47 UTC to avoid GitHub's congested minute 00.
+  schedule:
+    - cron: '17,47 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Print report but do not send Discord or update monitoring state'
+        type: boolean
+        required: true
+        default: true
+
+permissions:
+  contents: read
+  issues: write # Single public issue stores cursor/dedup state without repository commits
+
+concurrency:
+  group: byze-p2pool-chain-monitor
+  cancel-in-progress: false
+
+jobs:
+  observe:
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.BYZE_MONITOR_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Offline unit tests
+        run: node --test cli/tools/chain-monitor/*.test.cjs
+      - name: Inspect blockchain (no mining / no P2P connections)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.BYZE_P2POOL_DISCORD_WEBHOOK }}
+          BYZE_TIP_URL: ${{ vars.BYZE_TIP_URL }}
+          BYZE_BLOCK_URL_TEMPLATE: ${{ vars.BYZE_BLOCK_URL_TEMPLATE }}
+          BYZE_TX_URL_TEMPLATE: ${{ vars.BYZE_TX_URL_TEMPLATE }}
+          BYZE_VALUE_MODE: ${{ vars.BYZE_VALUE_MODE }}
+          BYZE_EVIDENCE_FILE: ${{ runner.temp }}/byze-chain-monitor/evidence.json
+          MONITOR_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == true }}
+        run: node cli/tools/chain-monitor/run.cjs
+      - name: Upload public chain evidence (no secrets)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: byze-chain-evidence
+          path: ${{ runner.temp }}/byze-chain-monitor/evidence.json
+          if-no-files-found: ignore
+          retention-days: 14

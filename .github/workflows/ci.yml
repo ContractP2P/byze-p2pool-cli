@@ -24,6 +24,7 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm test
+      - run: node --test tools/chain-monitor/*.test.cjs
       - run: npm run release:preflight:source
       - name: BYZE SafeLabEnv client contract (offline, no VPS)
         if: matrix.os == 'ubuntu-latest' && matrix.node == 22
