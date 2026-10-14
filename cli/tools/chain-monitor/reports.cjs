@@ -36,8 +36,8 @@ function activityReport({activity,now=Date.now()}) {
     '**BYZE P2Pool · Activity Report**',
     'Latest observation · '+timestamp,
     '',
-    '**'+minerCount+'** Active miners observed',
-    '**'+hashrate+'** Observed hashrate'
+    '**'+minerCount+'** Active miners',
+    '**'+hashrate+'** Hashrate'
   ].join('\n')
 }
 function percent(part,total) {

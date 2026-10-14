@@ -56,20 +56,21 @@ test('activity report shows only locally timed observed miners and hashrate',()=
     '**BYZE P2Pool · Activity Report**',
     'Latest observation · <t:'+Math.floor(now/1000)+':t>',
     '',
-    '**2** Active miners observed',
-    '**~2.60 kH/s** Observed hashrate'
+    '**2** Active miners',
+    '**~2.60 kH/s** Hashrate'
   ].join('\n'))
   assert.doesNotMatch(msg,/chain tip|peers reached|telemetry|partial|healthy|coverage|entire network|independently measured/i)
+  assert.doesNotMatch(msg,/Active miners observed|Observed hashrate/)
   const missing=report.activityReport({activity:null,now})
   assert.match(missing,/Latest observation · unavailable/)
-  assert.match(missing,/\*\*unavailable\*\* Active miners observed/)
-  assert.match(missing,/\*\*unavailable\*\* Observed hashrate/)
+  assert.match(missing,/\*\*unavailable\*\* Active miners/)
+  assert.match(missing,/\*\*unavailable\*\* Hashrate/)
   const stale=report.activityReport({activity:sample,now:now+125000})
   assert.match(stale,/Latest observation · unavailable/)
   const noPresences={...sample,validPresences:0,activeMiners:0,hashrateSamples:0,observedHashrateHps:0}
-  assert.match(report.activityReport({activity:noPresences,now}),/\*\*unavailable\*\* Active miners observed/)
+  assert.match(report.activityReport({activity:noPresences,now}),/\*\*unavailable\*\* Active miners/)
   const noHashrate={...sample,hashrateSamples:0,observedHashrateHps:0}
-  assert.match(report.activityReport({activity:noHashrate,now}),/\*\*unavailable\*\* Observed hashrate/)
+  assert.match(report.activityReport({activity:noHashrate,now}),/\*\*unavailable\*\* Hashrate/)
   assert.equal(report.normalizeActivity({...sample,activeMiners:42},now),null)
   assert.equal(report.normalizeActivity({...sample,observedHashrateHps:Infinity},now),null)
 })
