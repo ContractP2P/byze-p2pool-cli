@@ -34,8 +34,13 @@ async function main() {
     '-dnsseed=0','-discover=0','-networkactive=0','-dbcache=64','-par=1','-printtoconsole=0']
   let child
   async function rpc(method, params = []) {
-    const { stdout } = await run(cli, [...common, method, ...params.map(x => typeof x === 'string' ? x : JSON.stringify(x))],
-      { timeout: 120000, maxBuffer: 8 * 1024 * 1024 })
+    let stdout
+    try {
+      ({ stdout } = await run(cli, [...common, method, ...params.map(x => typeof x === 'string' ? x : JSON.stringify(x))],
+        { timeout: 120000, maxBuffer: 8 * 1024 * 1024 }))
+    } catch (e) {
+      throw new Error(`RPC ${method} failed (code ${e.code}): ${String(e.stderr || e.stdout || e.message).slice(0, 1200)}`)
+    }
     const output = stdout.trim()
     if (!output) return null
     try { return JSON.parse(output) } catch { return output }
@@ -74,11 +79,17 @@ async function main() {
   }
   try {
     await start()
-    console.log('Creating isolated regtest wallet (XMSS initialization may take time)...')
-    await rpc('createwallet', ['byze-outage-test'])
-    const payoutAddress = String(await rpc('getnewaddress'))
-    assert.equal((await new PayoutAddressValidator(rpc).validate(payoutAddress)).ok, true)
     const policy = loadPolicy(path.join(__dirname, '../config/pool-policy.json'))
+    let payoutAddress = policy.feeAddress
+    const reference = await rpc('validateaddress', [payoutAddress])
+    if (reference?.isvalid !== true) {
+      console.log('Pool address not valid on regtest: creating isolated wallet address.')
+      await rpc('createwallet', ['byze-outage-test'])
+      payoutAddress = String(await rpc('getnewaddress'))
+    } else {
+      console.log('Using an existing public address for read-only payout validation (no wallet required).')
+    }
+    assert.equal((await new PayoutAddressValidator(rpc).validate(payoutAddress)).ok, true)
     const app = new MinerApp({ alias:'outage-regtest', wallet:payoutAddress, threads:1,
       policy, byze:{ call:rpc }, noSubmit:true })
     app.validationGate.run = async (_peer, fn) => fn()
