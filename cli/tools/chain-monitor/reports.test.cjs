@@ -10,7 +10,7 @@ const report=require('./reports.cjs')
 const {verifiedAttributions,eligibleBlock}=require('./block-proof.cjs')
 const obs=require('./observe-p2p.cjs')
 const {presenceSigningPayload,canonical}=require('../../src/mining/p2pool-membership')
-const ID=require('../../src/mining/network-identity')
+const ID=require('../../src/byze-p2pool.js')
 const {createPoolFeePolicy}=require('../../src/mining/pool-fee-policy')
 
 const fee=core.policy.feeAddress
