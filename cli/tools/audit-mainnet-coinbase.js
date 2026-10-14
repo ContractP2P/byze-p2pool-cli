@@ -33,9 +33,11 @@ function rpc(cli, method, ...args) {
   try { return JSON.parse(output) } catch { return output }
 }
 function toSats(x) {
-  if (!/^(?:0|[1-9]\d*)(?:\.\d{1,8})?$/.test(String(x))) throw new Error('Unexpected coinbase output value: ' + x)
-  const [whole, frac=''] = String(x).split('.')
-  return BigInt(whole) * 100000000n + BigInt(frac.padEnd(8,'0') || '0')
+  const scaled = Number(x) * 100000000
+  if (!Number.isFinite(scaled) || scaled < 0 || !Number.isSafeInteger(Math.round(scaled)) ||
+      Math.abs(scaled - Math.round(scaled)) > 0.00001)
+    throw new Error('Unexpected coinbase output value: ' + x)
+  return BigInt(Math.round(scaled))
 }
 function scriptMatches(vout, fee, script) {
   const spk = vout?.scriptPubKey || {}
