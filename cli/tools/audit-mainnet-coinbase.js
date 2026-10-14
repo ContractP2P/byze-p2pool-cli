@@ -114,4 +114,7 @@ function main() {
   console.error(`Scanned ${result.scanned} blocks; candidates ${result.candidates.length}; errors ${result.errors.length}. A candidate is not proof of PPLNS or build identity.`)
   if (result.errors.length || result.incomplete) process.exitCode=2
 }
-try { main() } catch(e) { console.error('BYZE_MAINNET_AUDIT_FAILED:',e.message);process.exitCode=1 }
+if (require.main === module) {
+  try { main() } catch(e) { console.error('BYZE_MAINNET_AUDIT_FAILED:',e.message);process.exitCode=1 }
+}
+module.exports = { parseArgs, toSats, scriptMatches, scan }
