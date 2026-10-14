@@ -5,6 +5,18 @@ The scheduled GitHub Actions observer offers **two types of reports**:
 1. **Activity**: at most once per hour. A passive Hyperswarm observer listens for approximately 45 seconds to signed mining-presence announcements. It reports **observed** miners in MINING state and a **self-reported** hashrate. It is not a census of the global P2Pool network. Missing data is displayed as **unavailable**, never as a false zero.
 2. **Block payouts**: a message for each independently **attributed** and confirmed P2Pool block. It shows total coinbase, 0.5% fee, amounts paid per wallet and fraction of the net payout. Wallets are displayed with the first ten characters, three dots, and the last six characters. A maximum of 12 wallets fit in the Discord table; other wallets are aggregated, with a link to the block's public on-chain data.
 
+## Public activity format
+
+The public Discord activity report intentionally contains only the latest observation timestamp (Discord-localized for each reader), the count of **active miners observed**, and **observed hashrate**:
+
+    **BYZE P2Pool · Activity Report**
+    Latest observation · <t:1792007880:t>
+
+    **1** Active miners observed
+    **~2.86 kH/s** Observed hashrate
+
+When no verified presence or fresh hashrate is available, that metric is shown as **unavailable**, not zero. The short post does not claim full-network coverage, a 60-minute aggregation, share acceptance, or a health verdict. Scope and telemetry limitations remain in this documentation rather than being repeated in every Discord post.
+
 ## Important: never confuse fee candidates with P2Pool blocks
 
 Matching the fee address or 0.5% fee is NOT proof that this P2Pool mined the block. Candidate observations remain in read-only GitHub Actions evidence; **candidate-only events are no longer posted to Discord**.
@@ -28,7 +40,7 @@ Fields: height, hash, coinbaseTxid, pplnsTipId (prefix ps: plus 64 hex character
 
 The workflow runs at minutes 17 and 47 UTC, subject to GitHub scheduling delays. Activity posts are capped at once per 60 minutes. Verified block reports are deduplicated by block hash. A successful webhook followed by failed state persistence may result in repeat delivery.
 
-The explorer scan stops on unexpected or malformed blockchain data. An unavailable P2P observer does not block the scan: the activity post labels values unavailable. The observer sends a protocol hello only and needs no BYZE daemon, wallet secrets, or miner callbacks. Live DHT discovery from a hosted runner remains to be checked in a no-post dry-run.
+The explorer scan stops on unexpected or malformed blockchain data. An unavailable P2P observer does not block the scan: the activity post labels values unavailable. The observer sends a protocol hello only and needs no BYZE daemon, wallet secrets, or miner callbacks. Real P2P discovery from a GitHub-hosted observer was confirmed on 2026-10-14 with one active miner and a recent 2.86 kH/s sample. This single observation does not establish full-network coverage.
 
 ## Interpretation and privacy
 
