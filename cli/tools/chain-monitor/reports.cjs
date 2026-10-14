@@ -26,19 +26,19 @@ function normalizeActivity(raw, now=Date.now()) {
      raw.observedHashrateHps>64*1e12)return null
   return raw
 }
-function activityReport({tip, activity, now=Date.now()}) {
-  const lines=['**BYZE P2Pool · Activity report**','BYZE chain tip: **#'+tip+'**']
+function activityReport({activity,now=Date.now()}) {
   const a=normalizeActivity(activity,now)
-  if(!a || !a.validPresences) {
-    lines.push('Active miners: **unavailable** · Observed hashrate: **unavailable**')
-    lines.push('P2P sample missing or no verified miner presence. This does not mean the pool is empty.')
-  } else {
-    lines.push('Active miners observed: **'+a.activeMiners+'** · P2P peers reached: **'+a.connectedPeers+'**')
-    lines.push('Observed hashrate: **'+(a.hashrateSamples?formatHashrate(a.observedHashrateHps):'unavailable')+'** ('+a.hashrateSamples+'/'+a.activeMiners+' active peers reporting recent telemetry)')
-    lines.push('Partial P2P snapshot, not a count or hashrate estimate for the entire network.')
-  }
-  lines.push('Hashrate is declared by peers, not independently measured.')
-  return lines.join('\n')
+  // Discord formats this timestamp in each reader's local time zone.
+  const timestamp=a?'<t:'+Math.floor(Date.parse(a.observedAt)/1000)+':t>':'unavailable'
+  const minerCount=a&&a.validPresences?a.activeMiners:'unavailable'
+  const hashrate=a&&a.validPresences&&a.hashrateSamples?formatHashrate(a.observedHashrateHps):'unavailable'
+  return [
+    '**BYZE P2Pool · Activity Report**',
+    'Latest observation · '+timestamp,
+    '',
+    '**'+minerCount+'** Active miners observed',
+    '**'+hashrate+'** Observed hashrate'
+  ].join('\n')
 }
 function percent(part,total) {
   if(total<=0n)return '0.00'
