@@ -10,6 +10,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
+      - uses: actions/checkout@v4
+      - name: Run actual 36-block read-only monitor dry-run
+        env:
+          MONITOR_DRY_RUN: 'true'
+          BYZE_TIP_URL: https://explorer.byze.org/api/status
+          BYZE_BLOCK_URL_TEMPLATE: https://explorer.byze.org/api/block/{id}
+        run: node cli/tools/chain-monitor/run.cjs
       - name: Inspect explorer endpoint shapes without secrets
         shell: bash
         run: |
