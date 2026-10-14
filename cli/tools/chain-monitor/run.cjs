@@ -12,6 +12,7 @@ const {verifiedAttributions,eligibleBlock}=require('./block-proof.cjs')
 const GITHUB_API='https://api.github.com'
 const MARKER='<!-- byze-p2pool-chain-monitor-state-v1 -->'
 const dryRun=process.env.MONITOR_DRY_RUN==='true'
+const forceActivity=!dryRun && process.env.MONITOR_FORCE_ACTIVITY==='true'
 const ownerRepo=process.env.GITHUB_REPOSITORY||''
 const githubToken=process.env.GITHUB_TOKEN||''
 const webhook=process.env.DISCORD_WEBHOOK_URL||''
@@ -142,8 +143,8 @@ async function main() {
     try {activity=JSON.parse(fs.readFileSync(activityPath,'utf8'))}
     catch {console.error('P2Pool snapshot malformed; activity metrics will be marked unavailable')}
   }
-  const activityDue=Math.floor(Date.now()/3600000)>Math.floor(Number(loaded.state?.lastActivityAt||0)/3600000)
-  const activityMessage=activityReport({tip,activity})
+  const activityDue=forceActivity || Math.floor(Date.now()/3600000)>Math.floor(Number(loaded.state?.lastActivityAt||0)/3600000)
+  const activityMessage=activityReport({activity})
   const evidence={schema:2,source:origin,observedAt:new Date().toISOString(),
     scope:'Blockchain fee candidates are unverified; P2Pool block reports require reviewed attribution',
     feeAddress:policy.feeAddress,feeBasisPoints:policy.feeBasisPoints,tip,range,
