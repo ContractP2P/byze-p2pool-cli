@@ -88,6 +88,8 @@ async function main() {
   const tip=tipHeight(tipJson)
   const range=makeScanRange(tip,loaded.state,{lookback:36,overlap:12,maxBlocks:scanMax})
   const blocks=[],candidates=[]
+  const reviewed=verifiedAttributions()
+  const alreadyPosted=new Set(loaded.state?.publishedBlocks||[])
   for (let height=range.start; height<=range.end; height++) {
     const json=await jsonFetch(templateUrl(blockTemplate,height))
     const meta=blockMetadata(json,height)
@@ -104,11 +106,28 @@ async function main() {
     if (checked.candidate) candidates.push(checked)
     blocks.push({height,hash:meta.hash})
   }
+  // Reviewed attribution can arrive long after the 12-block overlap window.
+  // Re-fetch up to 20 previously unreported attested blocks per run.
+  for(const proof of [...reviewed.values()].filter(x=>x.height<range.start &&
+      !alreadyPosted.has(x.hash) && tip-x.height+1>=minConfirmations).slice(0,20)) {
+    const json=await jsonFetch(templateUrl(blockTemplate,proof.height))
+    const meta=blockMetadata(json,proof.height)
+    if(meta.hash!==proof.hash)continue // reorg: old attribution is no longer canonical
+    let tx=meta.first
+    if(typeof tx==='string'||!tx?.vout){
+      const txid=typeof tx==='string'?tx:tx?.txid||tx?.hash
+      if(!/^[0-9a-f]{64}$/i.test(txid||'')||!txTemplate)
+        throw Error('Missing decoded reviewed coinbase at '+proof.height)
+      tx=await jsonFetch(templateUrl(txTemplate,txid))
+    }
+    coinbaseTx(tx)
+    const checked=evaluateBlock(meta,tx,valueMode)
+    if(checked.candidate)candidates.push(checked)
+  }
   const {state,newCandidates,reorgs}=stateFromScan(loaded.state,{tip,blocks},candidates,minConfirmations,Date.now())
   const digest={checked:{tip,start:range.start,blocks:blocks.length,minConfirmations},newCandidates,reorgs}
   const technicalReport=summarize(digest) // Retained in Actions evidence; never sent as public pool attribution.
-  const reviewed=verifiedAttributions()
-  const previouslyPosted=new Set(loaded.state?.publishedBlocks||[])
+  const previouslyPosted=alreadyPosted
   const blockMessages=[]
   for(const candidate of candidates) {
     const confirmations=tip-candidate.height+1
