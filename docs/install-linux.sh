@@ -10,6 +10,8 @@ CORE_ASSET=byze-core-linux-x86_64.tar.gz
 CORE_URL="https://github.com/powhermes/byze/releases/download/$CORE_TAG"
 VERSION=0.2.5-rc3
 CLI_TAG=v0.2.5-rc3-linux-x64-test1
+# Immutable trusted archive fingerprint, independently pinned from the GitHub Release asset digest.
+CLI_SHA=3481ebacc1a237598da6ad383a903dcf8f9532853d18f64f49f77783b1293766
 CLI_ASSET="byze-p2pool-cli-complete-$VERSION-linux-x64.tar.gz"
 CLI_URL="https://github.com/ContractP2P/byze-p2pool-cli/releases/download/$CLI_TAG"
 BASE="$HOME/.local/opt"
@@ -173,7 +175,9 @@ install_pool() {
     download "$CLI_URL/SHA256SUMS" "$TMP/POOL-SHA256SUMS"
     matched="$(awk -v a="$CLI_ASSET" '($2==a||$2=="*"a){print}' "$TMP/POOL-SHA256SUMS")"
     [ "$(printf '%s\n' "$matched" | grep -c .)" -eq 1 ] || fail 'Invalid P2Pool checksum manifest.'
+    printf '%s\n' "$matched" | awk -v expected="$CLI_SHA" 'tolower($1)==expected{ok=1} END{exit !ok}' || fail 'P2Pool published checksum differs from pinned archive hash.'
     (cd "$TMP" && printf '%s\n' "$matched" | sha256sum -c -) || fail 'P2Pool checksum mismatch.'
+    printf '%s  %s\n' "$CLI_SHA" "$TMP/$CLI_ASSET" | sha256sum -c - >/dev/null || fail 'P2Pool pinned archive hash mismatch.'
     safe_tar "$TMP/$CLI_ASSET"
     stage="$TMP/pool"
     mkdir -p "$stage"

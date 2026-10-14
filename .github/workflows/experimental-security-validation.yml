@@ -1,0 +1,95 @@
+name: P2Pool pinned archives and isolated byzed outage
+on:
+  pull_request:
+    branches: [main, chore/community-testing-core-rc5-mit-20261014]
+  push:
+    branches: [security/p2pool-pins-live-outage-audit-20261014]
+permissions:
+  contents: read
+jobs:
+  archive-integrity:
+    name: Verify published ${{ matrix.platform }} SHA-256 and tampering rejection
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x64
+            tag: v0.2.5-rc3-linux-x64-test1
+            filename: byze-p2pool-cli-complete-0.2.5-rc3-linux-x64.tar.gz
+            expected: 3481ebacc1a237598da6ad383a903dcf8f9532853d18f64f49f77783b1293766
+          - platform: darwin-arm64
+            tag: v0.2.5-rc3-macos-arm64-test1
+            filename: byze-p2pool-cli-complete-0.2.5-rc3-darwin-arm64.tar.gz
+            expected: a9b2a7275cf6f28255d156c78e14ad5d02faab7a32e3fbb1af3fbe46cd9d3a13
+          - platform: darwin-x64
+            tag: v0.2.5-rc3-macos-intel-test1
+            filename: byze-p2pool-cli-complete-0.2.5-rc3-darwin-x64.tar.gz
+            expected: bbe0988ff7ce919648e3d5f6b91015793e3db5cc98f27e090ea17ca682986ec8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check installer pins, downloaded archive, remote manifest, and tamper failure
+        shell: bash
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          TAG: ${{ matrix.tag }}
+          FILENAME: ${{ matrix.filename }}
+          EXPECTED: ${{ matrix.expected }}
+        run: |
+          set -euo pipefail
+          bash -n docs/install-linux.sh docs/install-macos.sh
+          if [[ "$PLATFORM" == linux-* ]]; then
+            grep -Fq "CLI_SHA=$EXPECTED" docs/install-linux.sh
+          else
+            grep -Fq "CLI_SHA=\"$EXPECTED\"" docs/install-macos.sh
+          fi
+          url="https://github.com/ContractP2P/byze-p2pool-cli/releases/download/$TAG"
+          mkdir -p "$RUNNER_TEMP/archive-check"
+          cd "$RUNNER_TEMP/archive-check"
+          curl --proto '=https' --proto-redir '=https' -fL --retry 3 "$url/$FILENAME" -o "$FILENAME"
+          curl --proto '=https' --proto-redir '=https' -fL --retry 3 "$url/SHA256SUMS" -o SHA256SUMS
+          grep -Eq "^$EXPECTED [ *]$FILENAME\$" SHA256SUMS
+          printf '%s  %s\n' "$EXPECTED" "$FILENAME" | sha256sum -c -
+          printf 'tampered' >> "$FILENAME"
+          if printf '%s  %s\n' "$EXPECTED" "$FILENAME" | sha256sum -c -; then
+            echo 'Tampered archive passed pinned hash validation' >&2; exit 1
+          fi
+          echo "PASS: $PLATFORM pinned SHA-256 detects archive changes, including manifest replacement"
+  byzed-outage-regtest:
+    name: Real byzed RPC outage (disposable regtest, synthetic shares)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install CLI dependencies and check source
+        working-directory: cli
+        run: |
+          npm ci
+          npm run check
+          npm test
+          node --check tools/test-real-byzed-regtest-outage.js
+          node --check tools/audit-mainnet-coinbase.js
+      - name: Download signed/pinned official Core rc4 into disposable workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          node cli/tools/download-core.js --dest "$RUNNER_TEMP/verified-core" --platform linux-x64
+          mkdir -p "$RUNNER_TEMP/core-extract"
+          tar --no-same-owner --no-same-permissions -xzf "$RUNNER_TEMP/verified-core/byze-core-linux-x86_64.tar.gz" -C "$RUNNER_TEMP/core-extract"
+          bin="$(dirname "$(find "$RUNNER_TEMP/core-extract" -type f -name byzed -print -quit)")"
+          test -x "$bin/byzed"
+          test -x "$bin/byze-cli"
+          echo "BYZE_CORE_BIN=$bin" >> "$GITHUB_ENV"
+      - name: Stop byzed for 60 s, preserve and recover synthetic shares
+        env:
+          BYZE_OUTAGE_TEST_CONFIRM: DISPOSABLE_REGTEST_ONLY
+          BYZE_OUTAGE_MS: '60000'
+        run: node cli/tools/test-real-byzed-regtest-outage.js
