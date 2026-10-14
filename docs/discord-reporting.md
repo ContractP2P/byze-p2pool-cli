@@ -12,8 +12,8 @@ The public Discord activity report intentionally contains only the latest observ
     **BYZE P2Pool · Activity Report**
     Latest observation · <t:1792007880:t>
 
-    **1** Active miners observed
-    **~2.86 kH/s** Observed hashrate
+    **1** Active miners
+    **~2.86 kH/s** Hashrate
 
 When no verified presence or fresh hashrate is available, that metric is shown as **unavailable**, not zero. The short post does not claim full-network coverage, a 60-minute aggregation, share acceptance, or a health verdict. Scope and telemetry limitations remain in this documentation rather than being repeated in every Discord post.
 
