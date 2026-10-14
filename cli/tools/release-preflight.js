@@ -15,10 +15,10 @@ const pkg=JSON.parse(fs.readFileSync(path.join(ROOT,'package.json'),'utf8'))
 const compat=JSON.parse(fs.readFileSync(path.join(ROOT,'COMPATIBILITY.json'),'utf8'))
 if(pkg.version===APP_VERSION&&compat.cliVersion===APP_VERSION)ok(`version ${APP_VERSION} is consistent`);else fail('package/CLI/compatibility versions differ')
 if(compat.poolId==='byze-main-p2pool-v1'&&compat.networkPolicy?.chain==='main'&&compat.networkPolicy?.failClosed===true)ok('public network policy is fail-closed mainnet');else fail('mainnet policy metadata is incomplete')
-for(const rel of ['README.md','SECURITY.md','THIRD_PARTY-NOTICES.md','RELEASE-CHECKLIST.md','config/pool-policy.json','licenses/byze-miner-MIT.txt','licenses/RandomX-BSD-3-Clause.txt']){
+for(const rel of ['README.md','LICENSE','SECURITY.md','THIRD_PARTY-NOTICES.md','RELEASE-CHECKLIST.md','config/pool-policy.json','licenses/byze-miner-MIT.txt','licenses/RandomX-BSD-3-Clause.txt']){
   if(fs.existsSync(path.join(ROOT,rel)))ok(`${rel} present`);else fail(`${rel} missing`)
 }
-if(pkg.license&&pkg.license!=='UNLICENSED')ok(`CLI license declared: ${pkg.license}`);else if(allowSourceRc)console.warn('SOURCE-RC: CLI publication license is not yet selected.');else fail('CLI license is still UNLICENSED')
+if(pkg.license==='MIT'&&fs.readFileSync(path.join(ROOT,'LICENSE'),'utf8').includes('MIT License'))ok('CLI MIT license declared and LICENSE present');else fail('CLI MIT license declaration/content missing or inconsistent')
 const native=nativeBundleStatus()
 if(native.miner.ok&&native.verifier.ok&&native.miner.sourceCommit===EXPECTED_NATIVE_SOURCE_COMMIT&&native.verifier.sourceCommit===EXPECTED_NATIVE_SOURCE_COMMIT)ok(`native bundle verified for ${native.platformKey}`)
 else if(allowSourceRc)console.warn(`SOURCE-RC: native bundle is intentionally absent/incomplete for ${native.platformKey}.`)

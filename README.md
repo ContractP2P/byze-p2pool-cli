@@ -4,7 +4,7 @@
 
 **[▶ Open the guided installer — macOS Apple Silicon, macOS Intel & Linux x64](https://contractp2p.github.io/byze-p2pool-cli/)**
 
-> **Experimental pre-release · CLI v0.2.5-rc3 · global-epoch-v6.** Native test bundles are published but **unsigned and not yet production-qualified**. Mainnet multi-peer payout validation, spendability checks and signing/release gates remain open. See [release status](cli/RELEASE-CHECKLIST.md). Mining rewards are never guaranteed.
+> **Community testing only · Experimental Test 1 · CLI v0.2.5-rc3 · global-epoch-v6.** Native test bundles are published but **unsigned and not yet production-qualified**. Mainnet multi-peer payout validation, spendability checks and signing/release gates remain open. See [release status](cli/RELEASE-CHECKLIST.md). Mining rewards are never guaranteed.
 
 ## Choose how to install
 
@@ -23,7 +23,7 @@ Open **https://contractp2p.github.io/byze-p2pool-cli/** and:
 4. If Core is synchronizing, leave it running. The updated guided installer displays **block-height progress every 30 seconds**, for example `BYZE synchronization: 7006 / 21059 blocks (33.3% by height); IBD: true`. Wait for `BYZE_NODE_READY` before mining. The percentage is an **approximation based on block heights**, not Core's `verificationprogress` estimate.
 5. Copy the **personalized mining command** from the website when the node is ready.
 
-The installer fetches a complete platform bundle with bundled Node.js, JavaScript dependencies and verified-by-SHA-256 native RandomX executables: **no Git, npm or compiler is needed for this path**. Downloaded P2Pool bundles are still unsigned experimental artifacts.
+The installer fetches a complete platform bundle with bundled Node.js, JavaScript dependencies and verified-by-SHA-256 native RandomX executables: **no Git, npm or compiler is needed for this path**. Downloaded P2Pool bundles are still unsigned experimental artifacts. On a machine with **no existing Core**, the Linux guided installer offers official **BYZE Core v0.2.5-rc5-change-keyspace**; an existing Core is **never upgraded or reinstalled**. Because rc5 can perform a one-way wallet migration after a payment or change-address request, back up `wallet.dat` before independently upgrading a wallet from older Core versions.
 
 **Stopping and resuming synchronization monitoring:** `Ctrl+C` stops only the installer monitor, **not** the running BYZE Core node. To resume without reinstalling, run the already downloaded script with `--wait-sync`, or fetch the current script again:
 
@@ -41,7 +41,7 @@ bash /tmp/byze-p2pool-install-linux.sh --wait-sync
 
 The miner command displayed by the website **enables real mainnet block submission**. For diagnostic mining that cannot submit a found block, add `--no-submit` to that command. Neither mode should be used until BYZE Core is fully synchronized and the payout address has been checked for **actual wallet spendability**.
 
-**Experimental complete packages:** [Apple Silicon](https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/v0.2.5-rc3-macos-arm64-test1) · [Mac Intel](https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/v0.2.5-rc3-macos-intel-test1) · [Linux x64](https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/v0.2.5-rc3-linux-x64-test1) · [All releases](https://github.com/ContractP2P/byze-p2pool-cli/releases).
+**Community testing — Experimental Test 1 packages:** [Apple Silicon](https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/v0.2.5-rc3-macos-arm64-test1) · [Mac Intel](https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/v0.2.5-rc3-macos-intel-test1) · [Linux x64](https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/v0.2.5-rc3-linux-x64-test1) · [All releases](https://github.com/ContractP2P/byze-p2pool-cli/releases).
 
 ### 2. Install from source (developer path)
 
@@ -103,7 +103,7 @@ A synchronized node means `chain=main`, a non-empty blockchain, matching/near-ma
 
 ## Status and technical references
 
-Public **experimental** bundles exist for Apple Silicon, Intel macOS and Linux x64. ARM64 local mining and Mac Intel clean-host installation have been exercised; this does **not** yet qualify real two-peer PPLNS payouts or prove that a discovered block is spendable. The public packages are **unsigned**, and their third-party notices, licensing and final release signing still need review.
+Public **Experimental Test 1** bundles exist for Apple Silicon, Intel macOS and Linux x64. They are for **community testing, not production deployment**. ARM64 local mining and Mac Intel clean-host installation have been exercised; this does **not** yet qualify real two-peer PPLNS payouts or prove that a discovered block is spendable. The public packages are **unsigned**, and their third-party notices, licensing and final release signing still need review.
 
 - [Guided installation website](https://contractp2p.github.io/byze-p2pool-cli/)
 - [CLI documentation and developer bootstrap](cli/README.md)
@@ -111,5 +111,7 @@ Public **experimental** bundles exist for Apple Silicon, Intel macOS and Linux x
 - [Release and validation checklist](cli/RELEASE-CHECKLIST.md)
 - [Third-party notices](cli/THIRD_PARTY-NOTICES.md)
 - [RPC recovery / soak tracking — issue #3](https://github.com/ContractP2P/byze-p2pool-cli/issues/3)
+- [Draft community-testing announcement](docs/community-testing-announcement.md)
+- [Project MIT license](LICENSE)
 
-**Licensing:** `cli/package.json` currently declares `UNLICENSED` for this project's source. Upstream components have their own licenses; no MIT license is asserted for the CLI itself.
+**Licensing:** BYZE P2Pool CLI source is released under the [MIT License](LICENSE) (`cli/LICENSE` is provided for standalone CLI distributions). Bundled third-party components retain their separate license terms, listed in [third-party notices](cli/THIRD_PARTY-NOTICES.md). Previously published test artifacts remain experimental and unsigned.

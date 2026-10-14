@@ -12,4 +12,4 @@ Upstream commit `ab5ab096e26ca4af93631350ef7f68129500b899` adds an MIT license f
 - Vendored RandomX: [BSD 3-Clause notice](licenses/RandomX-BSD-3-Clause.txt).
 - Upstream provenance: https://github.com/powhermes/byze-miner/commit/ab5ab096e26ca4af93631350ef7f68129500b899
 
-Include this file and both license texts with every distribution containing the native components, including standalone native bundles. Existing platform bundles remain subject to the release checklist; this source candidate is not a signed end-user release. The CLI itself remains `UNLICENSED` pending its owner's license choice.
+Include this file and both license texts with every distribution containing the native components, including standalone native bundles. Existing platform bundles remain subject to the release checklist; this source candidate is not a signed end-user release. The BYZE P2Pool CLI source is licensed under MIT; see `LICENSE` in the CLI directory or the repository root. Upstream native components and third-party dependencies retain their separate license notices. Older published experimental archives are not changed by this source update.

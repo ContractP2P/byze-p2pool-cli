@@ -140,7 +140,7 @@ jobs:
           echo 'PASS: no partial Core install on unavailable P2Pool release'
 
 
-      - name: Validate official BYZE Core rc4 signature, contents and clean-host installation
+      - name: Validate Core rc4 developer downloader and rc5 guided Linux clean-host installation
         shell: bash
         run: |
           set -euo pipefail
@@ -185,6 +185,8 @@ jobs:
           set -e
           test "$status" -ne 0
           grep -q 'CORE_INSTALLED:' "$work/out"
+          grep -Fq 'byze-core-v0.2.5-rc5-change-keyspace-linux-x64' "$work/out"
+          grep -Fq 'CORE_SHA=2ce51e203c20ec7dd22fef055fbece0ce702c7e7451a6fe9be248353ae5e19ad' docs/install-linux.sh
           found_cli="$(find "$work/home/.local/opt" -type f -name byze-cli -print -quit)"
           found_daemon="$(find "$work/home/.local/opt" -type f -name byzed -print -quit)"
           test -x "$found_cli"

@@ -3,8 +3,8 @@
 set -euo pipefail
 [ "$(uname -s)" = Linux ] || { echo 'Linux only' >&2; exit 1; }
 [ "$(uname -m)" = x86_64 ] || { echo 'Linux x86_64 only' >&2; exit 1; }
-CORE_TAG=v0.2.5-rc4-plain-taproot-guard
-CORE_SHA=45db51d035f7e2edfd8ebe6dc08c83ae062ad4d3e744bd8057fed797cd0be4d3
+CORE_TAG=v0.2.5-rc5-change-keyspace
+CORE_SHA=2ce51e203c20ec7dd22fef055fbece0ce702c7e7451a6fe9be248353ae5e19ad
 CORE_FPR=9F11E836EB4B7F464ADBB1E7AC11CA674828CAE1
 CORE_ASSET=byze-core-linux-x86_64.tar.gz
 CORE_URL="https://github.com/powhermes/byze/releases/download/$CORE_TAG"

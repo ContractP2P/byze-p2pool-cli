@@ -2,7 +2,7 @@
 
 Standalone command-line peer for **BYZE P2Pool secure-v2**, with the `global-epoch-v6` compatibility generation.
 
-This package is a **source release candidate**. Managed native bundles remain subject to the platform, license-notice and signing gates in [the release checklist](RELEASE-CHECKLIST.md).
+This package is a **community-testing source release candidate** (Experimental Test 1), not production-qualified. Source is [MIT-licensed](LICENSE); managed native bundles remain subject to the platform, third-party notices and signing gates in [the release checklist](RELEASE-CHECKLIST.md).
 
 ## Security model
 
@@ -218,7 +218,7 @@ for this source RC. A true end-user release must pass:
 npm run release:preflight
 ```
 
-The latter intentionally remains blocked until a publication license is selected and a valid managed native bundle exists for the current platform. See `RELEASE-CHECKLIST.md` and `THIRD_PARTY-NOTICES.md`.
+The CLI source is MIT-licensed (`LICENSE`). Public release validation still requires a verified native bundle, package notices, real-world mining tests and signing gates; source-rc preflight does not qualify a production release. See `RELEASE-CHECKLIST.md` and `THIRD_PARTY-NOTICES.md`.
 
 ## Tests
 

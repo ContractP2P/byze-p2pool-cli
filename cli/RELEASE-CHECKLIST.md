@@ -14,7 +14,7 @@
 - [ ] Native manifest/release artefacts signed by the dedicated offline release key.
 - [x] Upstream MIT and RandomX BSD notices retained; pinned source compared with licensed upstream tree.
 - [ ] All packaged native bundles include `THIRD_PARTY-NOTICES.md` and `licenses/`.
-- [ ] CLI publication license selected by the owner.
+- [x] CLI source license: MIT (`LICENSE` at repository root and `cli/LICENSE`; third-party notices remain separate).
 - [ ] End-to-end mainnet soak: generation-v6 CLI A ↔ CLI B on an isolated test network before a coordinated mainnet RC.
 - [ ] At least one real found block validated for exact PPLNS + 0.50% fee payout.
 
