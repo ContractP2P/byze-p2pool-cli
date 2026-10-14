@@ -30,11 +30,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install passive observer dependencies
+        run: npm ci --prefix cli --ignore-scripts --no-audit --no-fund
       - name: Offline unit tests
         run: node --test cli/tools/chain-monitor/core.test.cjs cli/tools/chain-monitor/run.test.cjs cli/tools/chain-monitor/reports.test.cjs
-      - name: Install passive observer dependencies
-        continue-on-error: true
-        run: npm ci --prefix cli --ignore-scripts --no-audit --no-fund
       - name: Sample P2P miner activity (read-only)
         continue-on-error: true
         env:
