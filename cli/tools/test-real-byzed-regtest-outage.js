@@ -35,7 +35,7 @@ async function main() {
   let child
   async function rpc(method, params = []) {
     const { stdout } = await run(cli, [...common, method, ...params.map(x => typeof x === 'string' ? x : JSON.stringify(x))],
-      { timeout: 12000, maxBuffer: 8 * 1024 * 1024 })
+      { timeout: 120000, maxBuffer: 8 * 1024 * 1024 })
     const output = stdout.trim()
     if (!output) return null
     try { return JSON.parse(output) } catch { return output }
@@ -74,6 +74,7 @@ async function main() {
   }
   try {
     await start()
+    console.log('Creating isolated regtest wallet (XMSS initialization may take time)...')
     await rpc('createwallet', ['byze-outage-test'])
     const payoutAddress = String(await rpc('getnewaddress'))
     assert.equal((await new PayoutAddressValidator(rpc).validate(payoutAddress)).ok, true)
