@@ -142,7 +142,7 @@ async function main() {
     try {activity=JSON.parse(fs.readFileSync(activityPath,'utf8'))}
     catch {console.error('P2Pool snapshot malformed; activity metrics will be marked unavailable')}
   }
-  const activityDue=Date.now()-Number(loaded.state?.lastActivityAt||0)>=60*60*1000
+  const activityDue=Math.floor(Date.now()/3600000)>Math.floor(Number(loaded.state?.lastActivityAt||0)/3600000)
   const activityMessage=activityReport({tip,activity})
   const evidence={schema:2,source:origin,observedAt:new Date().toISOString(),
     scope:'Blockchain fee candidates are unverified; P2Pool block reports require reviewed attribution',
