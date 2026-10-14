@@ -22,7 +22,7 @@ test('auditor matches fee by output script when Core omits address text', () => 
   assert.equal(scriptMatches({scriptPubKey:{hex:program}},policy.feeAddress,'5120'+'cc'.repeat(32)),false)
 })
 
-test('auditor uses read-only mainnet RPC and flags fee-bearing coinbase as candidate, not proof', () => {
+test('auditor uses read-only mainnet RPC and flags fee-bearing coinbase as candidate, not proof', { skip:process.platform==='win32' ? 'POSIX shebang executable fixture (Windows mocked runner unsupported)' : false }, () => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(),'byze-audit-fixture-'))
   try {
     const mock = path.join(temp,'byze-cli')
