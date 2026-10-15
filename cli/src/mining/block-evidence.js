@@ -54,7 +54,7 @@ function snapshotSubmission(args){
   validatePlanOutputs(doc,ctx)
   const tip=doc.pplnsTipId
   if(!tip){
-    // During pool start-up, the original coinbase pays the one miner directly.
+    // During pool start-up, the original coinbase pays one recipient directly.
     // Verify that plan without inventing an artificial PoolShare / PPLNS window.
     const fee=doc.payoutOutputs.filter(x=>x.address===policy.feeAddress)
     const miners=doc.payoutOutputs.filter(x=>x.address!==policy.feeAddress)
