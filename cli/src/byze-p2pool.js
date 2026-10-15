@@ -1173,7 +1173,7 @@ class MinerApp {
       if(this.uiReady)log('🔥 BYZE BLOCK SUBMITTED',`#${raw.height}`,short(raw.powHash,10,8))
       try {
         const evidence=snapshotSubmission({raw:candidate,ctx,coinbaseTxid:checkedCoinbaseTxid,
-          poolChain:this.poolChain,policy:this.policy,
+          poolChain:this.poolChain,poolPackets:this.poolPackets,policy:this.policy,
           identity:{cliVersion:APP_VERSION,securityGeneration:SECURITY_GENERATION,
             contractSourceHash:CONTRACT_SOURCE_HASH,
             releaseTag:process.env.BYZE_P2POOL_RELEASE_TAG||'',
