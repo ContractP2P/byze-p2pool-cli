@@ -29,7 +29,7 @@ function verifyPplnsEvidence(evidence,candidate){
     evidence.feeBasisPoints!==policy.feeBasisPoints)return no('pool-policy-mismatch')
   if(evidence.build?.releaseTag!=='v0.2.5-rc3-rpc-recovery-test1'||
     !SHA_BY_PLATFORM.has(String(evidence.build?.releaseArchiveSha256||''))||
-    !HEX.test(String(evidence.build?.contractSourceHash||''))||
+    evidence.build?.contractSourceHash!=='0ba509a74eb5f475ce41f152349fe49a7d19e4fbd6c14c1833632c61681a0b66'||
     evidence.build?.securityGeneration!=='coinbase-binding-v2-global-epoch-v6')
     return no('release-provenance-not-recorded')
   const tip=String(evidence.pplnsTipId||'')
@@ -42,13 +42,12 @@ function verifyPplnsEvidence(evidence,candidate){
     if(!validatePoolShareShape(s).ok||s.poolId!==policy.poolId||seen.has(s.poolShareId)||
       (i>0&&shares[i-1].previousPoolShareId!==s.poolShareId))
       return no('invalid-pplns-share-or-lineage')
-    const {_unused,...rest}=s
     const b={protocol:s.protocol,kind:s.kind,contractHash:s.contractHash,poolId:s.poolId,
       cellId:s.cellId,checkpointId:s.checkpointId,previousPoolShareId:s.previousPoolShareId,
       byzeHeight:s.byzeHeight,byzePrevBlockHash:s.byzePrevBlockHash,
       work:s.work,payoutWeights:s.payoutWeights}
     const id='ps:'+crypto.createHash('sha256').update(
-      Buffer.from(MINING_PROTOCOL+'\\0pool-share\\0'+canonical(b))).digest('hex')
+      Buffer.from(MINING_PROTOCOL+'\0pool-share\0'+canonical(b))).digest('hex')
     if(id!==s.poolShareId)return no('pool-share-id-mismatch')
     seen.add(s.poolShareId)
   }
