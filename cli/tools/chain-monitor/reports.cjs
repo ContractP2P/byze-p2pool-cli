@@ -90,7 +90,7 @@ function blockReport(candidate,{verified=false,confirmations=0,maxRows=12,eviden
     'Total coinbase: **'+formatByz(total.toString())+' BYZ**',
     'Miner payouts: **'+formatByz(net.toString())+' BYZ** · Pool fee: **'+formatByz(fees.toString())+' BYZ** ('+policy.feeBasisPoints/100+'%)',
     fence+'text',...table,fence,
-    payoutMode==='bootstrap' ? 'Startup payout: one miner and pool fee; NO PPLNS window was committed.' : 'Percentages are shares of this PPLNS payout, not live hashrate.',
+    payoutMode==='bootstrap' ? 'Startup payout: one recipient and pool fee; NO PPLNS window was committed.' : 'Percentages are shares of this PPLNS payout, not live hashrate.',
     'Chain evidence: https://explorer.byze.org/api/block/'+candidate.height,
     ...( /^https:\/\/github\.com\/ContractP2P\/byze-p2pool-cli\/(?:issues|pull)\/[1-9][0-9]*$/.test(evidenceUrl) ? [(payoutMode==='bootstrap'?'Bootstrap review evidence: ':'PPLNS review evidence: ')+evidenceUrl] : [] )
   ]
