@@ -6,7 +6,7 @@ set -Eeuo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$PWD"
 PLATFORM='darwin-arm64'
-APP_VERSION='0.2.5-rc4-community.1'
+APP_VERSION='0.2.5-rc4-community.2'
 NODE_VERSION='v22.23.3'
 NODE_NAME="node-${NODE_VERSION}-${PLATFORM}.tar.gz"
 NODE_URL="https://nodejs.org/dist/${NODE_VERSION}"
@@ -88,7 +88,7 @@ SH
 chmod 0755 "$STAGE/bin/byze-p2pool"
 
 cat > "$STAGE/README-FIRST.txt" <<'DOC'
-BYZE P2Pool CLI 0.2.5-rc4-community.1 / macOS Apple Silicon — EXPERIMENTAL TEST BUILD
+BYZE P2Pool CLI 0.2.5-rc4-community.2 / macOS Apple Silicon — EXPERIMENTAL TEST BUILD
 
 The Node.js runtime, JS dependencies and pinned native miner/verifier are bundled.
 A separately installed and synchronized BYZE Core daemon/client is required.
@@ -132,5 +132,5 @@ PACKAGE_READY
 Package: $DIST/$ARCHIVE
 Checksums: $DIST/SHA256SUMS
 Source commit: $(git rev-parse HEAD)
-Community test version: v0.2.5-rc4-community.1
+Community test version: v0.2.5-rc4-community.2
 INFO
