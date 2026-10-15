@@ -57,7 +57,7 @@ const { normalizePlan: normalizeDirectCoinbasePlan, resolveScripts: resolveDirec
 const { fitTemplateWeight } = require('./mining/block-weight')
 const { PayoutAddressValidator, TRANSIENT_PAYOUT_CODES } = require('./mining/payout-address')
 const { publishQuantumBlock } = require('./mining/byze-block-publisher')
-const { snapshotSubmission, saveSubmissionEvidence } = require('./mining/block-evidence')
+const { snapshotSubmission, snapshotSubmissionRecovery, saveSubmissionEvidence } = require('./mining/block-evidence')
 const { createPoolFeePolicy, DEFAULT_POOL_FEE_BASIS_POINTS } = require('./mining/pool-fee-policy')
 const { Supervisor, setNativeMessageHandler } = require('./mining/native-bridge')
 const { buildJobCommitment, verifyCoinbaseBinding } = require('./mining/mining-job-commitment')
@@ -608,7 +608,7 @@ class MinerApp {
     const packet={...unsigned,signature:sign(this.seed,proofEnvelopeSigningPayload(unsigned))}
     const stored=this.storeShare(packet,{local:true}); if(!stored.ok||stored.duplicate)return
     this.acceptedLocal += 1; this.sendLocalPacket(packet)
-    if(proof.blockCandidate)void this.publishCandidate(raw,checked)
+    if(proof.blockCandidate)void this.publishCandidate(raw,checked).catch(e=>warn('Block submission handler failed:',e.message))
     if(proof.blockCandidate&&this.uiReady)log('🎯 BLOCK CANDIDATE',short(built.share.shareId,8,6),`share #${this.acceptedLocal}`)
   }
 
@@ -1171,17 +1171,35 @@ class MinerApp {
     const result=await publishQuantumBlock({rpc:async(method,params=[])=>this.byze.call(method,params,{timeout:30_000}),candidate,allowSubmit:true,expectedNetwork:'main',validateProposal:true})
     if(result.ok){
       if(this.uiReady)log('🔥 BYZE BLOCK SUBMITTED',`#${raw.height}`,short(raw.powHash,10,8))
+      // Record a successful RPC submission even when the pool has not yet
+      // formed its first PPLNS window, or historical signed packets are missing.
+      const capture={raw:candidate,ctx,coinbaseTxid:checkedCoinbaseTxid,
+        poolChain:this.poolChain,poolPackets:this.poolPackets,policy:this.policy,
+        identity:{cliVersion:APP_VERSION,securityGeneration:SECURITY_GENERATION,
+          contractSourceHash:CONTRACT_SOURCE_HASH,
+          releaseTag:process.env.BYZE_P2POOL_RELEASE_TAG||'',
+          releaseArchiveSha256:process.env.BYZE_P2POOL_ARCHIVE_SHA256||''}}
+      let evidence
+      try { evidence=snapshotSubmission(capture) }
+      catch (e) {
+        warn('Detailed block proof unavailable; preserving incomplete submission:',e.message)
+        evidence=snapshotSubmissionRecovery(capture,e)
+      }
       try {
-        const evidence=snapshotSubmission({raw:candidate,ctx,coinbaseTxid:checkedCoinbaseTxid,
-          poolChain:this.poolChain,poolPackets:this.poolPackets,policy:this.policy,
-          identity:{cliVersion:APP_VERSION,securityGeneration:SECURITY_GENERATION,
-            contractSourceHash:CONTRACT_SOURCE_HASH,
-            releaseTag:process.env.BYZE_P2POOL_RELEASE_TAG||'',
-            releaseArchiveSha256:process.env.BYZE_P2POOL_ARCHIVE_SHA256||''}})
-        const saved=saveSubmissionEvidence(evidence)
-        log('P2Pool local submission evidence:',saved.path,'SHA-256:',saved.sha256)
-        log('Evidence is private and unconfirmed; review and verify before any public block attribution.')
-      } catch (e) { warn('P2Pool block evidence unavailable (does not affect submission):',e.message) }
+        let saved
+        try { saved=saveSubmissionEvidence(evidence) }
+        catch (e) {
+          if(evidence.proofStatus==='incomplete')throw e
+          // The full proof can exceed the private 8 MB cap. Retain a
+          // minimal record and make the incomplete status explicit.
+          warn('Full block evidence could not be stored:',e.message)
+          evidence=snapshotSubmissionRecovery(capture,e)
+          saved=saveSubmissionEvidence(evidence)
+        }
+        log('P2Pool local submission evidence:',saved.path,'SHA-256:',saved.sha256,
+          '| payout:',evidence.payoutMode,'| proof:',evidence.proofStatus)
+        log('Submission is unconfirmed and private; independent review is required before Discord attribution.')
+      } catch(e) { warn('P2Pool submission evidence could not be saved:',e.message) }
       setTimeout(()=>void this.scanRewards(),800)
     } else warn('Block not submitted:',result.code||'',result.reason||'')
     setTimeout(()=>this.refreshJob(true).catch(()=>{}),500)
