@@ -1,0 +1,240 @@
+{
+  "schema": 2,
+  "type": "byze-p2pool-operator-reviewed-public-pplns-attestation",
+  "status": "privately-reviewed-origin",
+  "reviewUrl": "https://github.com/ContractP2P/byze-p2pool-cli/issues/44",
+  "reviewScope": "Private Ed25519/share packets reviewed by operator; public artifact independently recomputes PPLNS work and checks live coinbase only; not public RandomX/signature verification",
+  "sourceEvidenceSha256": "565baff05f06a815850676248dfbd6ac6d2653342b41b20b900566a564240fba",
+  "height": 21128,
+  "hash": "00000366f5a606b917a5636b0de59d3b25cd726a51a15dea36ba903c513ab9cd",
+  "submittedCoinbaseTxid": "136f7d91ba241f56c2e7644e57a4678e343251c78e5ecd1ce17eab7fbfbeceb6",
+  "previousBlockHash": "0000014e9bb4a17987d446a26847dbae9ca4fb4d7ce31b39d061729c8c7cae87",
+  "payoutMode": "pplns",
+  "proofStatus": "pplns-window-recomputed",
+  "poolId": "byze-main-p2pool-v1",
+  "feeAddress": "byz1ptlyn7q58zyhht8lds0u58n6mf4vehx6ds8gkax0vmtc49az2w9eqgqsm5p",
+  "feeBasisPoints": 50,
+  "pplnsTipId": "ps:91c7fe978ff6302e948ae6607d2b6b9f8acd1afceba62ccb9c7ebe9f0ffc08bb",
+  "coinbaseValueSats": "5000000000",
+  "payoutOutputs": [
+    {
+      "address": "byz1pg0lra0p2y6ud3vwsyd5e2d6qafmsv3fy28mqds00dmuq9zenkgssxchtea",
+      "satoshis": "4975000000",
+      "script": "512043fe3ebc2a26b8d8b1d02369953740ea7706452451f606c1ef6ef8028b33b221"
+    },
+    {
+      "address": "byz1ptlyn7q58zyhht8lds0u58n6mf4vehx6ds8gkax0vmtc49az2w9eqgqsm5p",
+      "satoshis": "25000000",
+      "script": "51205fc93f0287112f759fed83f943cf5b4d599b9b4d81d16e99ecdaf152f44a7172"
+    }
+  ],
+  "poolShares": [
+    {
+      "protocol": "contract-byze-p2pool-v1",
+      "kind": "pool-share",
+      "contractHash": "0ba509a74eb5f475ce41f152349fe49a7d19e4fbd6c14c1833632c61681a0b66",
+      "poolId": "byze-main-p2pool-v1",
+      "cellId": "global:8deb69978fbe32e1b4d90bee",
+      "checkpointId": "gc:b9c4b22f6468c1ffdc3fd90fdf93e6a8acf5e6a6d5def97f25de1bf98055d99a",
+      "previousPoolShareId": "ps:a3915ae0b9a07612b455421818bdb9f4c178f7ad7193cf5a771ce43c5b885ebd",
+      "byzeHeight": 21128,
+      "byzePrevBlockHash": "0000014e9bb4a17987d446a26847dbae9ca4fb4d7ce31b39d061729c8c7cae87",
+      "work": "118040",
+      "payoutWeights": {
+        "byz1pg0lra0p2y6ud3vwsyd5e2d6qafmsv3fy28mqds00dmuq9zenkgssxchtea": "118040"
+      },
+      "poolShareId": "ps:91c7fe978ff6302e948ae6607d2b6b9f8acd1afceba62ccb9c7ebe9f0ffc08bb"
+    },
+    {
+      "protocol": "contract-byze-p2pool-v1",
+      "kind": "pool-share",
+      "contractHash": "0ba509a74eb5f475ce41f152349fe49a7d19e4fbd6c14c1833632c61681a0b66",
+      "poolId": "byze-main-p2pool-v1",
+      "cellId": "global:12b91d21d14ccfd6f2c399d0",
+      "checkpointId": "gc:d0cd20dc27ecfe50079d5fae43049cd99731d4c0fc14b09ac40509ece8fc6a21",
+      "previousPoolShareId": "ps:ab09421f56e6ba96bcb82f769d21fc85c7803b750cdeceaea8c901cf49a8aa43",
+      "byzeHeight": 21127,
+      "byzePrevBlockHash": "000002137b387c3f725ca2166b3fd371433a57336944e8b5f0c738c0eb1b00b2",
+      "work": "81720",
+      "payoutWeights": {
+        "byz1pg0lra0p2y6ud3vwsyd5e2d6qafmsv3fy28mqds00dmuq9zenkgssxchtea": "81720"
+      },
+      "poolShareId": "ps:a3915ae0b9a07612b455421818bdb9f4c178f7ad7193cf5a771ce43c5b885ebd"
+    },
+    {
+      "protocol": "contract-byze-p2pool-v1",
+      "kind": "pool-share",
+      "contractHash": "0ba509a74eb5f475ce41f152349fe49a7d19e4fbd6c14c1833632c61681a0b66",
+      "poolId": "byze-main-p2pool-v1",
+      "cellId": "global:d21cc2c206acfe31decd7a61",
+      "checkpointId": "gc:c3e44b3bea8d259f181f40b0a41b6e2df1132231654176bb8cd4e0cb6f4418d9",
+      "previousPoolShareId": "ps:d91a7a9f15793a9a66d2538e554f6926bac43115efb2e9823affb5996a5835cf",
+      "byzeHeight": 21127,
+      "byzePrevBlockHash": "000002137b387c3f725ca2166b3fd371433a57336944e8b5f0c738c0eb1b00b2",
+      "work": "81720",
+      "payoutWeights": {
+        "byz1pg0lra0p2y6ud3vwsyd5e2d6qafmsv3fy28mqds00dmuq9zenkgssxchtea": "81720"
+      },
+      "poolShareId": "ps:ab09421f56e6ba96bcb82f769d21fc85c7803b750cdeceaea8c901cf49a8aa43"
+    },
+    {
+      "protocol": "contract-byze-p2pool-v1",
+      "kind": "pool-share",
+      "contractHash": "0ba509a74eb5f475ce41f152349fe49a7d19e4fbd6c14c1833632c61681a0b66",
+      "poolId": "byze-main-p2pool-v1",
+      "cellId": "global:ebdf2ef007c2451f0543073e",
+      "checkpointId": "gc:7fa7987595092d3fcad8792098a00b8e6320e0c337b4f0427bf60b4d2b37d578",
+      "previousPoolShareId": "ps:1b14f0ef79a99aadeaf7c5b5ac49045801a7d004c43f73ccef8f2fb304276dff",
+      "byzeHeight": 21127,
+      "byzePrevBlockHash": "000002137b387c3f725ca2166b3fd371433a57336944e8b5f0c738c0eb1b00b2",
+      "work": "72640",
+      "payoutWeights": {
+        "byz1pg0lra0p2y6ud3vwsyd5e2d6qafmsv3fy28mqds00dmuq9zenkgssxchtea": "72640"
+      },
+      "poolShareId": "ps:d91a7a9f15793a9a66d2538e554f6926bac43115efb2e9823affb5996a5835cf"
+    },
+    {
+      "protocol": "contract-byze-p2pool-v1",
+      "kind": "pool-share",
+      "contractHash": "0ba509a74eb5f475ce41f152349fe49a7d19e4fbd6c14c1833632c61681a0b66",
+      "poolId": "byze-main-p2pool-v1",
+      "cellId": "global:dd2f6a554baa6b4dfaf9b875",
+      "checkpointId": "gc:16a614a0ef308b823c369bf236dfc918ba0e83b9eeebc7c1abcfd17fe2e23ba8",
+      "previousPoolShareId": "ps:cafed269a54a8c81714c83ffcc784710d7f17077fef0afa44e3c537e1e096702",
+      "byzeHeight": 21127,
+      "byzePrevBlockHash": "000002137b387c3f725ca2166b3fd371433a57336944e8b5f0c738c0eb1b00b2",
+      "work": "63560",
+      "payoutWeights": {
+        "byz1pg0lra0p2y6ud3vwsyd5e2d6qafmsv3fy28mqds00dmuq9zenkgssxchtea": "63560"
+      },
+      "poolShareId": "ps:1b14f0ef79a99aadeaf7c5b5ac49045801a7d004c43f73ccef8f2fb304276dff"
+    },
+    {
+      "protocol": "contract-byze-p2pool-v1",
+      "kind": "pool-share",
+      "contractHash": "0ba509a74eb5f475ce41f152349fe49a7d19e4fbd6c14c1833632c61681a0b66",
+      "poolId": "byze-main-p2pool-v1",
+      "cellId": "global:ce150453eff21c7060b478b2",
+      "checkpointId": "gc:9e9ff3e30c09fc9ef5bf4f05ced6e20cd2cc4a84f959c097b4b86bc20f154c82",
+      "previousPoolShareId": "ps:a85ed7480d511ec0e6de3615d92139588811f194f0779cb18b2e037cf8088710",
+      "byzeHeight": 21127,
+      "byzePrevBlockHash": "000002137b387c3f725ca2166b3fd371433a57336944e8b5f0c738c0eb1b00b2",
+      "work": "63560",
+      "payoutWeights": {
+        "byz1pg0lra0p2y6ud3vwsyd5e2d6qafmsv3fy28mqds00dmuq9zenkgssxchtea": "63560"
+      },
+      "poolShareId": "ps:cafed269a54a8c81714c83ffcc784710d7f17077fef0afa44e3c537e1e096702"
+    },
+    {
+      "protocol": "contract-byze-p2pool-v1",
+      "kind": "pool-share",
+      "contractHash": "0ba509a74eb5f475ce41f152349fe49a7d19e4fbd6c14c1833632c61681a0b66",
+      "poolId": "byze-main-p2pool-v1",
+      "cellId": "global:c84ac0df32d81ac53e6829b5",
+      "checkpointId": "gc:4acf6d01af1328763744e59051ba336c7158333fa0aecbf955e9266bcdbfbba3",
+      "previousPoolShareId": "ps:c056add02da31cf7dffdd76c2e243c1e35bce9787ac77b34c6f6289db4fc31de",
+      "byzeHeight": 21126,
+      "byzePrevBlockHash": "0000001999766c9dad8fd86c51fb600d2a666c21dfec5bb35d674eb534577ce9",
+      "work": "127120",
+      "payoutWeights": {
+        "byz1pg0lra0p2y6ud3vwsyd5e2d6qafmsv3fy28mqds00dmuq9zenkgssxchtea": "127120"
+      },
+      "poolShareId": "ps:a85ed7480d511ec0e6de3615d92139588811f194f0779cb18b2e037cf8088710"
+    },
+    {
+      "protocol": "contract-byze-p2pool-v1",
+      "kind": "pool-share",
+      "contractHash": "0ba509a74eb5f475ce41f152349fe49a7d19e4fbd6c14c1833632c61681a0b66",
+      "poolId": "byze-main-p2pool-v1",
+      "cellId": "global:a2b15817b4906b55ea76c344",
+      "checkpointId": "gc:6e434d3bcded4c60cd4ca652aadf02e374a29374aa3622701bdbfc11441fde83",
+      "previousPoolShareId": "ps:483b8bdbbb485887a4187c9479ac83721f990d7f1aca9d4c2b778e57099bf1d2",
+      "byzeHeight": 21126,
+      "byzePrevBlockHash": "0000001999766c9dad8fd86c51fb600d2a666c21dfec5bb35d674eb534577ce9",
+      "work": "108960",
+      "payoutWeights": {
+        "byz1pg0lra0p2y6ud3vwsyd5e2d6qafmsv3fy28mqds00dmuq9zenkgssxchtea": "108960"
+      },
+      "poolShareId": "ps:c056add02da31cf7dffdd76c2e243c1e35bce9787ac77b34c6f6289db4fc31de"
+    },
+    {
+      "protocol": "contract-byze-p2pool-v1",
+      "kind": "pool-share",
+      "contractHash": "0ba509a74eb5f475ce41f152349fe49a7d19e4fbd6c14c1833632c61681a0b66",
+      "poolId": "byze-main-p2pool-v1",
+      "cellId": "global:2c8622839707d3a0b795255f",
+      "checkpointId": "gc:fd483978e7829dfbc86bbe98d01b89a5af9cf5b1ff17af76af633511f0d2efbf",
+      "previousPoolShareId": "ps:764823a699b9e8f6e4c2e8c3f1e5d66837874ec5760d0a4d625bf87f91a1771b",
+      "byzeHeight": 21126,
+      "byzePrevBlockHash": "0000001999766c9dad8fd86c51fb600d2a666c21dfec5bb35d674eb534577ce9",
+      "work": "72640",
+      "payoutWeights": {
+        "byz1pg0lra0p2y6ud3vwsyd5e2d6qafmsv3fy28mqds00dmuq9zenkgssxchtea": "72640"
+      },
+      "poolShareId": "ps:483b8bdbbb485887a4187c9479ac83721f990d7f1aca9d4c2b778e57099bf1d2"
+    },
+    {
+      "protocol": "contract-byze-p2pool-v1",
+      "kind": "pool-share",
+      "contractHash": "0ba509a74eb5f475ce41f152349fe49a7d19e4fbd6c14c1833632c61681a0b66",
+      "poolId": "byze-main-p2pool-v1",
+      "cellId": "global:f84f1200295215ce4cb26d65",
+      "checkpointId": "gc:098b9f80add4234e3bef3b8f8960c9fd81d3d9368863f7f5f3ab9423024d518f",
+      "previousPoolShareId": "ps:5c4b712627fa4153e1daf5ec3841317999bf5c45a538ef604e78adfce34aab01",
+      "byzeHeight": 21126,
+      "byzePrevBlockHash": "0000001999766c9dad8fd86c51fb600d2a666c21dfec5bb35d674eb534577ce9",
+      "work": "63560",
+      "payoutWeights": {
+        "byz1pg0lra0p2y6ud3vwsyd5e2d6qafmsv3fy28mqds00dmuq9zenkgssxchtea": "63560"
+      },
+      "poolShareId": "ps:764823a699b9e8f6e4c2e8c3f1e5d66837874ec5760d0a4d625bf87f91a1771b"
+    },
+    {
+      "protocol": "contract-byze-p2pool-v1",
+      "kind": "pool-share",
+      "contractHash": "0ba509a74eb5f475ce41f152349fe49a7d19e4fbd6c14c1833632c61681a0b66",
+      "poolId": "byze-main-p2pool-v1",
+      "cellId": "global:ca7be460394cf497fe53fb42",
+      "checkpointId": "gc:36da2d4912f9b555eb85d6c1e61e8ee17c22e4c8c7d2bfa024d227c4a882b6ad",
+      "previousPoolShareId": "ps:6daa8e8457e323a801061dfbbb4c185e587556e3bdb81306af884339bc5d1c95",
+      "byzeHeight": 21126,
+      "byzePrevBlockHash": "0000001999766c9dad8fd86c51fb600d2a666c21dfec5bb35d674eb534577ce9",
+      "work": "118040",
+      "payoutWeights": {
+        "byz1pg0lra0p2y6ud3vwsyd5e2d6qafmsv3fy28mqds00dmuq9zenkgssxchtea": "118040"
+      },
+      "poolShareId": "ps:5c4b712627fa4153e1daf5ec3841317999bf5c45a538ef604e78adfce34aab01"
+    },
+    {
+      "protocol": "contract-byze-p2pool-v1",
+      "kind": "pool-share",
+      "contractHash": "0ba509a74eb5f475ce41f152349fe49a7d19e4fbd6c14c1833632c61681a0b66",
+      "poolId": "byze-main-p2pool-v1",
+      "cellId": "global:24ac2c4c15f55511a1b9fb70",
+      "checkpointId": "gc:aa4c7741a12099f98e160ec32ab98a1d5d4aa85f5710833b6c899d64f56ae8e5",
+      "previousPoolShareId": "",
+      "byzeHeight": 21126,
+      "byzePrevBlockHash": "0000001999766c9dad8fd86c51fb600d2a666c21dfec5bb35d674eb534577ce9",
+      "work": "45400",
+      "payoutWeights": {
+        "byz1pg0lra0p2y6ud3vwsyd5e2d6qafmsv3fy28mqds00dmuq9zenkgssxchtea": "45400"
+      },
+      "poolShareId": "ps:6daa8e8457e323a801061dfbbb4c185e587556e3bdb81306af884339bc5d1c95"
+    }
+  ],
+  "build": {
+    "cliVersion": "0.2.5-rc4-community.2",
+    "securityGeneration": "coinbase-binding-v2-global-epoch-v6",
+    "contractSourceHash": "0ba509a74eb5f475ce41f152349fe49a7d19e4fbd6c14c1833632c61681a0b66",
+    "releaseTag": "v0.2.5-rc4-community.2",
+    "releaseArchiveSha256": "f6c508bde9793aa7128985366afaa9f03de9a8bf6b13ec3df4cf086c5204ffce"
+  },
+  "audit": {
+    "signedPacketsChecked": 12,
+    "localProofsChecked": 112,
+    "randomxUniqueHashesCombined": 112,
+    "randomxHashMismatches": 0,
+    "onChainOutputsMatchedAtOperatorReview": true,
+    "witnessV1Spendability": "not-verified"
+  }
+}
