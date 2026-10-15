@@ -70,7 +70,7 @@ jobs:
             arm64) plat="darwin-arm64" ;;
             *) exit 1 ;;
           esac
-          pool="$home/.local/opt/byze-p2pool-0.2.5-rc3-rpc-recovery-test1-$plat/bin"
+          pool="$home/.local/opt/byze-p2pool-0.2.5-rc3-evidence-test1-$plat/bin"
           mkdir -p "$pool"
           cat > "$pool/byze-p2pool" <<'POOL'
           #!/bin/sh
@@ -95,7 +95,7 @@ jobs:
           test ! -e "$work/curl.calls"
           grep -q '# BYZE_P2POOL_MANAGED_LAUNCHER' "$home/.local/bin/byze-p2pool"
           test -f "$home/ldev/byze/build/bin/byze-cli"
-          grep -Fq 'byze-p2pool-0.2.5-rc3-rpc-recovery-test1-' "$home/.local/bin/byze-p2pool"
+          grep -Fq 'byze-p2pool-0.2.5-rc3-evidence-test1-' "$home/.local/bin/byze-p2pool"
           echo 'PASS: existing Core untouched, current pool launcher configured'
           # Regression: an unsynchronized, zero-block Core must not be
           # labelled READY, even if the reused rc3 bundle says otherwise.
