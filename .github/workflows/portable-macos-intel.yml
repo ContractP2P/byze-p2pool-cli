@@ -59,24 +59,24 @@ jobs:
         run: |
           bash -n tools/build-portable-macos-intel.sh
           bash tools/build-portable-macos-intel.sh
-          test -s dist/byze-p2pool-cli-complete-0.2.5-rc4-community.1-darwin-x64.tar.gz
+          test -s dist/byze-p2pool-cli-complete-0.2.5-rc4-community.2-darwin-x64.tar.gz
           ( cd dist && shasum -a 256 -c SHA256SUMS )
           testdir=$(mktemp -d)
           trap 'rm -rf -- "$testdir"' EXIT
-          tar -xzf dist/byze-p2pool-cli-complete-0.2.5-rc4-community.1-darwin-x64.tar.gz -C "$testdir"
-          cli="$testdir/byze-p2pool-0.2.5-rc4-community.1-darwin-x64/bin/byze-p2pool"
+          tar -xzf dist/byze-p2pool-cli-complete-0.2.5-rc4-community.2-darwin-x64.tar.gz -C "$testdir"
+          cli="$testdir/byze-p2pool-0.2.5-rc4-community.2-darwin-x64/bin/byze-p2pool"
           "$cli" --version
           "$cli" --help >/dev/null
-          "$testdir/byze-p2pool-0.2.5-rc4-community.1-darwin-x64/bin/node" \
-            "$testdir/byze-p2pool-0.2.5-rc4-community.1-darwin-x64/app/tools/test-private-dht.js"
+          "$testdir/byze-p2pool-0.2.5-rc4-community.2-darwin-x64/bin/node" \
+            "$testdir/byze-p2pool-0.2.5-rc4-community.2-darwin-x64/app/tools/test-private-dht.js"
 
       - name: Inspect native runtime library dependencies
         run: |
           set -euo pipefail
           for bin in \
-            .portable-lab/macos-x64/byze-p2pool-0.2.5-rc4-community.1-darwin-x64/bin/node \
-            .portable-lab/macos-x64/byze-p2pool-0.2.5-rc4-community.1-darwin-x64/app/native/darwin-x64/byze-p2pool-miner \
-            .portable-lab/macos-x64/byze-p2pool-0.2.5-rc4-community.1-darwin-x64/app/native/darwin-x64/byze-rxhash
+            .portable-lab/macos-x64/byze-p2pool-0.2.5-rc4-community.2-darwin-x64/bin/node \
+            .portable-lab/macos-x64/byze-p2pool-0.2.5-rc4-community.2-darwin-x64/app/native/darwin-x64/byze-p2pool-miner \
+            .portable-lab/macos-x64/byze-p2pool-0.2.5-rc4-community.2-darwin-x64/app/native/darwin-x64/byze-rxhash
           do
             echo "Runtime libraries for $bin:"
             otool -L "$bin"
@@ -90,7 +90,7 @@ jobs:
               exit 1
             fi
           done
-          root=".portable-lab/macos-x64/byze-p2pool-0.2.5-rc4-community.1-darwin-x64"
+          root=".portable-lab/macos-x64/byze-p2pool-0.2.5-rc4-community.2-darwin-x64"
           test -s "$root/lib/libcrypto.3.dylib"
           miner="$root/app/native/darwin-x64/byze-p2pool-miner"
           library_path="$(cd "$root/lib" && pwd)"
@@ -105,7 +105,7 @@ jobs:
         with:
           name: byze-p2pool-complete-macos-intel-test
           path: |
-            cli/dist/byze-p2pool-cli-complete-0.2.5-rc4-community.1-darwin-x64.tar.gz
+            cli/dist/byze-p2pool-cli-complete-0.2.5-rc4-community.2-darwin-x64.tar.gz
             cli/dist/SHA256SUMS
           if-no-files-found: error
           retention-days: 7

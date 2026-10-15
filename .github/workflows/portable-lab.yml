@@ -68,7 +68,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p ../portable-artifacts
-          archive="byze-p2pool-cli-complete-0.2.5-rc4-community.1-linux-x64-$(git rev-parse --short=12 HEAD).tar.gz"
+          archive="byze-p2pool-cli-complete-0.2.5-rc4-community.2-linux-x64-$(git rev-parse --short=12 HEAD).tar.gz"
           tar -czf "../portable-artifacts/$archive" -C .portable-lab linux-x64
           (
             cd ../portable-artifacts
