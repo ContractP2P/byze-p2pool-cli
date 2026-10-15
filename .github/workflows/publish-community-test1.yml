@@ -15,9 +15,9 @@ permissions:
 env:
   GH_TOKEN: ${{ github.token }}
   REPO: ContractP2P/byze-p2pool-cli
-  SOURCE_SHA: 0c307f3fb25b4be605d03a5df79260d054795195
-  INTEL_RUN: '38726801029'
-  LINUX_RUN: '38726801100'
+  SOURCE_SHA: 9b8d97549fdcd76666ceeb1e38756bd1dd0e8c87
+  INTEL_RUN: '38727190631'
+  LINUX_RUN: '38727190627'
   TAG: v0.2.5-rc4-community.1
 
 jobs:
@@ -32,7 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 0c307f3fb25b4be605d03a5df79260d054795195
+          ref: 9b8d97549fdcd76666ceeb1e38756bd1dd0e8c87
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
