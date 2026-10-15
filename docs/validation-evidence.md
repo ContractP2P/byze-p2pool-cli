@@ -1,4 +1,4 @@
-# Evidence protocol for byzedev review (Experimental Test 1)
+# Evidence protocol for byzedev review (Experimental Test 2)
 
 Status: **community testing only**. This document does not certify production readiness.
 
@@ -8,11 +8,11 @@ The website installers include immutable, build-specific SHA-256 hashes that are
 
 | Platform | Tag | Archive SHA-256 |
 | --- | --- | --- |
-| Linux x86-64 | `v0.2.5-rc4-community.1` | `6881453c8e3b5f726920affa65fd6ba6127bbce6bfc67d9daf9ef39ec72802ef` |
-| macOS Apple Silicon | `v0.2.5-rc4-community.1` | `22ad3f666e4e487c848dbc6133ee1aa91fea0fd8e299944fa9b04e77c6d86986` |
-| macOS Intel | `v0.2.5-rc4-community.1` | `f86ee84a54d818b16098b68996473a61f22c7d8481f2b9d02251ffbb7a625b47` |
+| Linux x86-64 | `v0.2.5-rc4-community.2` | `ee398f908b4e587bb027803d53326cdb11a77ec60cea958e911c152e342d684d` |
+| macOS Apple Silicon | `v0.2.5-rc4-community.2` | `f6c508bde9793aa7128985366afaa9f03de9a8bf6b13ec3df4cf086c5204ffce` |
+| macOS Intel | `v0.2.5-rc4-community.2` | `a51326d40de13e6bb1246a8470066b676f6140f79c7725cb393d4d5028021391` |
 
-The three archives above are the **15 October 2026 Community Test 1** prerelease: [GitHub release](https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/v0.2.5-rc4-community.1). Earlier test archives remain published but are **not** the archives selected by the current guided installers. The security CI downloads each actual published archive, verifies the corresponding immutable hash and manifest, then alters the archive and checks that hash verification fails. This **does not** mean the archives are signed or notarized; signing remains a separate release gate.
+The three archives above are the **15 October 2026 Community Test 2** prerelease: [GitHub release](https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/v0.2.5-rc4-community.2). Earlier test archives remain published but are **not** the archives selected by the current guided installers. The security CI downloads each actual published archive, verifies the corresponding immutable hash and manifest, then alters the archive and checks that hash verification fails. This **does not** mean the archives are signed or notarized; signing remains a separate release gate.
 
 ## 5. Isolated byzed outage (intermediate integration test)
 
@@ -49,7 +49,7 @@ The date range is UTC, with the end date **exclusive**. `--output` refuses to ov
 
 The tool checks `chain=main`, inspects decoded on-chain coinbase transactions, searches outputs for the configured 0.5% pool fee address using the decoded address **or output script**, and reports height, hash, coinbase txid, all outputs, fees, and confirmations. The reported match is a **candidate**, not proof the block came from a specific version of P2Pool CLI.
 
-**A definitive claim that Experimental Test 1 mined a mainnet block requires all of the following:**
+**A definitive claim that Experimental Test 2 mined a mainnet block requires all of the following:**
 
 1. A real block hash/height with network confirmations.
 2. Logs from the miner identifying the **exact experimental build/tag and sha256**, with the submitted block hash/height.
@@ -62,6 +62,6 @@ If any of these is absent, state the claim as **unverified**. Session reward est
 
 The scheduled observer publishes an **observed miner activity** snapshot only when fresh active MINING presence and positive reported hashrate are available. This does not prove accepted shares, an identified block or PPLNS allocations.
 
-A **confirmed block payout** Discord message is issued only for a block already registered as independently reviewed in `cli/config/pool-block-attributions.json` (initially empty). The corrective source in [PR #41](https://github.com/ContractP2P/byze-p2pool-cli/pull/41) adds a distinct **bootstrap (no committed PPLNS tip)** mode; it must never be presented as PPLNS. Incomplete saved captures and missing signed pool-share packets are ineligible for PPLNS publication. Existing Community Test 1 binaries have not been rebuilt with these changes. Its operator review links to external evidence and must satisfy the four requirements above. The monitor rechecks the canonical block, coinbase txid, confirmations, outputs and fee, **and independently recomputes payout amounts from the committed PPLNS window**. Cryptographic validity of the original signed share packets and miner submission provenance still require separate operator review. A fee-address match by itself is only a candidate and is never posted as a confirmed P2Pool payout.
+A **confirmed block payout** Discord message is issued only for a block already registered as independently reviewed in `cli/config/pool-block-attributions.json` (initially empty). The Community Test 2 source, merged in [PR #41](https://github.com/ContractP2P/byze-p2pool-cli/pull/41) adds a distinct **bootstrap (no committed PPLNS tip)** mode; it must never be presented as PPLNS. Incomplete saved captures and missing signed pool-share packets are ineligible for PPLNS publication. The released Community Test 2 archives contain these changes. Its operator review links to external evidence and must satisfy the four requirements above. The monitor rechecks the canonical block, coinbase txid, confirmations, outputs and fee, **and independently recomputes payout amounts from the committed PPLNS window**. Cryptographic validity of the original signed share packets and miner submission provenance still require separate operator review. A fee-address match by itself is only a candidate and is never posted as a confirmed P2Pool payout.
 
 For a reproducible review, keep the miner build identifier and submission logs, the exact block hash, complete on-chain outputs, the PPLNS tip/share window with verified weights, and the independent calculation of each recipient and the 0.50% fee in a public issue or PR (redacting secrets). The Discord payout report can then summarize verified on-chain amounts; it cannot replace the underlying evidence. See [Discord reporting](discord-reporting.md).
