@@ -161,12 +161,16 @@ async function post(content){
     ok(r.ok,'Discord HTTP '+r.status)
   }finally{clearTimeout(t)}
 }
+function validatedManifestRows(manifest){
+  ok(manifest?.schema===1&&Array.isArray(manifest.reviewedBlocks)&&
+    manifest.reviewedBlocks.length>=1&&manifest.reviewedBlocks.length<=100,'Invalid reviewed block manifest size')
+  return manifest.reviewedBlocks
+}
 async function main(){
   const manifest=JSON.parse(fs.readFileSync(path.join(ROOT,'cli/config/operator-reviewed-blocks.json'),'utf8'))
-  ok(manifest.schema===1&&Array.isArray(manifest.reviewedBlocks)&&
-    manifest.reviewedBlocks.length>=1&&manifest.reviewedBlocks.length<=100,'Invalid reviewed block manifest size')
+  const reviewedRows=validatedManifestRows(manifest)
   const unique=new Set()
-  const entries=manifest.reviewedBlocks.map(row=>{
+  const entries=reviewedRows.map(row=>{
     ok(!unique.has(row.hash),'Duplicate reviewed block')
     unique.add(row.hash)
     return evidence(row)
@@ -181,8 +185,13 @@ async function main(){
       console.log('ALREADY_POSTED',e.height,e.hash)
       continue
     }
+    const confirmations=tip-e.height+1
+    if(confirmations<6){
+      console.log('PENDING_CONFIRMATIONS',e.height,Math.max(0,confirmations))
+      continue
+    }
     await checkChain(e,tip)
-    const report=message(e,tip-e.height+1)
+    const report=message(e,confirmations)
     if(DRY){
       console.log('DRY_RUN_VERIFIED',e.height,report)
       continue
@@ -193,4 +202,7 @@ async function main(){
     console.log('DISCORD_POSTED',e.height,e.hash)
   }
 }
-main().catch(e=>{console.error('REVIEWED_PPLNS_PUBLISH_FAILED',e.message);process.exitCode=1})
+if(require.main===module){
+  main().catch(e=>{console.error('REVIEWED_PPLNS_PUBLISH_FAILED',e.message);process.exitCode=1})
+}
+module.exports={validatedManifestRows}
