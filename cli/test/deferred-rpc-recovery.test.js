@@ -178,3 +178,27 @@ test('native supervisor halts miner, rejects late verified shares, and restarts 
   assert.equal(sup.status().running,true)
   assert.equal(sup.job.id,job.id)
 })
+
+test('forced PPLNS refresh is not discarded while an RPC poll is in flight',async()=>{
+  const {app}=harness()
+  app.running=true
+  app.supervisor.pauseMining=()=>{}
+  let unblock, calls=0
+  app.byze.call=async method=>{
+    assert.equal(method,'getblockchaininfo')
+    calls++
+    if(calls===1) await new Promise(resolve=>{unblock=resolve})
+    throw new Error('RPC not ready')
+  }
+  const first=app.refreshJob()
+  const forced=app.refreshJob(true)
+  assert.equal(calls,1)
+  unblock()
+  await assert.rejects(first,/RPC not ready/)
+  await assert.rejects(forced,/RPC not ready/)
+  await new Promise(resolve=>setImmediate(resolve))
+  await new Promise(resolve=>setImmediate(resolve))
+  assert.equal(calls,2,'queued forced refresh must run after the first poll')
+  assert.equal(app.jobRefreshForcePending,false)
+  app.running=false
+})
