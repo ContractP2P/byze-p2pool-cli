@@ -19,7 +19,10 @@ function verifiedAttributions(file=MANIFEST,root=ROOT){
     if(!Number.isSafeInteger(row.height)||row.height<=0||
        !/^[0-9a-f]{64}$/.test(String(row.hash||''))||
        !/^[0-9a-f]{64}$/.test(String(row.coinbaseTxid||''))||
-       !/^ps:[0-9a-f]{64}$/.test(String(row.pplnsTipId||''))||
+       !(row.payoutMode==='bootstrap'
+         ? row.pplnsTipId==='' 
+         : (row.payoutMode===undefined||row.payoutMode==='pplns') &&
+           /^ps:[0-9a-f]{64}$/.test(String(row.pplnsTipId||'')))||
        !GITHUB_REVIEW.test(String(row.evidenceUrl||''))||
        !EVIDENCE_PATH.test(proofFile)||
        !proofFile.endsWith(row.height+'-'+row.coinbaseTxid+'.json')||
@@ -47,6 +50,8 @@ function eligibleBlock(candidate,entry,confirmations){
     if(crypto.createHash('sha256').update(bytes).digest('hex')!==entry.proofSha256)return false
     const evidence=JSON.parse(bytes.toString('utf8'))
     if(evidence.pplnsTipId!==entry.pplnsTipId)return false
+    const payoutMode=String(evidence.payoutMode||'pplns')
+    if(payoutMode!==String(entry.payoutMode||'pplns'))return false
     return verifyPplnsEvidence(evidence,candidate).ok
   }catch{return false}
 }
