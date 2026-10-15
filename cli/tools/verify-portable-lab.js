@@ -34,7 +34,7 @@ function check(root) {
     { encoding: 'utf8', timeout: 15000, env: { PATH: process.env.PATH || '/usr/bin:/bin' } })
   const packageVersion = JSON.parse(
     fs.readFileSync(path.join(resolved, 'app/package.json'), 'utf8')).version
-  if (!/^\\d+\\.\\d+\\.\\d+-[a-zA-Z0-9.-]+$/.test(String(packageVersion || '')) ||
+  if (!/^\d+\.\d+\.\d+-[a-zA-Z0-9.-]+$/.test(String(packageVersion || '')) ||
       runner.status !== 0 || String(runner.stdout || '').trim() !== packageVersion) {
     throw Error('Portable JS runtime self-test failed')
   }
