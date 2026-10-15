@@ -5,7 +5,7 @@ CORE_TAG="v0.2.5-rc5-change-keyspace"
 CORE_BASE="https://github.com/powhermes/byze/releases/download/$CORE_TAG"
 CORE_SHA_X64="08392d6daf5597b45749f2fa18cfbac585510ca591df2f70f555d5093b16bf28"
 CORE_SHA_ARM="d71baa8534515027b60a0c7b9de71ffe75ae236322a5cbb5e77056a5f1731a62"
-VERSION="0.2.5-rc4-community.1"
+VERSION="0.2.5-rc4-community.2"
 BASE="$HOME/.local/opt"
 LAUNCHER="$HOME/.local/bin/byze-p2pool"
 MARKER="$BASE/byze-p2pool-core-cli.path"
@@ -22,17 +22,17 @@ trap cleanup EXIT
 case "$(uname -m)" in
  x86_64)
    PLATFORM="darwin-x64"; CORE_ARCH="x86_64"; CORE_SHA="$CORE_SHA_X64"
-   CLI_TAG="v0.2.5-rc4-community.1"
-   CLI_SHA="f86ee84a54d818b16098b68996473a61f22c7d8481f2b9d02251ffbb7a625b47" ;;
+   CLI_TAG="v0.2.5-rc4-community.2"
+   CLI_SHA="a51326d40de13e6bb1246a8470066b676f6140f79c7725cb393d4d5028021391" ;;
  arm64)
    PLATFORM="darwin-arm64"; CORE_ARCH="arm64"; CORE_SHA="$CORE_SHA_ARM"
-   CLI_TAG="v0.2.5-rc4-community.1"
-   CLI_SHA="22ad3f666e4e487c848dbc6133ee1aa91fea0fd8e299944fa9b04e77c6d86986" ;;
+   CLI_TAG="v0.2.5-rc4-community.2"
+   CLI_SHA="f6c508bde9793aa7128985366afaa9f03de9a8bf6b13ec3df4cf086c5204ffce" ;;
  *) fail "Unsupported CPU architecture." ;;
 esac
 CORE_ZIP="byze-core-macos-$CORE_ARCH.zip"
 CLI_FOLDER="byze-p2pool-$VERSION-$PLATFORM"
-# Keep old installations intact; Community Test 1 has a unique package version.
+# Keep old installations intact; Community Test 2 has a unique package version.
 CLI_INSTALL_FOLDER="byze-p2pool-$VERSION-$PLATFORM"
 CLI_TAR="byze-p2pool-cli-complete-$VERSION-$PLATFORM.tar.gz"
 CLI_URL="https://github.com/ContractP2P/byze-p2pool-cli/releases/download/$CLI_TAG"
@@ -188,10 +188,10 @@ if [ -z "${BYZE_CLI+x}" ]; then
   BYZE_CLI="$(cat "$HOME/.local/opt/byze-p2pool-core-cli.path")"
   export BYZE_CLI
 fi
-BYZE_P2POOL_RELEASE_TAG="v0.2.5-rc4-community.1"
+BYZE_P2POOL_RELEASE_TAG="v0.2.5-rc4-community.2"
 BYZE_P2POOL_ARCHIVE_SHA256="__ARCHIVE_SHA256__"
 export BYZE_P2POOL_RELEASE_TAG BYZE_P2POOL_ARCHIVE_SHA256
-exec "$HOME/.local/opt/byze-p2pool-0.2.5-rc4-community.1-__PLATFORM__/bin/byze-p2pool" "$@"
+exec "$HOME/.local/opt/byze-p2pool-0.2.5-rc4-community.2-__PLATFORM__/bin/byze-p2pool" "$@"
 LAUNCHER_TEXT
  /usr/bin/sed -i '' "s/__PLATFORM__/$PLATFORM/g" "$LAUNCHER"
  /usr/bin/sed -i '' "s/__ARCHIVE_SHA256__/$CLI_SHA/g" "$LAUNCHER"
