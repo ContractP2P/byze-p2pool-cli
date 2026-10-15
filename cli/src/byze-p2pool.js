@@ -1004,6 +1004,20 @@ class MinerApp {
     if(this.running)warn('BYZE mining paused ('+reason+'); retrying node every 10 s.')
   }
 
+  activateMiningJob(job){
+    this.supervisor.setJob(job)
+    this.currentJob=job
+    this.lastTemplateHash=job.templateHash
+    this.lastGbtAt=Date.now()
+    const recovered=!!this.nodePauseReason
+    this.nodeMiningReady=true
+    this.nodePauseReason=''
+    if(recovered&&this.running){
+      log('BYZE node ready; RandomX resumed.')
+      this.broadcastPresence('MINING')
+    }
+  }
+
   async refreshJob(force=false){
     if(this.jobRefreshPromise)return this.jobRefreshPromise
     const pending=this.refreshJobOnce(force)
@@ -1041,14 +1055,7 @@ class MinerApp {
     const job={id,templateHash:sanitized.templateHash,template:sanitized.template,jobCommitmentHash:commitment.jobCommitmentHash,feePolicyHash:this.policy.policyHash,pplnsTipId}
     this.jobContexts.set(id,{commitment,plan:this.directPlan,createdAt:Date.now()}); while(this.jobContexts.size>32)this.jobContexts.delete(this.jobContexts.keys().next().value)
     if(!force&&this.currentJob?.id===job.id&&this.lastTemplateHash===job.templateHash)return true
-    this.supervisor.setJob(job); this.currentJob=job; this.lastTemplateHash=job.templateHash; this.lastGbtAt=Date.now()
-    const recovered=!!this.nodePauseReason
-    this.nodeMiningReady=true
-    this.nodePauseReason=''
-    if(recovered&&this.running){
-      log('BYZE node ready; RandomX resumed.')
-      this.broadcastPresence('MINING')
-    }
+    this.activateMiningJob(job)
     return true
     }catch(error){
       this.pauseForNodeFailure(error)
