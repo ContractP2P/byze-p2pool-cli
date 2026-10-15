@@ -22,19 +22,21 @@ trap cleanup EXIT
 case "$(uname -m)" in
  x86_64)
    PLATFORM="darwin-x64"; CORE_ARCH="x86_64"; CORE_SHA="$CORE_SHA_X64"
-   CLI_TAG="v0.2.5-rc3-macos-intel-test1"
-   CLI_SHA="bbe0988ff7ce919648e3d5f6b91015793e3db5cc98f27e090ea17ca682986ec8" ;;
+   CLI_TAG="v0.2.5-rc3-rpc-recovery-test1"
+   CLI_SHA="b5e1f7d5f18a654f9080fc49d77a0b18c73eaf37237297db9e0751208e8d6ec9" ;;
  arm64)
    PLATFORM="darwin-arm64"; CORE_ARCH="arm64"; CORE_SHA="$CORE_SHA_ARM"
-   CLI_TAG="v0.2.5-rc3-macos-arm64-test1"
-   CLI_SHA="a9b2a7275cf6f28255d156c78e14ad5d02faab7a32e3fbb1af3fbe46cd9d3a13" ;;
+   CLI_TAG="v0.2.5-rc3-rpc-recovery-test1"
+   CLI_SHA="872d07c2fb8b8b3cfc25a88209741aad6fabc3a95ae402a265b454e25cfd9fea" ;;
  *) fail "Unsupported CPU architecture." ;;
 esac
 CORE_ZIP="byze-core-macos-$CORE_ARCH.zip"
 CLI_FOLDER="byze-p2pool-$VERSION-$PLATFORM"
+# Keep the prior rc3 test package intact; the new release has the same CLI version.
+CLI_INSTALL_FOLDER="byze-p2pool-$VERSION-rpc-recovery-test1-$PLATFORM"
 CLI_TAR="byze-p2pool-cli-complete-$VERSION-$PLATFORM.tar.gz"
 CLI_URL="https://github.com/ContractP2P/byze-p2pool-cli/releases/download/$CLI_TAG"
-CLI_HOME="$BASE/$CLI_FOLDER"
+CLI_HOME="$BASE/$CLI_INSTALL_FOLDER"
 try_client() {
  local path="$1"
  if [ -n "$path" ] && [ -f "$path" ] && [ -x "$path" ]; then
@@ -186,7 +188,7 @@ if [ -z "${BYZE_CLI+x}" ]; then
   BYZE_CLI="$(cat "$HOME/.local/opt/byze-p2pool-core-cli.path")"
   export BYZE_CLI
 fi
-exec "$HOME/.local/opt/byze-p2pool-0.2.5-rc3-__PLATFORM__/bin/byze-p2pool" "$@"
+exec "$HOME/.local/opt/byze-p2pool-0.2.5-rc3-rpc-recovery-test1-__PLATFORM__/bin/byze-p2pool" "$@"
 LAUNCHER_TEXT
  /usr/bin/sed -i '' "s/__PLATFORM__/$PLATFORM/g" "$LAUNCHER"
  chmod 0755 "$LAUNCHER"

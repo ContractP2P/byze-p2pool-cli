@@ -49,7 +49,7 @@ jobs:
           work="$(mktemp -d)"
           trap 'rm -rf "$work"' EXIT
           home="$work/home"
-          mkdir -p "$home/byze/build/bin" "$home/.local/opt/byze-p2pool-0.2.5-rc3-linux-x64/bin" "$work/mock"
+          mkdir -p "$home/byze/build/bin" "$home/.local/opt/byze-p2pool-0.2.5-rc3-rpc-recovery-test1-linux-x64/bin" "$work/mock"
           cat > "$home/byze/build/bin/byze-cli" <<'CLI'
           #!/bin/sh
           if [ "$1" = getblockchaininfo ]; then
@@ -58,7 +58,7 @@ jobs:
           fi
           exit 1
           CLI
-          cat > "$home/.local/opt/byze-p2pool-0.2.5-rc3-linux-x64/bin/byze-p2pool" <<'POOL'
+          cat > "$home/.local/opt/byze-p2pool-0.2.5-rc3-rpc-recovery-test1-linux-x64/bin/byze-p2pool" <<'POOL'
           #!/bin/sh
           if [ "$1" = --version ]; then echo 0.2.5-rc3; exit 0; fi
           if [ "$1" = --check-node ]; then echo BYZE_NODE_READY; exit 0; fi
@@ -70,12 +70,13 @@ jobs:
           exit 99
           CURL
           chmod +x "$home/byze/build/bin/byze-cli" \
-            "$home/.local/opt/byze-p2pool-0.2.5-rc3-linux-x64/bin/byze-p2pool" "$work/mock/curl"
+            "$home/.local/opt/byze-p2pool-0.2.5-rc3-rpc-recovery-test1-linux-x64/bin/byze-p2pool" "$work/mock/curl"
           HOME="$home" PATH="$work/mock:$PATH" bash docs/install-linux.sh --install > "$work/result"
           grep -q 'CORE_ACTION: REUSE_ONLY' "$work/result"
           grep -q 'BYZE_NODE_READY' "$work/result"
           grep -qx '# BYZE_P2POOL_MANAGED_LAUNCHER' "$home/.local/bin/byze-p2pool"
           test -f "$home/byze/build/bin/byze-cli"
+          grep -Fq 'byze-p2pool-0.2.5-rc3-rpc-recovery-test1-linux-x64/bin' "$home/.local/bin/byze-p2pool"
           echo 'PASS: no BYZE Core/CLI redownload or replacement'
           cat > "$home/byze/build/bin/byze-cli" <<'EMPTY_CLI'
           #!/bin/sh
@@ -119,6 +120,34 @@ jobs:
           grep -q 'BYZE_NODE_READY' "$work/progress"
           test ! -e "$work/curl.log"
           echo 'PASS: resumable percent-by-height monitoring never downloads or starts Core'
+
+      - name: Earlier rc3 Linux test package cannot silently replace the new release
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          trap 'rm -rf -- "$work"' EXIT
+          home="$work/home"
+          old="$home/.local/opt/byze-p2pool-0.2.5-rc3-linux-x64/bin"
+          mkdir -p "$home/byze/build/bin" "$old" "$work/mock"
+          printf '#!/bin/sh\nexit 0\n' > "$home/byze/build/bin/byze-cli"
+          printf '#!/bin/sh\nexit 0\n' > "$old/byze-p2pool"
+          chmod 700 "$home/byze/build/bin/byze-cli" "$old/byze-p2pool"
+          cat > "$work/mock/curl" <<'MOCK'
+          #!/bin/sh
+          echo "$*" >> "$CURL_CALLS"
+          exit 22
+          MOCK
+          chmod 700 "$work/mock/curl"
+          if CURL_CALLS="$work/calls" HOME="$home" PATH="$work/mock:$PATH" \
+            bash docs/install-linux.sh --install > "$work/out" 2>&1; then
+            echo 'Old rc3 package must not count as latest release' >&2; exit 1
+          fi
+          grep -Fq 'v0.2.5-rc3-rpc-recovery-test1/byze-p2pool-cli-complete-' "$work/calls"
+          test -f "$old/byze-p2pool"
+          test ! -e "$home/.local/bin/byze-p2pool"
+          test -f "$home/byze/build/bin/byze-cli"
+          echo 'PASS: previous CLI preserved, new release required; Core untouched'
 
       - name: Core absent without signed public P2Pool asset cannot alter machine
         shell: bash
