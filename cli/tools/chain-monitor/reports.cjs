@@ -46,7 +46,7 @@ function percent(part,total) {
   const scaled=(part*10000n+total/2n)/total
   return (scaled/100n).toString()+'.'+(scaled%100n).toString().padStart(2,'0')
 }
-function blockReport(candidate,{verified=false,confirmations=0,maxRows=12}={}) {
+function blockReport(candidate,{verified=false,confirmations=0,maxRows=12,evidenceUrl=''}={}) {
   // Fee-address matching alone does NOT demonstrate P2Pool origin.
   if(!verified)return null
   if(!candidate?.feeApproxMatch || !/^[0-9a-f]{64}$/.test(String(candidate.hash||'')) ||
@@ -91,7 +91,8 @@ function blockReport(candidate,{verified=false,confirmations=0,maxRows=12}={}) {
     'Miner payouts: **'+formatByz(net.toString())+' BYZ** · Pool fee: **'+formatByz(fees.toString())+' BYZ** ('+policy.feeBasisPoints/100+'%)',
     fence+'text',...table,fence,
     'Percentages are shares of this payout, not live hashrate.',
-    'Chain evidence: https://explorer.byze.org/api/block/'+candidate.height
+    'Chain evidence: https://explorer.byze.org/api/block/'+candidate.height,
+    ...( /^https:\/\/github\.com\/ContractP2P\/byze-p2pool-cli\/(?:issues|pull)\/[1-9][0-9]*$/.test(evidenceUrl) ? ['PPLNS review evidence: '+evidenceUrl] : [] )
   ]
   const message=lines.join('\n')
   return message.length<=2000?message:null

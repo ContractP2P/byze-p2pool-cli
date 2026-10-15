@@ -197,6 +197,9 @@ if [ -z "$BYZE_CLI" ]; then
   BYZE_CLI="$(cat "$HOME/.local/opt/byze-p2pool-core-cli.path")"
   export BYZE_CLI
 fi
+BYZE_P2POOL_RELEASE_TAG="v0.2.5-rc3-rpc-recovery-test1"
+BYZE_P2POOL_ARCHIVE_SHA256="1c6eee109bc65008ccad476f80aa57ab5c04bd3ed678d3c447671e85952893ea"
+export BYZE_P2POOL_RELEASE_TAG BYZE_P2POOL_ARCHIVE_SHA256
 exec "$HOME/.local/opt/byze-p2pool-0.2.5-rc3-rpc-recovery-test1-linux-x64/bin/byze-p2pool" "$@"
 EOF
   chmod 0755 "$LAUNCHER"

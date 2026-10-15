@@ -45,6 +45,10 @@ test('block report masks wallet addresses, reconciles all outputs and fails clos
   assert.ok(!msg.includes(PAY_B))
   assert.ok(!msg.includes(fee))
   assert.ok(msg.length<2000)
+  const review='https://github.com/ContractP2P/byze-p2pool-cli/pull/34'
+  assert.match(report.blockReport(c,{verified:true,confirmations:6,evidenceUrl:review}),/PPLNS review evidence:/)
+  assert.ok(!report.blockReport(c,{verified:true,confirmations:6,evidenceUrl:'https://evil.example/'})
+    .includes('evil.example'))
   assert.equal(report.blockReport({...c,totalSats:'100000'}, {verified:true,confirmations:6}),null)
   assert.equal(report.abbreviateWallet('@everyone'),'unresolved')
 })
@@ -74,17 +78,19 @@ test('activity report shows only locally timed observed miners and hashrate',()=
   assert.equal(report.normalizeActivity({...sample,activeMiners:42},now),null)
   assert.equal(report.normalizeActivity({...sample,observedHashrateHps:Infinity},now),null)
 })
-test('only reviewed height/hash/coinbase identity admits publication',()=>{
+test('attribution records require a GitHub review and SHA-pinned local evidence',()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'byze-proofs-')),file=path.join(dir,'proofs.json')
   try{
-    const proof={height:1234,hash,coinbaseTxid:txid,pplnsTipId:'ps:'+'c'.repeat(64),evidenceUrl:'https://github.com/ContractP2P/byze-p2pool-cli/issues/3'}
+    const base={height:1234,hash,coinbaseTxid:txid,pplnsTipId:'ps:'+'c'.repeat(64),
+      evidenceUrl:'https://github.com/ContractP2P/byze-p2pool-cli/issues/3'}
+    fs.writeFileSync(file,JSON.stringify({schema:1,confirmedBlocks:[base]}))
+    assert.throws(()=>verifiedAttributions(file,dir),/Invalid/)
+    const proof={...base,proofFile:'cli/evidence/blocks/1234-'+txid+'.json',proofSha256:'d'.repeat(64)}
     fs.writeFileSync(file,JSON.stringify({schema:1,confirmedBlocks:[proof]}))
-    const approved=verifiedAttributions(file)
-    assert.equal(eligibleBlock(fixture(),approved.get(hash),6),true)
-    assert.equal(eligibleBlock(fixture(),approved.get(hash),5),false)
-    assert.equal(eligibleBlock({...fixture(),coinbaseTxid:'c'.repeat(64)},approved.get(hash),6),false)
+    const approved=verifiedAttributions(file,dir)
+    assert.equal(eligibleBlock(fixture(),approved.get(hash),6),false,'missing evidence must not be published')
     fs.writeFileSync(file,JSON.stringify({schema:1,confirmedBlocks:[proof,proof]}))
-    assert.throws(()=>verifiedAttributions(file),/duplicate/)
+    assert.throws(()=>verifiedAttributions(file,dir),/duplicate/)
   }finally{fs.rmSync(dir,{recursive:true,force:true})}
 })
 test('passive observer validates cryptographic presence, ignores stale and aggregates only active',()=>{
