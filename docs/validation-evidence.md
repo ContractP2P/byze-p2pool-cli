@@ -8,11 +8,11 @@ The website installers include immutable, build-specific SHA-256 hashes that are
 
 | Platform | Tag | Archive SHA-256 |
 | --- | --- | --- |
-| Linux x86-64 | `v0.2.5-rc3-evidence-test1` | `4be720b76f5066edae2d8e84837efa2cd66349003f8a636335beeb83f614138b` |
-| macOS Apple Silicon | `v0.2.5-rc3-evidence-test1` | `48d408447dd5ab2e3c0a13e8fe5f1e832d920a41cd19fb64e20b690bafb8e9be` |
-| macOS Intel | `v0.2.5-rc3-evidence-test1` | `883c8159b9d9e4cea7039aae103792b907e79eb2233de591af9b8b091c6279a7` |
+| Linux x86-64 | `v0.2.5-rc4-community.1` | `6881453c8e3b5f726920affa65fd6ba6127bbce6bfc67d9daf9ef39ec72802ef` |
+| macOS Apple Silicon | `v0.2.5-rc4-community.1` | `22ad3f666e4e487c848dbc6133ee1aa91fea0fd8e299944fa9b04e77c6d86986` |
+| macOS Intel | `v0.2.5-rc4-community.1` | `f86ee84a54d818b16098b68996473a61f22c7d8481f2b9d02251ffbb7a625b47` |
 
-The three archives above are the **15 October 2026 auditable PPLNS evidence** prerelease: [GitHub release](https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/v0.2.5-rc3-evidence-test1). Earlier test archives remain published but are **not** the archives selected by the current guided installers. The security CI downloads each actual published archive, verifies the corresponding immutable hash and manifest, then alters the archive and checks that hash verification fails. This **does not** mean the archives are signed or notarized; signing remains a separate release gate.
+The three archives above are the **15 October 2026 Community Test 1** prerelease: [GitHub release](https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/v0.2.5-rc4-community.1). Earlier test archives remain published but are **not** the archives selected by the current guided installers. The security CI downloads each actual published archive, verifies the corresponding immutable hash and manifest, then alters the archive and checks that hash verification fails. This **does not** mean the archives are signed or notarized; signing remains a separate release gate.
 
 ## 5. Isolated byzed outage (intermediate integration test)
 
