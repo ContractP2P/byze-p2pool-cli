@@ -38,7 +38,7 @@ jobs:
       - name: Install passive observer dependencies
         run: npm ci --prefix cli --ignore-scripts --no-audit --no-fund
       - name: Offline unit tests
-        run: node --test cli/tools/chain-monitor/core.test.cjs cli/tools/chain-monitor/run.test.cjs cli/tools/chain-monitor/reports.test.cjs
+        run: node --test cli/tools/chain-monitor/core.test.cjs cli/tools/chain-monitor/run.test.cjs cli/tools/chain-monitor/reports.test.cjs cli/tools/chain-monitor/evidence.test.cjs
       - name: Sample P2P miner activity (read-only)
         continue-on-error: true
         env:
