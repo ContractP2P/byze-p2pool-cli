@@ -72,6 +72,17 @@ Each manifest entry must include the executable SHA-256 and the pinned upstream 
 d84db8a84ba4a06432fcdddbf1584b89a7e52379
 ```
 
+## Resilience when BYZE Core is interrupted
+
+The mining CLI checks mainnet readiness and fetches a fresh `getblocktemplate` every 10 seconds. If the node's RPC becomes unreachable, the block index is still loading, the chain is not synchronized or fresh mining work cannot be safely prepared, the CLI:
+
+- Stops the managed RandomX mining **process** and invalidates the old job. It does not stop, install or replace BYZE Core and does not modify wallets.
+- Keeps the P2P transport, share history and verifier alive, but advertises local state `PAUSED` with 0 H/s; active-miner telemetry must not count this peer as `MINING`.
+- Emits a concise warning once on transition to paused rather than repeating the entire `getblocktemplate` help text. It retries automatically.
+- Restarts the native miner and advertises `MINING` only after a synchronized mainnet RPC responds and a fresh validated job has been installed. Pending shares from the previous job cannot be credited after the pause.
+
+**Limitations:** This is a node-outage safety improvement, not proof of automatic payout correctness or address spendability. Peer discovery is partial. End-to-end stop/restart testing of the resulting binaries on real nodes is still required before public release.
+
 ## Core node detection and safe setup (no automatic reinstallation)
 
 Before configuring mining, run `./byze-p2pool --check-node` (or
