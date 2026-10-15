@@ -32,7 +32,10 @@ function check(root) {
   const runner = spawnSync(path.join(resolved, 'bin/node'),
     [path.join(resolved, 'app/src/byze-p2pool.js'), '--version'],
     { encoding: 'utf8', timeout: 15000, env: { PATH: process.env.PATH || '/usr/bin:/bin' } })
-  if (runner.status !== 0 || !/0\.2\.5-rc3/.test(runner.stdout || '')) {
+  const packageVersion = JSON.parse(
+    fs.readFileSync(path.join(resolved, 'app/package.json'), 'utf8')).version
+  if (!/^\\d+\\.\\d+\\.\\d+-[a-zA-Z0-9.-]+$/.test(String(packageVersion || '')) ||
+      runner.status !== 0 || String(runner.stdout || '').trim() !== packageVersion) {
     throw Error('Portable JS runtime self-test failed')
   }
   const miner = spawnSync(path.join(resolved, 'app/native/linux-x64/byze-p2pool-miner'),
