@@ -9,9 +9,9 @@ const policy=require('../../config/pool-policy.json')
 const HEX=/^[0-9a-f]{64}$/
 const TIP=/^ps:[0-9a-f]{64}$/
 const SHA_BY_PLATFORM=new Set([
-  '872d07c2fb8b8b3cfc25a88209741aad6fabc3a95ae402a265b454e25cfd9fea',
-  'b5e1f7d5f18a654f9080fc49d77a0b18c73eaf37237297db9e0751208e8d6ec9',
-  '1c6eee109bc65008ccad476f80aa57ab5c04bd3ed678d3c447671e85952893ea'
+  '48d408447dd5ab2e3c0a13e8fe5f1e832d920a41cd19fb64e20b690bafb8e9be',
+  '883c8159b9d9e4cea7039aae103792b907e79eb2233de591af9b8b091c6279a7',
+  '4be720b76f5066edae2d8e84837efa2cd66349003f8a636335beeb83f614138b'
 ])
 function positive(v){try{const n=BigInt(String(v));return n>0n?n:null}catch{return null}}
 function sameOutputSets(expected,actual){
@@ -27,7 +27,7 @@ function verifyPplnsEvidence(evidence,candidate){
     !HEX.test(String(candidate.hash||'')))return no('onchain-identity-mismatch')
   if(evidence.poolId!==policy.poolId||evidence.feeAddress!==policy.feeAddress||
     evidence.feeBasisPoints!==policy.feeBasisPoints)return no('pool-policy-mismatch')
-  if(evidence.build?.releaseTag!=='v0.2.5-rc3-rpc-recovery-test1'||
+  if(evidence.build?.releaseTag!=='v0.2.5-rc3-evidence-test1'||
     !SHA_BY_PLATFORM.has(String(evidence.build?.releaseArchiveSha256||''))||
     evidence.build?.contractSourceHash!=='0ba509a74eb5f475ce41f152349fe49a7d19e4fbd6c14c1833632c61681a0b66'||
     evidence.build?.securityGeneration!=='coinbase-binding-v2-global-epoch-v6')

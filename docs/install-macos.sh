@@ -22,18 +22,18 @@ trap cleanup EXIT
 case "$(uname -m)" in
  x86_64)
    PLATFORM="darwin-x64"; CORE_ARCH="x86_64"; CORE_SHA="$CORE_SHA_X64"
-   CLI_TAG="v0.2.5-rc3-rpc-recovery-test1"
-   CLI_SHA="b5e1f7d5f18a654f9080fc49d77a0b18c73eaf37237297db9e0751208e8d6ec9" ;;
+   CLI_TAG="v0.2.5-rc3-evidence-test1"
+   CLI_SHA="883c8159b9d9e4cea7039aae103792b907e79eb2233de591af9b8b091c6279a7" ;;
  arm64)
    PLATFORM="darwin-arm64"; CORE_ARCH="arm64"; CORE_SHA="$CORE_SHA_ARM"
-   CLI_TAG="v0.2.5-rc3-rpc-recovery-test1"
-   CLI_SHA="872d07c2fb8b8b3cfc25a88209741aad6fabc3a95ae402a265b454e25cfd9fea" ;;
+   CLI_TAG="v0.2.5-rc3-evidence-test1"
+   CLI_SHA="48d408447dd5ab2e3c0a13e8fe5f1e832d920a41cd19fb64e20b690bafb8e9be" ;;
  *) fail "Unsupported CPU architecture." ;;
 esac
 CORE_ZIP="byze-core-macos-$CORE_ARCH.zip"
 CLI_FOLDER="byze-p2pool-$VERSION-$PLATFORM"
 # Keep the prior rc3 test package intact; the new release has the same CLI version.
-CLI_INSTALL_FOLDER="byze-p2pool-$VERSION-rpc-recovery-test1-$PLATFORM"
+CLI_INSTALL_FOLDER="byze-p2pool-$VERSION-evidence-test1-$PLATFORM"
 CLI_TAR="byze-p2pool-cli-complete-$VERSION-$PLATFORM.tar.gz"
 CLI_URL="https://github.com/ContractP2P/byze-p2pool-cli/releases/download/$CLI_TAG"
 CLI_HOME="$BASE/$CLI_INSTALL_FOLDER"
@@ -188,10 +188,10 @@ if [ -z "${BYZE_CLI+x}" ]; then
   BYZE_CLI="$(cat "$HOME/.local/opt/byze-p2pool-core-cli.path")"
   export BYZE_CLI
 fi
-BYZE_P2POOL_RELEASE_TAG="v0.2.5-rc3-rpc-recovery-test1"
+BYZE_P2POOL_RELEASE_TAG="v0.2.5-rc3-evidence-test1"
 BYZE_P2POOL_ARCHIVE_SHA256="__ARCHIVE_SHA256__"
 export BYZE_P2POOL_RELEASE_TAG BYZE_P2POOL_ARCHIVE_SHA256
-exec "$HOME/.local/opt/byze-p2pool-0.2.5-rc3-rpc-recovery-test1-__PLATFORM__/bin/byze-p2pool" "$@"
+exec "$HOME/.local/opt/byze-p2pool-0.2.5-rc3-evidence-test1-__PLATFORM__/bin/byze-p2pool" "$@"
 LAUNCHER_TEXT
  /usr/bin/sed -i '' "s/__PLATFORM__/$PLATFORM/g" "$LAUNCHER"
  /usr/bin/sed -i '' "s/__ARCHIVE_SHA256__/$CLI_SHA/g" "$LAUNCHER"

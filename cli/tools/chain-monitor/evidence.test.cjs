@@ -15,7 +15,7 @@ const {verifiedAttributions,eligibleBlock}=require('./block-proof.cjs')
 const A='byz1'+'q'.repeat(50)+'a'
 const B='byz1'+'r'.repeat(50)+'b'
 const CONTRACT='0ba509a74eb5f475ce41f152349fe49a7d19e4fbd6c14c1833632c61681a0b66'
-const RELEASE='1c6eee109bc65008ccad476f80aa57ab5c04bd3ed678d3c447671e85952893ea'
+const RELEASE='4be720b76f5066edae2d8e84837efa2cd66349003f8a636335beeb83f614138b'
 function fixture(){
   const checkpoint={kind:'cell-checkpoint',checkpointId:'cp:'+'c'.repeat(64),
     contractHash:CONTRACT,poolId:policy.poolId,cellId:'cell:test',
@@ -36,7 +36,7 @@ function fixture(){
     ctx:{commitment,plan:{ok:true,outputs}},coinbaseTxid:'b'.repeat(64),
     poolChain:{windowFrom:()=>[share]},policy,
     identity:{cliVersion:'0.2.5-rc3',securityGeneration:'coinbase-binding-v2-global-epoch-v6',
-      contractSourceHash:CONTRACT,releaseTag:'v0.2.5-rc3-rpc-recovery-test1',
+      contractSourceHash:CONTRACT,releaseTag:'v0.2.5-rc3-evidence-test1',
       releaseArchiveSha256:RELEASE}})
   const candidate={height:doc.height,hash:'a'.repeat(64),coinbaseTxid:doc.submittedCoinbaseTxid,
     feeApproxMatch:true,totalSats:reward,paidFeeSats:plan.feeSatoshis,
