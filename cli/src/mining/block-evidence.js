@@ -11,7 +11,7 @@ const { validatePoolShareShape }=require('./poolshare-chain')
 const HEX64=/^[0-9a-f]{64}$/
 const TIP=/^ps:[0-9a-f]{64}$/
 function positive(value){try{const n=BigInt(String(value));return n>0n?n:null}catch{return null}}
-function snapshotSubmission({raw,ctx,coinbaseTxid,poolChain,policy,identity={}}){
+function snapshotSubmission({raw,ctx,coinbaseTxid,poolChain,poolPackets=null,policy,identity={}}){
   if(!HEX64.test(String(coinbaseTxid||''))||!ctx?.commitment?.ok||!ctx.plan?.ok)throw Error('A verified coinbase commitment is required')
   const height=Number(raw?.height)
   if(!Number.isSafeInteger(height)||height<1)throw Error('Invalid submitted height')
@@ -35,6 +35,10 @@ function snapshotSubmission({raw,ctx,coinbaseTxid,poolChain,policy,identity={}})
   for(const row of calculated.outputs)if(actual.get(row.address)!==row.satoshis)throw Error('PPLNS plan differs from committed coinbase')
   const outputs=ctx.commitment.outputs.map(x=>({address:x.address,satoshis:String(x.satoshis),script:x.script}))
   if(outputs.length!==calculated.outputs.length)throw Error('Committed outputs mismatch')
+  // Preserve the signed P2P packets for the reviewer's separate cryptographic audit.
+  // Some peers may have pruned old packets; never claim that an absent proof is valid.
+  const packets=window.map(s=>poolPackets?.get(s.poolShareId)||null)
+  const missingProofPackets=packets.filter(x=>x===null).length
   const document={
     schema:1,type:'byze-p2pool-submitted-block-evidence',status:'submitted-not-confirmed',
     recordedAt:new Date().toISOString(),
@@ -45,6 +49,8 @@ function snapshotSubmission({raw,ctx,coinbaseTxid,poolChain,policy,identity={}})
     jobId:String(raw.jobId||''),jobCommitmentHash:ctx.commitment.jobCommitmentHash,
     pplnsTipId:tip,coinbaseValueSats:reward.toString(),
     payoutOutputs:outputs,poolShares:window.map(s=>JSON.parse(JSON.stringify(s))),
+    signedPoolSharePackets:packets.map(p=>p?JSON.parse(JSON.stringify(p)):null),
+    missingProofPackets,
     build:{cliVersion:String(identity.cliVersion||''),securityGeneration:String(identity.securityGeneration||''),
       contractSourceHash:String(identity.contractSourceHash||''),releaseTag:String(identity.releaseTag||''),
       releaseArchiveSha256:String(identity.releaseArchiveSha256||'')}
@@ -61,7 +67,7 @@ function saveSubmissionEvidence(document,{directory=process.env.BYZE_P2POOL_EVID
   const st=fs.lstatSync(dir)
   if(st.isSymbolicLink()||!st.isDirectory()||(st.mode&0o077))throw Error('Evidence directory must be a private, non-symlink directory (0700)')
   const body=JSON.stringify(document,null,2)+'\n'
-  if(Buffer.byteLength(body)>2_000_000)throw Error('Evidence exceeds 2 MB; preserve original local logs separately')
+  if(Buffer.byteLength(body)>8_000_000)throw Error('Evidence exceeds 8 MB; preserve original signed proof packets separately')
   const digest=crypto.createHash('sha256').update(body).digest('hex')
   const filename='submitted-'+document.height+'-'+document.submittedCoinbaseTxid+'-'+digest.slice(0,12)+'.json'
   const dest=path.join(dir,filename)
