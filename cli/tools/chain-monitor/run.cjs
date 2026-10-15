@@ -135,7 +135,7 @@ async function main() {
     const attribution=reviewed.get(candidate.hash)
     if(previouslyPosted.has(candidate.hash) ||
        !eligibleBlock(candidate,attribution,confirmations))continue
-    const message=blockReport(candidate,{verified:true,confirmations,evidenceUrl:attribution.evidenceUrl})
+    const message=blockReport(candidate,{verified:true,confirmations,evidenceUrl:attribution.evidenceUrl,payoutMode:attribution.payoutMode||'pplns'})
     if(!message)throw Error('Reviewed block has incomplete or invalid payout outputs at '+candidate.height)
     blockMessages.push({hash:candidate.hash,height:candidate.height,message})
   }
