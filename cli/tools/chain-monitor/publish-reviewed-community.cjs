@@ -13,7 +13,15 @@ const ROOT=path.resolve(__dirname,'../../..')
 const REPO='ContractP2P/byze-p2pool-cli'
 const MARKER='<!-- byze-p2pool-chain-monitor-state-v1 -->'
 const SHA=/^[0-9a-f]{64}$/,TIP=/^ps:[0-9a-f]{64}$/
-const REVIEW='https://github.com/'+REPO+'/issues/44'
+const REVIEW_URL=/^https:\/\/github\.com\/ContractP2P\/byze-p2pool-cli\/(?:issues|pull)\/[1-9][0-9]*$/
+const validReviewUrl=value=>REVIEW_URL.test(String(value||''))
+function validRandomxAudit(height,a){
+  if(!a||a.randomxHashMismatches!==0||
+     !Number.isSafeInteger(a.localProofsChecked)||a.localProofsChecked<1)return false
+  const legacy=(height===21127||height===21128)&&a.randomxUniqueHashesCombined===112
+  const n=a.randomxUniqueHashesChecked
+  return legacy||(Number.isSafeInteger(n)&&n>=1&&n<=a.localProofsChecked)
+}
 const EXPLORER='https://explorer.byze.org'
 const TOKEN=process.env.GITHUB_TOKEN||'',WEBHOOK=process.env.DISCORD_WEBHOOK_URL||''
 const DRY=process.env.COMMUNITY_DRY_RUN==='true'
@@ -47,7 +55,7 @@ function evidence(row){
   ok(Number.isSafeInteger(row.height)&&row.height>0&&SHA.test(row.hash)&&
     SHA.test(row.coinbaseTxid)&&SHA.test(row.proofSha256)&&
     SHA.test(row.sourceEvidenceSha256),'Invalid block attribution')
-  ok(row.reviewUrl===REVIEW,'Review URL must identify the operator audit')
+  ok(validReviewUrl(row.reviewUrl),'Review URL must identify this block audit')
   const relative='cli/evidence/blocks/'+row.height+'-'+row.coinbaseTxid+'.json'
   ok(row.proofFile===relative,'Invalid public evidence path')
   const pathname=path.join(ROOT,relative)
@@ -58,7 +66,7 @@ function evidence(row){
   ok(hash(bytes)===row.proofSha256,'Public proof SHA-256 mismatch')
   const e=JSON.parse(bytes)
   ok(e.schema===2&&e.type==='byze-p2pool-operator-reviewed-public-pplns-attestation'&&
-    e.status==='privately-reviewed-origin'&&e.reviewUrl===REVIEW&&
+    e.status==='privately-reviewed-origin'&&e.reviewUrl===row.reviewUrl&&
     e.sourceEvidenceSha256===row.sourceEvidenceSha256,'Missing operator-review binding')
   ok(e.height===row.height&&e.hash===row.hash&&
     e.submittedCoinbaseTxid===row.coinbaseTxid,'Wrong block identity')
@@ -70,9 +78,10 @@ function evidence(row){
     e.build?.releaseArchiveSha256==='f6c508bde9793aa7128985366afaa9f03de9a8bf6b13ec3df4cf086c5204ffce'&&
     e.build?.contractSourceHash==='0ba509a74eb5f475ce41f152349fe49a7d19e4fbd6c14c1833632c61681a0b66'&&
     e.build?.securityGeneration==='coinbase-binding-v2-global-epoch-v6','Unknown community release')
+  // Legacy blocks share a combined 112-header RandomX audit; future blocks
+  // record their own independently checked header count.
   ok(e.audit?.onChainOutputsMatchedAtOperatorReview===true&&
-    e.audit?.randomxUniqueHashesCombined===112&&
-    e.audit?.randomxHashMismatches===0&&
+    validRandomxAudit(e.height,e.audit)&&
     e.audit?.witnessV1Spendability==='not-verified','Unreviewed private source')
   ok(!('signedPoolSharePackets' in e),'Private signed packets cannot be public')
   const shares=e.poolShares
@@ -137,7 +146,7 @@ function message(e,confirmations){
     'Coinbase: **50 BYZE** · Miner payouts: **49.75 BYZE** · Pool fee: **0.25 BYZE (0.50%)**',
     ...miners.map(x=>'• '+abbreviateWallet(x.address)+' · '+formatByz(x.satoshis)+' BYZE'),
     'Chain evidence: https://explorer.byze.org/api/block/'+e.height,
-    'Operator review: '+REVIEW,
+    'Operator review: '+e.reviewUrl,
     'Live on-chain amounts/scripts verified. Signed P2P/RandomX source was reviewed privately, not publicly replayed. Wallet spendability has NOT been established.'
   ].join('\n')
 }
@@ -205,4 +214,4 @@ async function main(){
 if(require.main===module){
   main().catch(e=>{console.error('REVIEWED_PPLNS_PUBLISH_FAILED',e.message);process.exitCode=1})
 }
-module.exports={validatedManifestRows}
+module.exports={validatedManifestRows,validReviewUrl,validRandomxAudit}
