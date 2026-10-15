@@ -1,0 +1,163 @@
+name: Publish BYZE P2Pool Community Test 2
+
+# One-time community test release. Compile all advertised architectures from
+# the SAME main commit and publish only after complete per-platform checks.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-community-test2.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p2pool-community-test2-publish
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Verified ${{ matrix.platform }} community-test2 archive
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: darwin-arm64
+            os: macos-15
+          - platform: darwin-x64
+            os: macos-15-intel
+          - platform: linux-x64
+            os: ubuntu-24.04
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: cli
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: cli/package-lock.json
+      - name: Prepare pinned native build toolchain
+        run: |
+          set -euo pipefail
+          if [ "${{ runner.os }}" = macOS ]; then
+            brew install cmake boost openssl@3 pkg-config
+            echo "CMAKE_PREFIX_PATH=$(brew --prefix boost):$(brew --prefix openssl@3)" >> "$GITHUB_ENV"
+          else
+            sudo apt-get update
+            sudo apt-get install -y build-essential cmake git pkg-config libboost-dev libssl-dev
+          fi
+      - name: Test exact source revision
+        run: |
+          set -euo pipefail
+          test "$(node -p 'require("./package.json").version')" = "0.2.5-rc4-community.2"
+          test "$(node -p 'require("./COMPATIBILITY.json").cliVersion')" = "0.2.5-rc4-community.2"
+          npm ci
+          npm run check
+          npm test
+          node --test tools/chain-monitor/core.test.cjs tools/chain-monitor/run.test.cjs tools/chain-monitor/reports.test.cjs tools/chain-monitor/evidence.test.cjs
+          npm run test:dht
+          npm run release:preflight:source
+      - name: Build native miner from pinned official source
+        run: |
+          set -euo pipefail
+          rm -rf "native/${{ matrix.platform }}"
+          npm run native:bootstrap-official
+          npm run native:ensure
+      - name: Assemble, unpack and validate platform archive
+        run: |
+          set -euo pipefail
+          archive="byze-p2pool-cli-complete-0.2.5-rc4-community.2-${{ matrix.platform }}.tar.gz"
+          mkdir -p dist
+          case "${{ matrix.platform }}" in
+            darwin-arm64)
+              test "$(uname -m)" = arm64
+              bash tools/build-portable-macos.sh
+              ;;
+            darwin-x64)
+              test "$(uname -m)" = x86_64
+              bash tools/build-portable-macos-intel.sh
+              ;;
+            linux-x64)
+              bash tools/build-portable-lab.sh
+              tar -czf "dist/$archive" -C .portable-lab linux-x64
+              ;;
+          esac
+          test -s "dist/$archive"
+          mkdir -p release-check
+          tar -xzf "dist/$archive" -C release-check
+          case "${{ matrix.platform }}" in
+            darwin-*) root="release-check/byze-p2pool-0.2.5-rc4-community.2-${{ matrix.platform }}" ;;
+            linux-x64) root="release-check/linux-x64" ;;
+          esac
+          test -x "$root/bin/byze-p2pool"
+          test -x "$root/bin/node"
+          test -x "$root/app/native/${{ matrix.platform }}/byze-p2pool-miner"
+          test -x "$root/app/native/${{ matrix.platform }}/byze-rxhash"
+          test "$("$root/bin/byze-p2pool" --version)" = "0.2.5-rc4-community.2"
+          grep -q "snapshotSubmissionRecovery" "$root/app/src/byze-p2pool.js"
+          grep -q "bootstrap-payout-checked" "$root/app/src/mining/block-evidence.js"
+          if [ "${{ runner.os }}" = macOS ]; then
+            "$root/bin/node" "$root/app/tools/test-private-dht.js"
+            shasum -a 256 "dist/$archive"
+          else
+            "$root/bin/node" "$root/app/tools/test-private-dht.js"
+            sha256sum "dist/$archive"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: community-test2-${{ matrix.platform }}
+          path: cli/dist/byze-p2pool-cli-complete-0.2.5-rc4-community.2-${{ matrix.platform }}.tar.gz
+          retention-days: 7
+          if-no-files-found: error
+          compression-level: 0
+
+  publish:
+    name: Publish only after three verified native archives
+    needs: [build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: v0.2.5-rc4-community.2
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: community-test2-*
+          merge-multiple: true
+          path: release
+      - name: Verify artifact completeness and pin checksums
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'Existing release must never be overwritten' >&2; exit 1
+          fi
+          for p in darwin-arm64 darwin-x64 linux-x64; do
+            f="release/byze-p2pool-cli-complete-0.2.5-rc4-community.2-$p.tar.gz"
+            test -s "$f"
+            tar -tzf "$f" >/dev/null
+          done
+          (
+            cd release
+            sha256sum byze-p2pool-cli-complete-0.2.5-rc4-community.2-{darwin-arm64,darwin-x64,linux-x64}.tar.gz > SHA256SUMS
+            sha256sum -c SHA256SUMS
+          )
+          cat release/SHA256SUMS
+      - name: Publish immutable experimental release
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" release/*.tar.gz release/SHA256SUMS \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "BYZE P2Pool CLI — Community Test 2 (v0.2.5-rc4-community.2)" \
+            --notes "Experimental community test built from source commit $GITHUB_SHA on three platforms. Captures private bootstrap and PPLNS submission records, preserves incomplete claims, and requires independently reviewed evidence and six confirmations for categorized Discord payout reports. No automatic miner proof upload, wallet secrets, or BYZE Core installation. Unsigned and not production-qualified." \
+            --prerelease
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json tagName,isPrerelease,assets \
+            --jq '{tag:.tagName, prerelease:.isPrerelease, assets:[.assets[].name]}'
