@@ -2,7 +2,7 @@
 
 The scheduled GitHub Actions observer offers **two types of reports**:
 
-1. **Activity**: at most once per hour. A passive Hyperswarm observer listens for approximately 45 seconds to signed mining-presence announcements. It reports **observed** miners in MINING state and a **self-reported** hashrate. It is not a census of the global P2Pool network. Missing data is displayed as **unavailable**, never as a false zero.
+1. **Activity**: at most once per hour. A passive Hyperswarm observer listens for approximately 45 seconds to signed mining-presence announcements. It reports **observed** miners in MINING state and a **self-reported** hashrate. It is not a census of the global P2Pool network. **No activity message is posted** unless the snapshot is fresh, at least one verified miner is in MINING state, and a positive recent hashrate has been received. Unavailable measurements never imply that the pool is empty.
 2. **Block payouts**: a message for each independently **attributed** and confirmed P2Pool block. It shows total coinbase, 0.5% fee, amounts paid per wallet and fraction of the net payout. Wallets are displayed with the first ten characters, three dots, and the last six characters. A maximum of 12 wallets fit in the Discord table; other wallets are aggregated, with a link to the block's public on-chain data.
 
 ## Public activity format
@@ -15,7 +15,7 @@ The public Discord activity report intentionally contains only the latest observ
     **1** Active miners
     **~2.86 kH/s** Hashrate
 
-When no verified presence or fresh hashrate is available, that metric is shown as **unavailable**, not zero. The short post does not claim full-network coverage, a 60-minute aggregation, share acceptance, or a health verdict. Scope and telemetry limitations remain in this documentation rather than being repeated in every Discord post.
+When no verified active miner or positive recent hashrate is available, **no activity report is posted**. This also applies when the passive observer fails, the sample is stale, miners are idle, or a start-up miner reports 0 H/s. Absence of observations does not prove that the pool is empty. A skipped run does **not** advance the hourly activity timestamp; the next scheduled run can try again. A valid activity report does not claim full-network coverage, a 60-minute aggregation, share acceptance, or a health verdict. Scope and telemetry limitations remain in this documentation rather than being repeated in every Discord post.
 
 ## Important: never confuse fee candidates with P2Pool blocks
 
@@ -34,14 +34,14 @@ Fields: height, hash, coinbaseTxid, pplnsTipId (prefix ps: plus 64 hex character
 - Existing Actions variable: BYZE_MONITOR_ENABLED=true.
 - Existing Actions secret: BYZE_P2POOL_DISCORD_WEBHOOK, pointing to the desired #p2pool-reports channel.
 - Run the workflow manually using `dry_run=true` before activation. It prints the report previews and preserves chain observations in an Actions evidence artifact but sends no messages or state mutations.
-- To test a real Discord message immediately when the current UTC hour already has a report, manually choose `dry_run=false` and `force_activity=true`. This explicit option bypasses the hourly activity gate for that manual run only; scheduled runs remain capped. Do not enable it for routine publication.
+- To test a real Discord message immediately when the current UTC hour already has a report, manually choose `dry_run=false` and `force_activity=true`. This explicit option bypasses the hourly activity gate for that manual run only; it **does not bypass** the requirement for a fresh, positive mining observation. Scheduled runs remain capped. Do not enable it for routine publication.
 - Run offline tests:
 
     node --test cli/tools/chain-monitor/core.test.cjs cli/tools/chain-monitor/run.test.cjs cli/tools/chain-monitor/reports.test.cjs
 
 The workflow runs at minutes 17 and 47 UTC, subject to GitHub scheduling delays. Routine activity posts are capped at once per UTC clock hour (manual forced tests are the documented exception). Verified block reports are deduplicated by block hash. A successful webhook followed by failed state persistence may result in repeat delivery.
 
-The explorer scan stops on unexpected or malformed blockchain data. An unavailable P2P observer does not block the scan: the activity post labels values unavailable. The observer sends a protocol hello only and needs no BYZE daemon, wallet secrets, or miner callbacks. Real P2P discovery from a GitHub-hosted observer was confirmed on 2026-10-14 with one active miner and a recent 2.86 kH/s sample. This single observation does not establish full-network coverage.
+The explorer scan stops on unexpected or malformed blockchain data. An unavailable P2P observer does not block the chain scan: the activity post is suppressed, while chain evidence and independently verified block reports remain possible. The observer sends a protocol hello only and needs no BYZE daemon, wallet secrets, or miner callbacks. Real P2P discovery from a GitHub-hosted observer was confirmed on 2026-10-14 with one active miner and a recent 2.86 kH/s sample. This single observation does not establish full-network coverage.
 
 ## Interpretation and privacy
 
