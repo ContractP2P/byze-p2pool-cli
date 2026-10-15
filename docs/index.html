@@ -95,7 +95,7 @@
 <section class="panel output" aria-label="Custom mining command" data-i18n-aria-label="miningAria">
  <div class="output-heading"><h3 data-i18n="miningTitle">Your mainnet mining command</h3><span class="pill" data-i18n="submission">Block submission enabled</span></div>
  <p class="output-note" data-i18n="miningNote">Run after installing the complete package and synchronizing BYZE Core (existing or newly installed). Without --no-submit, real mining may submit blocks to mainnet.</p>
- <div class="code-wrap"><div class="code-header"><span>Terminal · macOS / Linux</span><span>BYZE P2Pool CLI v0.2.5-rc3</span></div><pre id="command">Enter a valid public BYZE address and miner settings.</pre></div>
+ <div class="code-wrap"><div class="code-header"><span>Terminal · macOS / Linux</span><span>BYZE P2Pool CLI v0.2.5-rc4-community.1</span></div><pre id="command">Enter a valid public BYZE address and miner settings.</pre></div>
  <div class="action-row"><button type="button" id="copy" data-i18n="copyCommand" disabled>Copy mining command</button><span class="label-inline" id="copy-status" role="status" aria-live="polite">BYZE address required</span></div>
  <p class="fieldnote" style="margin-top:15px" data-i18n="coreCaution">Real mining can submit blocks to the mainnet. BYZE Core 0.2.4 may have limitations when signing blocks or spending rewards. This installer cannot guarantee payout validity.</p>
 </section>
@@ -111,9 +111,9 @@
  const wallet=$('wallet'),alias=$('alias'),threads=$('threads'),code=$('command'),copy=$('copy'),msg=$('copy-status');
  const installCode=$('install-command'), installCopy=$('install-copy'), installMsg=$('install-copy-status');
  const RELEASES={
-  'darwin-arm64':{tag:'v0.2.5-rc3-evidence-test1',archive:'byze-p2pool-cli-complete-0.2.5-rc3-darwin-arm64.tar.gz'},
-  'darwin-x64':{tag:'v0.2.5-rc3-evidence-test1',archive:'byze-p2pool-cli-complete-0.2.5-rc3-darwin-x64.tar.gz'},
-  'linux-x64':{tag:'v0.2.5-rc3-evidence-test1',archive:'byze-p2pool-cli-complete-0.2.5-rc3-linux-x64.tar.gz'}
+  'darwin-arm64':{tag:'v0.2.5-rc4-community.1',archive:'byze-p2pool-cli-complete-0.2.5-rc4-community.1-darwin-arm64.tar.gz'},
+  'darwin-x64':{tag:'v0.2.5-rc4-community.1',archive:'byze-p2pool-cli-complete-0.2.5-rc4-community.1-darwin-x64.tar.gz'},
+  'linux-x64':{tag:'v0.2.5-rc4-community.1',archive:'byze-p2pool-cli-complete-0.2.5-rc4-community.1-linux-x64.tar.gz'}
  };
  const releaseReady={'darwin-arm64':false,'darwin-x64':false,'linux-x64':false};
  const translations=window.BYZE_I18N||{en:{}};
