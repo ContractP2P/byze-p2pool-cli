@@ -155,3 +155,23 @@ test('a single miner can capture and independently review a real bootstrap payou
     assert.equal(eligibleBlock(candidate,reviewed.get(candidate.hash),6),false)
   }finally{fs.rmSync(home,{recursive:true,force:true})}
 })
+
+test('Community Test 2 published binaries have three independently pinned release SHA-256 fingerprints',()=>{
+  const {doc,candidate}=fixture()
+  const evidence=JSON.parse(JSON.stringify(doc))
+  evidence.build.releaseTag='v0.2.5-rc4-community.2'
+  evidence.build.cliVersion='0.2.5-rc4-community.2'
+  for(const digest of [
+    'f6c508bde9793aa7128985366afaa9f03de9a8bf6b13ec3df4cf086c5204ffce',
+    'a51326d40de13e6bb1246a8470066b676f6140f79c7725cb393d4d5028021391',
+    'ee398f908b4e587bb027803d53326cdb11a77ec60cea958e911c152e342d684d'
+  ]){
+    evidence.build.releaseArchiveSha256=digest
+    assert.equal(verifyPplnsEvidence(evidence,candidate).ok,true)
+  }
+  evidence.build.releaseArchiveSha256='6881453c8e3b5f726920affa65fd6ba6127bbce6bfc67d9daf9ef39ec72802ef'
+  assert.equal(verifyPplnsEvidence(evidence,candidate).reason,'release-provenance-not-recorded')
+  evidence.build.releaseArchiveSha256='ee398f908b4e587bb027803d53326cdb11a77ec60cea958e911c152e342d684d'
+  evidence.build.cliVersion='0.2.5-rc4-community.1'
+  assert.equal(verifyPplnsEvidence(evidence,candidate).reason,'release-provenance-not-recorded')
+})

@@ -70,11 +70,11 @@ jobs:
             arm64) plat="darwin-arm64" ;;
             *) exit 1 ;;
           esac
-          pool="$home/.local/opt/byze-p2pool-0.2.5-rc4-community.1-$plat/bin"
+          pool="$home/.local/opt/byze-p2pool-0.2.5-rc4-community.2-$plat/bin"
           mkdir -p "$pool"
           cat > "$pool/byze-p2pool" <<'POOL'
           #!/bin/sh
-          if [ "$1" = "--version" ]; then echo "0.2.5-rc4-community.1"; exit 0; fi
+          if [ "$1" = "--version" ]; then echo "0.2.5-rc4-community.2"; exit 0; fi
           if [ "$1" = "--check-node" ]; then echo "BYZE_NODE_READY"; exit 0; fi
           exit 1
           POOL
@@ -95,7 +95,7 @@ jobs:
           test ! -e "$work/curl.calls"
           grep -q '# BYZE_P2POOL_MANAGED_LAUNCHER' "$home/.local/bin/byze-p2pool"
           test -f "$home/ldev/byze/build/bin/byze-cli"
-          grep -Fq 'byze-p2pool-0.2.5-rc4-community.1-' "$home/.local/bin/byze-p2pool"
+          grep -Fq 'byze-p2pool-0.2.5-rc4-community.2-' "$home/.local/bin/byze-p2pool"
           echo 'PASS: existing Core untouched, current pool launcher configured'
           # Regression: an unsynchronized, zero-block Core must not be
           # labelled READY, even if the reused rc3 bundle says otherwise.
@@ -177,7 +177,7 @@ jobs:
             /bin/bash docs/install-macos.sh --install > "$work/out" 2>&1; then
             echo 'Old rc3 package must not count as latest release' >&2; exit 1
           fi
-          grep -Fq 'v0.2.5-rc4-community.1/byze-p2pool-cli-complete-' "$work/calls"
+          grep -Fq 'v0.2.5-rc4-community.2/byze-p2pool-cli-complete-' "$work/calls"
           test -f "$old/byze-p2pool"
           test ! -e "$home/.local/bin/byze-p2pool"
           test -f "$home/ldev/byze/build/bin/byze-cli"

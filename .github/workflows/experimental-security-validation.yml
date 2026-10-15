@@ -16,17 +16,17 @@ jobs:
       matrix:
         include:
           - platform: linux-x64
-            tag: v0.2.5-rc4-community.1
-            filename: byze-p2pool-cli-complete-0.2.5-rc4-community.1-linux-x64.tar.gz
-            expected: 6881453c8e3b5f726920affa65fd6ba6127bbce6bfc67d9daf9ef39ec72802ef
+            tag: v0.2.5-rc4-community.2
+            filename: byze-p2pool-cli-complete-0.2.5-rc4-community.2-linux-x64.tar.gz
+            expected: ee398f908b4e587bb027803d53326cdb11a77ec60cea958e911c152e342d684d
           - platform: darwin-arm64
-            tag: v0.2.5-rc4-community.1
-            filename: byze-p2pool-cli-complete-0.2.5-rc4-community.1-darwin-arm64.tar.gz
-            expected: 22ad3f666e4e487c848dbc6133ee1aa91fea0fd8e299944fa9b04e77c6d86986
+            tag: v0.2.5-rc4-community.2
+            filename: byze-p2pool-cli-complete-0.2.5-rc4-community.2-darwin-arm64.tar.gz
+            expected: f6c508bde9793aa7128985366afaa9f03de9a8bf6b13ec3df4cf086c5204ffce
           - platform: darwin-x64
-            tag: v0.2.5-rc4-community.1
-            filename: byze-p2pool-cli-complete-0.2.5-rc4-community.1-darwin-x64.tar.gz
-            expected: f86ee84a54d818b16098b68996473a61f22c7d8481f2b9d02251ffbb7a625b47
+            tag: v0.2.5-rc4-community.2
+            filename: byze-p2pool-cli-complete-0.2.5-rc4-community.2-darwin-x64.tar.gz
+            expected: a51326d40de13e6bb1246a8470066b676f6140f79c7725cb393d4d5028021391
     steps:
       - uses: actions/checkout@v4
         with:

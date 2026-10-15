@@ -1,11 +1,11 @@
-# BYZE P2Pool CLI — Community Test 1 (experimental)
+# BYZE P2Pool CLI — Community Test 2 (experimental)
 
-We have published the updated **15 October 2026 Community Test 1** packages of the standalone **BYZE P2Pool CLI** for **Linux x64, macOS Apple Silicon and macOS Intel**. All three packages use the same tested CLI source commit and include safe RandomX pause/resume on node RPC outages, plus private auditable PPLNS snapshots after successful block submission.
+We have published the updated **15 October 2026 Community Test 2** packages of the standalone **BYZE P2Pool CLI** for **Linux x64, macOS Apple Silicon and macOS Intel**. All three packages use the same tested CLI source commit and include safe RandomX pause/resume on node RPC outages, plus private auditable bootstrap/PPLNS submission records and explicit incomplete-proof classifications after successful block submission.
 
 The CLI enables peer-to-peer RandomX CPU mining with direct PPLNS coinbase payout construction and a 0.5% pool fee. The guided installer detects and **reuses an existing BYZE Core installation without reinstalling or upgrading it**. The uniquely versioned CLI is kept in a separate directory from earlier rc3 test packages, with only the managed launcher switched after installation. If Core is absent, an official Core installation is offered only with explicit confirmation (Linux: BYZE Core v0.2.5-rc5-change-keyspace).
 
 **Guided setup:** https://contractp2p.github.io/byze-p2pool-cli/
-**Current three-platform release:** https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/v0.2.5-rc4-community.1
+**Current three-platform release:** https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/v0.2.5-rc4-community.2
 **Source and technical information:** https://github.com/ContractP2P/byze-p2pool-cli
 
 **Please note:** These are **experimental pre-releases for community testing**, not stable or production-qualified releases. The P2Pool bundles are currently unsigned. Verify any BYZE payout address with the receiving wallet, and avoid risking funds you cannot afford to lose. A live byzed-outage recovery test and a block/payout confirmation using these exact builds have not yet been documented as completed; no such claim is made here.
