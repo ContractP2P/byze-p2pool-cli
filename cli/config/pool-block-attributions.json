@@ -1,5 +1,5 @@
 {
   "schema": 1,
-  "description": "Operator-reviewed P2Pool mainnet block attributions. Keep empty until full miner submission and PPLNS evidence has been independently checked.",
+  "description": "Human-reviewed and SHA-pinned P2Pool mainnet attributions. A reviewed public JSON submission proof and validated on-chain payout are required; an empty list permits no block Discord posts.",
   "confirmedBlocks": []
 }
