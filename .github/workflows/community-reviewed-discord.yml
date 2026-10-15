@@ -1,11 +1,15 @@
 name: BYZE P2Pool - operator-reviewed community Discord blocks
 
 on:
+  schedule:
+    # Pending operator-reviewed blocks become publishable after six confirmations.
+    - cron: '23,53 * * * *'
   pull_request:
     paths:
       - 'cli/config/operator-reviewed-blocks.json'
       - 'cli/evidence/blocks/*.json'
       - 'cli/tools/chain-monitor/publish-reviewed-community.cjs'
+      - 'cli/tools/chain-monitor/publish-reviewed-community.test.cjs'
       - '.github/workflows/community-reviewed-discord.yml'
   push:
     branches: [main]
@@ -13,6 +17,7 @@ on:
       - 'cli/config/operator-reviewed-blocks.json'
       - 'cli/evidence/blocks/*.json'
       - 'cli/tools/chain-monitor/publish-reviewed-community.cjs'
+      - 'cli/tools/chain-monitor/publish-reviewed-community.test.cjs'
       - '.github/workflows/community-reviewed-discord.yml'
   workflow_dispatch:
     inputs:
@@ -44,6 +49,7 @@ jobs:
         run: |
           node --check cli/tools/chain-monitor/publish-reviewed-community.cjs
           npm ci --prefix cli --ignore-scripts --no-audit --no-fund
+          node --test cli/tools/chain-monitor/publish-reviewed-community.test.cjs
       - name: Dry-run with fresh BYZE chain and immutable evidence
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -54,7 +60,7 @@ jobs:
           BYZE_VALUE_MODE: ${{ vars.BYZE_VALUE_MODE }}
         run: node cli/tools/chain-monitor/publish-reviewed-community.cjs
       - name: Publish reviewed blocks to Discord (only after successful dry run)
-        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == false)
+        if: github.event_name == 'push' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == false)
         env:
           GITHUB_TOKEN: ${{ github.token }}
           DISCORD_WEBHOOK_URL: ${{ secrets.BYZE_P2POOL_DISCORD_WEBHOOK }}
