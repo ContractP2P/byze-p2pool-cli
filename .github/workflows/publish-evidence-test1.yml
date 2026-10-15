@@ -1,0 +1,175 @@
+name: Publish P2Pool evidence experimental test packages
+
+# One-time experimental public prerelease. Builds ARM64 and reuses the two
+# verified complete CI archives from the same pinned source revision.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-evidence-test1.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  REPO: ContractP2P/byze-p2pool-cli
+  SOURCE_SHA: 7818add060b1c39f81b04aecd26b128e65e4f182
+  INTEL_RUN: '38722339089'
+  LINUX_RUN: '38722339040'
+  TAG: v0.2.5-rc3-evidence-test1
+
+jobs:
+  arm64:
+    name: Build full ARM64 package at pinned source
+    runs-on: macos-15
+    timeout-minutes: 80
+    defaults:
+      run:
+        working-directory: cli
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 7818add060b1c39f81b04aecd26b128e65e4f182
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: cli/package-lock.json
+      - name: Install macOS native build tools
+        run: |
+          brew install cmake boost openssl@3 pkg-config
+          echo "CMAKE_PREFIX_PATH=$(brew --prefix boost):$(brew --prefix openssl@3)" >> "$GITHUB_ENV"
+      - name: Validate full source and compile official pinned native components
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(uname -m)" = arm64
+          npm ci
+          npm run check
+          npm test
+          npm run test:dht
+          npm run release:preflight:source
+          rm -rf native/darwin-arm64
+          npm run native:bootstrap-official
+          npm run native:ensure
+      - name: Build and verify full macOS ARM64 archive
+        run: |
+          set -euo pipefail
+          bash tools/build-portable-macos.sh
+          archive=dist/byze-p2pool-cli-complete-0.2.5-rc3-darwin-arm64.tar.gz
+          test -s "$archive"
+          (cd dist && shasum -a 256 -c SHA256SUMS)
+          mkdir -p test-unpack
+          tar -xzf "$archive" -C test-unpack
+          test -x test-unpack/byze-p2pool-0.2.5-rc3-darwin-arm64/bin/byze-p2pool
+          grep -Fx "Source commit: $SOURCE_SHA" test-unpack/byze-p2pool-0.2.5-rc3-darwin-arm64/BUILD-INFO.txt
+          test-unpack/byze-p2pool-0.2.5-rc3-darwin-arm64/bin/byze-p2pool --version
+          test-unpack/byze-p2pool-0.2.5-rc3-darwin-arm64/bin/node test-unpack/byze-p2pool-0.2.5-rc3-darwin-arm64/app/tools/test-private-dht.js
+      - uses: actions/upload-artifact@v4
+        with:
+          name: evidence-full-macos-arm64
+          path: cli/dist/byze-p2pool-cli-complete-0.2.5-rc3-darwin-arm64.tar.gz
+          retention-days: 7
+          if-no-files-found: error
+          compression-level: 0
+
+  publish:
+    name: Publish 3 verified test archives without overwriting existing releases
+    needs: [arm64]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Verify both existing complete build runs match pinned source
+        shell: bash
+        run: |
+          set -euo pipefail
+          for run in "$INTEL_RUN" "$LINUX_RUN"; do
+            test "$(gh run view "$run" -R "$REPO" --json headSha --jq .headSha)" = "$SOURCE_SHA"
+            test "$(gh run view "$run" -R "$REPO" --json conclusion --jq .conclusion)" = success
+          done
+          if gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then
+            echo "ERROR: the target prerelease already exists; refusing to overwrite." >&2
+            exit 1
+          fi
+
+      - name: Download Intel and Linux complete packages from verified source runs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p candidate/intel candidate/linux release
+          gh run download "$INTEL_RUN" -R "$REPO" \
+            --name byze-p2pool-complete-macos-intel-test --dir candidate/intel
+          gh run download "$LINUX_RUN" -R "$REPO" \
+            --name byze-p2pool-complete-lab-linux-x64 --dir candidate/linux
+          (cd candidate/intel && sha256sum -c SHA256SUMS)
+          (cd candidate/linux && sha256sum -c SHA256SUMS)
+          cp candidate/intel/byze-p2pool-cli-complete-0.2.5-rc3-darwin-x64.tar.gz release/
+          linux_file="$(find candidate/linux -maxdepth 1 -type f -name 'byze-p2pool-cli-complete-0.2.5-rc3-linux-x64-*.tar.gz' -print -quit)"
+          test -n "$linux_file"
+          test "$(find candidate/linux -maxdepth 1 -type f -name 'byze-p2pool-cli-complete-0.2.5-rc3-linux-x64-*.tar.gz' | wc -l)" -eq 1
+          test "${linux_file##*/}" = "byze-p2pool-cli-complete-0.2.5-rc3-linux-x64-${SOURCE_SHA:0:12}.tar.gz"
+          cp "$linux_file" release/byze-p2pool-cli-complete-0.2.5-rc3-linux-x64.tar.gz
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: evidence-full-macos-arm64
+          path: release
+
+      - name: Check all three archives, provenance and signatures of contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          for platform in darwin-x64 darwin-arm64 linux-x64; do
+            file="release/byze-p2pool-cli-complete-0.2.5-rc3-${platform}.tar.gz"
+            test -s "$file"
+            tar -tzf "$file" >/dev/null
+          done
+          mkdir -p verify/intel verify/arm verify/linux
+          tar -xzf release/byze-p2pool-cli-complete-0.2.5-rc3-darwin-x64.tar.gz -C verify/intel
+          tar -xzf release/byze-p2pool-cli-complete-0.2.5-rc3-darwin-arm64.tar.gz -C verify/arm
+          tar -xzf release/byze-p2pool-cli-complete-0.2.5-rc3-linux-x64.tar.gz -C verify/linux
+          for platform in darwin-x64 darwin-arm64; do
+            dir=verify/intel
+            if [ "$platform" = darwin-arm64 ]; then dir=verify/arm; fi
+            root="$dir/byze-p2pool-0.2.5-rc3-$platform"
+            test -x "$root/bin/byze-p2pool"
+            test -x "$root/bin/node"
+            grep -Fx "Source commit: $SOURCE_SHA" "$root/BUILD-INFO.txt"
+            grep -q 'pauseForNodeFailure' "$root/app/src/byze-p2pool.js"
+            grep -q 'pauseMining()' "$root/app/src/mining/native-bridge.js"
+          grep -q 'snapshotSubmission' "$root/app/src/byze-p2pool.js"
+          grep -q 'signedPoolSharePackets' "$root/app/src/mining/block-evidence.js"
+          done
+          test -x verify/linux/linux-x64/bin/byze-p2pool
+          test -x verify/linux/linux-x64/bin/node
+          grep -q 'pauseForNodeFailure' verify/linux/linux-x64/app/src/byze-p2pool.js
+          grep -q 'pauseMining()' verify/linux/linux-x64/app/src/mining/native-bridge.js
+          grep -q 'snapshotSubmission' verify/linux/linux-x64/app/src/byze-p2pool.js
+          grep -q 'signedPoolSharePackets' verify/linux/linux-x64/app/src/mining/block-evidence.js
+          (
+            cd release
+            sha256sum byze-p2pool-cli-complete-0.2.5-rc3-{darwin-x64,darwin-arm64,linux-x64}.tar.gz > SHA256SUMS
+            sha256sum --check SHA256SUMS
+          )
+          cat release/SHA256SUMS
+
+      - name: Publish public experimental prerelease
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh release list -R "$REPO" --json tagName --jq '.[] | select(.tagName=="'"${TAG}"'") | .tagName')" = ""
+          gh release create "$TAG" \
+            release/byze-p2pool-cli-complete-0.2.5-rc3-darwin-x64.tar.gz \
+            release/byze-p2pool-cli-complete-0.2.5-rc3-darwin-arm64.tar.gz \
+            release/byze-p2pool-cli-complete-0.2.5-rc3-linux-x64.tar.gz \
+            release/SHA256SUMS \
+            -R "$REPO" --target "$GITHUB_SHA" \
+            --title "BYZE P2Pool CLI v0.2.5-rc3 - auditable block evidence experimental test 1" \
+            --notes "Experimental three-platform test packages built from the same CLI source commit $SOURCE_SHA. Includes private local evidence capture only after successful submitblock RPC: exact committed PPLNS window, coinbase outputs, and retained signed pool-share packets; it does NOT automatically prove confirmed mainnet blocks or authenticate all PoW share packets. Discord payout reports remain gated on human-reviewed proof and on-chain reconciliation, not fee-address matches. Verified: cross-platform tests and native package builds; no claim of live mainnet payouts. Requires an existing synchronized BYZE Core node; existing releases and Core installs are unchanged. Packages are UNSIGNED, NOT NOTARIZED and NOT production-qualified. No wallet keys or mining secrets are bundled." \
+            --prerelease
+          gh release view "$TAG" -R "$REPO" --json isDraft,isPrerelease,assets \
+            --jq '{draft:.isDraft, prerelease:.isPrerelease, assets:[.assets[].name]}'
