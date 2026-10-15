@@ -41,6 +41,45 @@ function verifyPplnsEvidence(evidence,candidate){
     evidence.build?.contractSourceHash!=='0ba509a74eb5f475ce41f152349fe49a7d19e4fbd6c14c1833632c61681a0b66'||
     evidence.build?.securityGeneration!=='coinbase-binding-v2-global-epoch-v6')
     return no('release-provenance-not-recorded')
+  // Bootstrap payments are NOT PPLNS. They may be independently reviewed
+  // for single-miner coinbase amounts, but never credited as share-window proof.
+  const mode=String(evidence.payoutMode||'pplns')
+  if(evidence.proofStatus==='incomplete')return no('incomplete-local-capture')
+  if(mode==='bootstrap'){
+    if(evidence.proofStatus!=='bootstrap-payout-checked'||
+      evidence.pplnsTipId!==''||!Array.isArray(evidence.poolShares)||
+      evidence.poolShares.length!==0||!Array.isArray(evidence.signedPoolSharePackets)||
+      evidence.signedPoolSharePackets.length!==0||evidence.missingProofPackets!==0)
+      return no('bootstrap-must-not-claim-pplns')
+    const reward=positive(evidence.coinbaseValueSats)
+    if(!reward||reward!==positive(candidate.totalSats))return no('coinbase-total-mismatch')
+    const rows=evidence.payoutOutputs
+    if(!Array.isArray(rows)||rows.length!==2)return no('bootstrap-requires-one-miner-and-fee')
+    const fee=rows.filter(x=>x.address===policy.feeAddress)
+    const miners=rows.filter(x=>x.address!==policy.feeAddress)
+    const expectedFee=reward*BigInt(policy.feeBasisPoints)/10000n
+    if(fee.length!==1||miners.length!==1||
+      !positive(miners[0].satoshis)||String(fee[0].satoshis)!==expectedFee.toString()||
+      String(miners[0].satoshis)!==(reward-expectedFee).toString()||
+      !/^byz1[a-z0-9]{18,100}$/.test(miners[0].address))
+      return no('bootstrap-payment-arithmetic-mismatch')
+    if(rows.some(x=>!/^[0-9a-f]{4,20000}$/.test(String(x.script||''))))
+      return no('invalid-committed-scripts')
+    const expected=rows.map(x=>({script:x.script,satoshis:String(x.satoshis)}))
+    const actual=(Array.isArray(candidate.outputs)?candidate.outputs:[])
+      .filter(o=>positive(o.sats)!==null)
+      .map(o=>({script:String(o.script||'').toLowerCase(),satoshis:String(o.sats)}))
+    if(!sameOutputSets(expected,actual))return no('onchain-outputs-differ')
+    if(String(candidate.paidFeeSats)!==expectedFee.toString()||
+      String(candidate.expectedFeeSats)!==expectedFee.toString())
+      return no('pool-fee-differs')
+    return {ok:true,payoutMode:'bootstrap',recipientCount:1,
+      feeSats:expectedFee.toString(),coinbaseTxid:evidence.submittedCoinbaseTxid,
+      blockHash:candidate.hash,level:'bootstrap-arithmetic-and-onchain-outputs'}
+  }
+  if(mode!=='pplns')return no('unknown-payout-mode')
+  if(evidence.proofStatus&&!['pplns-window-recomputed','pplns-packets-missing'].includes(evidence.proofStatus))
+    return no('invalid-pplns-proof-status')
   const tip=String(evidence.pplnsTipId||'')
   const shares=evidence.poolShares
   if(!TIP.test(tip)||!Array.isArray(shares)||!shares.length||shares.length>20||
@@ -83,7 +122,7 @@ function verifyPplnsEvidence(evidence,candidate){
     String(candidate.paidFeeSats)!==calculatedFee.toString()||
     String(candidate.expectedFeeSats)!==calculatedFee.toString())
     return no('pool-fee-differs')
-  return {ok:true,pplnsTipId:tip,recipientCount:plan.outputs.length,
+  return {ok:true,payoutMode:'pplns',pplnsTipId:tip,recipientCount:plan.outputs.length,
     feeSats:calculatedFee.toString(),coinbaseTxid:evidence.submittedCoinbaseTxid,
     blockHash:candidate.hash,level:'pplns-arithmetic-and-onchain-outputs'}
 }
