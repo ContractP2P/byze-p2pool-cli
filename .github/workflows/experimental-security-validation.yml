@@ -16,17 +16,17 @@ jobs:
       matrix:
         include:
           - platform: linux-x64
-            tag: v0.2.5-rc3-linux-x64-test1
+            tag: v0.2.5-rc3-rpc-recovery-test1
             filename: byze-p2pool-cli-complete-0.2.5-rc3-linux-x64.tar.gz
-            expected: 3481ebacc1a237598da6ad383a903dcf8f9532853d18f64f49f77783b1293766
+            expected: 1c6eee109bc65008ccad476f80aa57ab5c04bd3ed678d3c447671e85952893ea
           - platform: darwin-arm64
-            tag: v0.2.5-rc3-macos-arm64-test1
+            tag: v0.2.5-rc3-rpc-recovery-test1
             filename: byze-p2pool-cli-complete-0.2.5-rc3-darwin-arm64.tar.gz
-            expected: a9b2a7275cf6f28255d156c78e14ad5d02faab7a32e3fbb1af3fbe46cd9d3a13
+            expected: 872d07c2fb8b8b3cfc25a88209741aad6fabc3a95ae402a265b454e25cfd9fea
           - platform: darwin-x64
-            tag: v0.2.5-rc3-macos-intel-test1
+            tag: v0.2.5-rc3-rpc-recovery-test1
             filename: byze-p2pool-cli-complete-0.2.5-rc3-darwin-x64.tar.gz
-            expected: bbe0988ff7ce919648e3d5f6b91015793e3db5cc98f27e090ea17ca682986ec8
+            expected: b5e1f7d5f18a654f9080fc49d77a0b18c73eaf37237297db9e0751208e8d6ec9
     steps:
       - uses: actions/checkout@v4
         with:
