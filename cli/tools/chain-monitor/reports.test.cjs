@@ -115,3 +115,16 @@ test('passive observer validates cryptographic presence, ignores stale and aggre
   assert.equal(stale.hashrateHps,null)
   assert.deepEqual(obs.snapshot(new Map([[peerKey,valid]]),new Set([peerKey]),now).activeMiners,1)
 })
+
+test('reviewed bootstrap block is explicitly not reported as PPLNS',()=>{
+  const c=fixture()
+  assert.equal(report.blockReport(c,{verified:false,payoutMode:'bootstrap',confirmations:9}),null)
+  const msg=report.blockReport(c,{verified:true,payoutMode:'bootstrap',confirmations:6,
+    evidenceUrl:'https://github.com/ContractP2P/byze-p2pool-cli/pull/123'})
+  assert.match(msg,/Bootstrap block #1234 confirmed/)
+  assert.match(msg,/NO PPLNS window was committed/)
+  assert.match(msg,/Bootstrap review evidence:/)
+  assert.doesNotMatch(msg,/PPLNS block/)
+  assert.equal(report.blockReport(c,{verified:true,payoutMode:'bootstrap',confirmations:5}),null)
+  assert.equal(report.blockReport(c,{verified:true,payoutMode:'incomplete',confirmations:6}),null)
+})
