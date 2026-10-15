@@ -8,10 +8,10 @@ CORE_SHA=2ce51e203c20ec7dd22fef055fbece0ce702c7e7451a6fe9be248353ae5e19ad
 CORE_FPR=9F11E836EB4B7F464ADBB1E7AC11CA674828CAE1
 CORE_ASSET=byze-core-linux-x86_64.tar.gz
 CORE_URL="https://github.com/powhermes/byze/releases/download/$CORE_TAG"
-VERSION=0.2.5-rc4-community.1
-CLI_TAG=v0.2.5-rc4-community.1
+VERSION=0.2.5-rc4-community.2
+CLI_TAG=v0.2.5-rc4-community.2
 # Immutable trusted archive fingerprint, independently pinned from the GitHub Release asset digest.
-CLI_SHA=6881453c8e3b5f726920affa65fd6ba6127bbce6bfc67d9daf9ef39ec72802ef
+CLI_SHA=ee398f908b4e587bb027803d53326cdb11a77ec60cea958e911c152e342d684d
 CLI_ASSET="byze-p2pool-cli-complete-$VERSION-linux-x64.tar.gz"
 CLI_URL="https://github.com/ContractP2P/byze-p2pool-cli/releases/download/$CLI_TAG"
 BASE="$HOME/.local/opt"
@@ -197,10 +197,10 @@ if [ -z "$BYZE_CLI" ]; then
   BYZE_CLI="$(cat "$HOME/.local/opt/byze-p2pool-core-cli.path")"
   export BYZE_CLI
 fi
-BYZE_P2POOL_RELEASE_TAG="v0.2.5-rc4-community.1"
-BYZE_P2POOL_ARCHIVE_SHA256="6881453c8e3b5f726920affa65fd6ba6127bbce6bfc67d9daf9ef39ec72802ef"
+BYZE_P2POOL_RELEASE_TAG="v0.2.5-rc4-community.2"
+BYZE_P2POOL_ARCHIVE_SHA256="ee398f908b4e587bb027803d53326cdb11a77ec60cea958e911c152e342d684d"
 export BYZE_P2POOL_RELEASE_TAG BYZE_P2POOL_ARCHIVE_SHA256
-exec "$HOME/.local/opt/byze-p2pool-0.2.5-rc4-community.1-linux-x64/bin/byze-p2pool" "$@"
+exec "$HOME/.local/opt/byze-p2pool-0.2.5-rc4-community.2-linux-x64/bin/byze-p2pool" "$@"
 EOF
   chmod 0755 "$LAUNCHER"
   "$LAUNCHER" --version
