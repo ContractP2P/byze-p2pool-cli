@@ -105,7 +105,7 @@ A synchronized node means `chain=main`, a non-empty blockchain, matching/near-ma
 
 ## Auditable block payouts and Discord
 
-The current experimental packages record **private** evidence of a successful `submitblock` RPC, including the committed PPLNS tip/window and retained signed pool-share packets (when still cached). This is **not** evidence that a block was accepted by the network. The evidence remains local unless the operator chooses to submit a privacy-reviewed record to GitHub. See [Discord reporting and review procedure](docs/discord-reporting.md).
+The published Community Test 1 packages record **private** PPLNS evidence of a successful `submitblock` RPC, but may save **no file** for a block discovered before the first PPLNS tip exists. **Correction in [PR #41](https://github.com/ContractP2P/byze-p2pool-cli/pull/41)**: source code now retains separate `bootstrap`, `pplns`, or `incomplete` private records; a **new build/release is required** to deliver it to community miners. A submission record is **not** evidence that the block was accepted by the network. The evidence remains local unless the operator chooses to submit a privacy-reviewed record to GitHub. See [Discord reporting and review procedure](docs/discord-reporting.md).
 
 Discord block reports are allowed only after a separately reviewed attribution is merged, the record is SHA-256 pinned, and the read-only monitor verifies six confirmations, on-chain coinbase outputs, exact PPLNS amounts and the 0.50% fee. No found block has been certified by this process yet. The scheduled activity report is separate.
 
