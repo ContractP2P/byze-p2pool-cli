@@ -8,11 +8,11 @@ The website installers include immutable, build-specific SHA-256 hashes that are
 
 | Platform | Tag | Archive SHA-256 |
 | --- | --- | --- |
-| Linux x86-64 | `v0.2.5-rc3-rpc-recovery-test1` | `1c6eee109bc65008ccad476f80aa57ab5c04bd3ed678d3c447671e85952893ea` |
-| macOS Apple Silicon | `v0.2.5-rc3-rpc-recovery-test1` | `872d07c2fb8b8b3cfc25a88209741aad6fabc3a95ae402a265b454e25cfd9fea` |
-| macOS Intel | `v0.2.5-rc3-rpc-recovery-test1` | `b5e1f7d5f18a654f9080fc49d77a0b18c73eaf37237297db9e0751208e8d6ec9` |
+| Linux x86-64 | `v0.2.5-rc3-evidence-test1` | `4be720b76f5066edae2d8e84837efa2cd66349003f8a636335beeb83f614138b` |
+| macOS Apple Silicon | `v0.2.5-rc3-evidence-test1` | `48d408447dd5ab2e3c0a13e8fe5f1e832d920a41cd19fb64e20b690bafb8e9be` |
+| macOS Intel | `v0.2.5-rc3-evidence-test1` | `883c8159b9d9e4cea7039aae103792b907e79eb2233de591af9b8b091c6279a7` |
 
-The three archives above are the **15 October 2026 RPC recovery** prerelease: [GitHub release](https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/v0.2.5-rc3-rpc-recovery-test1). Previous 13 October test archives remain published but are **not** the archives selected by the current guided installers. The security CI downloads each actual published archive, verifies the corresponding immutable hash and manifest, then alters the archive and checks that hash verification fails. This **does not** mean the archives are signed or notarized; signing remains a separate release gate.
+The three archives above are the **15 October 2026 auditable PPLNS evidence** prerelease: [GitHub release](https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/v0.2.5-rc3-evidence-test1). Earlier test archives remain published but are **not** the archives selected by the current guided installers. The security CI downloads each actual published archive, verifies the corresponding immutable hash and manifest, then alters the archive and checks that hash verification fails. This **does not** mean the archives are signed or notarized; signing remains a separate release gate.
 
 ## 5. Isolated byzed outage (intermediate integration test)
 
@@ -62,6 +62,6 @@ If any of these is absent, state the claim as **unverified**. Session reward est
 
 The scheduled observer publishes an **observed miner activity** snapshot only when fresh active MINING presence and positive reported hashrate are available. This does not prove accepted shares, an identified block or PPLNS allocations.
 
-A **confirmed block payout** Discord message is issued only for a block already registered as independently reviewed in `cli/config/pool-block-attributions.json` (initially empty). Its operator review links to external evidence and must satisfy the four requirements above. The monitor rechecks the canonical block, coinbase txid, confirmations, outputs and fee, but **does not independently reconstruct or verify PPLNS share weights**. A fee-address match by itself is only a candidate and is never posted as a confirmed P2Pool payout.
+A **confirmed block payout** Discord message is issued only for a block already registered as independently reviewed in `cli/config/pool-block-attributions.json` (initially empty). Its operator review links to external evidence and must satisfy the four requirements above. The monitor rechecks the canonical block, coinbase txid, confirmations, outputs and fee, **and independently recomputes payout amounts from the committed PPLNS window**. Cryptographic validity of the original signed share packets and miner submission provenance still require separate operator review. A fee-address match by itself is only a candidate and is never posted as a confirmed P2Pool payout.
 
 For a reproducible review, keep the miner build identifier and submission logs, the exact block hash, complete on-chain outputs, the PPLNS tip/share window with verified weights, and the independent calculation of each recipient and the 0.50% fee in a public issue or PR (redacting secrets). The Discord payout report can then summarize verified on-chain amounts; it cannot replace the underlying evidence. See [Discord reporting](discord-reporting.md).
