@@ -28,7 +28,7 @@ test('dry-run processes a synthetic decoded chain and never posts or persists',(
 test('manual force_activity sends a live activity report despite hourly deduplication',()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'byze-monitor-force-fixture-'))
   try {
-    const preload=path.join(dir,'fetch.cjs'),messages=path.join(dir,'messages.jsonl')
+    const preload=path.join(dir,'fetch.cjs'),messages=path.join(dir,'messages.jsonl'),stateOut=path.join(dir,'state.json')
     const activity=path.join(dir,'activity.json')
     const state={schema:1,lastHeight:100,blocks:{},seen:[],lastReportAt:0,lastActivityAt:Date.now(),publishedBlocks:[]}
     fs.writeFileSync(activity,JSON.stringify({schema:1,source:'hyperswarm-partial',
@@ -45,8 +45,10 @@ test('manual force_activity sends a live activity report despite hourly deduplic
         if(u.hostname==='api.github.com'){
           if(u.pathname.endsWith('/issues')&&method==='GET')
             return new Response(JSON.stringify([{number:24,title:'BYZE P2Pool chain-monitor state (automated)',body:issueBody}]),{status:200});
-          if(u.pathname.endsWith('/issues/24')&&method==='PATCH')
+          if(u.pathname.endsWith('/issues/24')&&method==='PATCH'){
+            fs.writeFileSync(${JSON.stringify(stateOut)},String(opts.body));
             return new Response(JSON.stringify({number:24}),{status:200});
+          }
         }
         if(u.pathname==='/test/tip')
           return new Response(JSON.stringify({chain:'main',blocks:100}),{status:200});
@@ -78,5 +80,32 @@ test('manual force_activity sends a live activity report despite hourly deduplic
     const dry=run({MONITOR_FORCE_ACTIVITY:'true',MONITOR_DRY_RUN:'true'})
     assert.equal(dry.status,0,dry.stderr)
     assert.equal(fs.readFileSync(messages,'utf8').trim().split('\n').length,1,'dry run must not post')
+
+    // A manually forced run still must not send when no miner has useful telemetry.
+    const empty={schema:1,source:'hyperswarm-partial',observedAt:new Date().toISOString(),
+      connectedPeers:0,validPresences:0,activeMiners:0,hashrateSamples:0,observedHashrateHps:0}
+    const cases=[
+      {name:'no detected peers',activity:empty},
+      {name:'peers connected but idle',activity:{...empty,connectedPeers:1,validPresences:1}},
+      {name:'active miner without telemetry',activity:{...empty,connectedPeers:1,validPresences:1,activeMiners:1}},
+      {name:'active miner with zero hashrate',activity:{...empty,connectedPeers:1,validPresences:1,activeMiners:1,hashrateSamples:1}},
+      {name:'stale sample',activity:{...empty,observedAt:new Date(Date.now()-180000).toISOString()}}
+    ]
+    for(const entry of cases){
+      fs.writeFileSync(activity,JSON.stringify(entry.activity))
+      const skipped=run({MONITOR_FORCE_ACTIVITY:'true'})
+      assert.equal(skipped.status,0,entry.name+': '+skipped.stderr)
+      const log=JSON.parse(skipped.stdout)
+      assert.equal(log.activityDue,true,entry.name+' should be due')
+      assert.equal(log.activityPublishable,false,entry.name+' should be suppressed')
+      assert.equal(log.activityReport,null,entry.name+' should have no report')
+      assert.equal(fs.readFileSync(messages,'utf8').trim().split('\n').length,1,entry.name+' must not post')
+      const saved=JSON.parse(JSON.parse(fs.readFileSync(stateOut,'utf8')).body.split('\n').slice(1).join('\n'))
+      assert.equal(saved.lastActivityAt,state.lastActivityAt,entry.name+' must preserve the hourly slot')
+    }
+    const missingSample=run({MONITOR_FORCE_ACTIVITY:'true',BYZE_ACTIVITY_FILE:path.join(dir,'missing-activity.json')})
+    assert.equal(missingSample.status,0,missingSample.stderr)
+    assert.equal(JSON.parse(missingSample.stdout).activityPublishable,false)
+    assert.equal(fs.readFileSync(messages,'utf8').trim().split('\n').length,1,'missing activity must not post')
   }finally{fs.rmSync(dir,{recursive:true,force:true})}
 })

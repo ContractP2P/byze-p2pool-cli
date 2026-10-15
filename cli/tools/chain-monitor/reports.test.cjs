@@ -61,16 +61,16 @@ test('activity report shows only locally timed observed miners and hashrate',()=
   ].join('\n'))
   assert.doesNotMatch(msg,/chain tip|peers reached|telemetry|partial|healthy|coverage|entire network|independently measured/i)
   assert.doesNotMatch(msg,/Active miners observed|Observed hashrate/)
-  const missing=report.activityReport({activity:null,now})
-  assert.match(missing,/Latest observation · unavailable/)
-  assert.match(missing,/\*\*unavailable\*\* Active miners/)
-  assert.match(missing,/\*\*unavailable\*\* Hashrate/)
-  const stale=report.activityReport({activity:sample,now:now+125000})
-  assert.match(stale,/Latest observation · unavailable/)
-  const noPresences={...sample,validPresences:0,activeMiners:0,hashrateSamples:0,observedHashrateHps:0}
-  assert.match(report.activityReport({activity:noPresences,now}),/\*\*unavailable\*\* Active miners/)
+  assert.equal(report.activityReport({activity:null,now}),null,'missing sample must not post')
+  assert.equal(report.activityReport({activity:sample,now:now+125000}),null,'stale sample must not post')
+  const noPresences={...sample,connectedPeers:0,validPresences:0,activeMiners:0,hashrateSamples:0,observedHashrateHps:0}
+  assert.equal(report.activityReport({activity:noPresences,now}),null,'no connected miners must not post')
+  const idlePeers={...sample,validPresences:2,activeMiners:0,hashrateSamples:0,observedHashrateHps:0}
+  assert.equal(report.activityReport({activity:idlePeers,now}),null,'connected but idle peers must not post')
   const noHashrate={...sample,hashrateSamples:0,observedHashrateHps:0}
-  assert.match(report.activityReport({activity:noHashrate,now}),/\*\*unavailable\*\* Hashrate/)
+  assert.equal(report.activityReport({activity:noHashrate,now}),null,'unavailable hashrate must not post')
+  const zeroHashrate={...sample,observedHashrateHps:0}
+  assert.equal(report.activityReport({activity:zeroHashrate,now}),null,'zero productive hashrate must not post')
   assert.equal(report.normalizeActivity({...sample,activeMiners:42},now),null)
   assert.equal(report.normalizeActivity({...sample,observedHashrateHps:Infinity},now),null)
 })

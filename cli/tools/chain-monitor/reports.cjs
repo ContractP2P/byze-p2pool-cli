@@ -28,16 +28,17 @@ function normalizeActivity(raw, now=Date.now()) {
 }
 function activityReport({activity,now=Date.now()}) {
   const a=normalizeActivity(activity,now)
+  // No public activity message without verified active presence and useful
+  // recent hashrate. Missing coverage is not evidence of an empty pool.
+  if(!a || a.activeMiners<1 || a.hashrateSamples<1 || a.observedHashrateHps<=0)return null
   // Discord formats this timestamp in each reader's local time zone.
-  const timestamp=a?'<t:'+Math.floor(Date.parse(a.observedAt)/1000)+':t>':'unavailable'
-  const minerCount=a&&a.validPresences?a.activeMiners:'unavailable'
-  const hashrate=a&&a.validPresences&&a.hashrateSamples?formatHashrate(a.observedHashrateHps):'unavailable'
+  const timestamp='<t:'+Math.floor(Date.parse(a.observedAt)/1000)+':t>'
   return [
     '**BYZE P2Pool · Activity Report**',
     'Latest observation · '+timestamp,
     '',
-    '**'+minerCount+'** Active miners',
-    '**'+hashrate+'** Hashrate'
+    '**'+a.activeMiners+'** Active miners',
+    '**'+formatHashrate(a.observedHashrateHps)+'** Hashrate'
   ].join('\n')
 }
 function percent(part,total) {
