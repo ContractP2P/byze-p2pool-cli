@@ -1,5 +1,5 @@
 {
-  "cliVersion": "0.2.5-rc4-community.1",
+  "cliVersion": "0.2.5-rc4-community.2",
   "contractBase": "Contract v0.15.85+ (source ancestry only; v4/v5 peers incompatible)",
   "contractId": "org.contract.byze-p2pool",
   "contractVersion": "0.1.3",
