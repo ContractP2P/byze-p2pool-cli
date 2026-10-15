@@ -4,7 +4,7 @@
 
 **[▶ Open the guided installer — macOS Apple Silicon, macOS Intel & Linux x64](https://contractp2p.github.io/byze-p2pool-cli/)**
 
-> **Community testing only · Experimental Test 1 · CLI v0.2.5-rc3 · global-epoch-v6.** Native test bundles are published but **unsigned and not yet production-qualified**. Mainnet multi-peer payout validation, spendability checks and signing/release gates remain open. See [release status](cli/RELEASE-CHECKLIST.md). Mining rewards are never guaranteed.
+> **Community testing only · Experimental Test 1 · CLI v0.2.5-rc3 · global-epoch-v6 · [15 October RPC recovery test release](https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/v0.2.5-rc3-rpc-recovery-test1).** Native test bundles are published but **unsigned and not yet production-qualified**. Mainnet multi-peer payout validation, spendability checks and signing/release gates remain open. See [release status](cli/RELEASE-CHECKLIST.md). Mining rewards are never guaranteed.
 
 ## Choose how to install
 
@@ -41,7 +41,9 @@ bash /tmp/byze-p2pool-install-linux.sh --wait-sync
 
 The miner command displayed by the website **enables real mainnet block submission**. For diagnostic mining that cannot submit a found block, add `--no-submit` to that command. Neither mode should be used until BYZE Core is fully synchronized and the payout address has been checked for **actual wallet spendability**.
 
-**Community testing — Experimental Test 1 packages:** [Apple Silicon](https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/v0.2.5-rc3-macos-arm64-test1) · [Mac Intel](https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/v0.2.5-rc3-macos-intel-test1) · [Linux x64](https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/v0.2.5-rc3-linux-x64-test1) · [All releases](https://github.com/ContractP2P/byze-p2pool-cli/releases).
+**Current community test packages (15 October 2026):** [macOS Apple Silicon, macOS Intel, and Linux x64 — unified RPC recovery release](https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/v0.2.5-rc3-rpc-recovery-test1) · [All releases](https://github.com/ContractP2P/byze-p2pool-cli/releases). The guided installers pin the exact SHA-256 for each platform and also verify the release manifest.
+
+**Already installed an earlier Experimental Test 1 package?** Fetch the updated guided installer and run `--install` again after stopping the existing P2Pool miner. Because the 13 and 15 October archives have the same CLI version number, the 15 October build is installed in a **separate release-specific directory** and the managed `~/.local/bin/byze-p2pool` launcher is repointed to it. The previous P2Pool files are not deleted. An existing **BYZE Core node is never reinstalled or upgraded**. `--wait-sync` only monitors synchronization; it does not update the CLI.
 
 ### 2. Install from source (developer path)
 
@@ -99,11 +101,11 @@ Without `--no-submit`, a found network block **may be submitted to BYZE mainnet*
 - **Generation v6** has its own discovery topic and PPLNS history; it is **incompatible with older v4/v5 peers**. Coordinate restarts if upgrading a pool.
 - The CLI does not ask for BYZE wallet secrets and uses temporary P2P identities. `validateaddress` does **not** prove that a payout address is spendable. Prefer an address obtained and independently verified on **BYZE Core rc4 or later**. Older Core versions can be reused, but may not confirm spendability.
 
-A synchronized node means `chain=main`, a non-empty blockchain, matching/near-matching block and header heights, and `initialblockdownload=false`. **Existing v0.2.5-rc3 binaries may misclassify a freshly started zero-block Core as ready**; the updated website installers guard against this, while a corrected full CLI bundle is pending publication.
+A synchronized node means `chain=main`, a non-empty blockchain, matching/near-matching block and header heights, and `initialblockdownload=false`. **Older 13 October rc3 binaries may misclassify a freshly started zero-block Core as ready.** The 15 October RPC recovery packages include fail-closed node readiness and RandomX pause/resume handling. The guided installers also independently require nonzero block height and `initialblockdownload=false` before displaying `BYZE_NODE_READY`. The latest binaries still need live multi-peer outage and payout validation.
 
 ## Status and technical references
 
-Public **Experimental Test 1** bundles exist for Apple Silicon, Intel macOS and Linux x64. They are for **community testing, not production deployment**. ARM64 local mining and Mac Intel clean-host installation have been exercised; this does **not** yet qualify real two-peer PPLNS payouts or prove that a discovered block is spendable. The public packages are **unsigned**, and their third-party notices, licensing and final release signing still need review.
+Public **Experimental Test 1** bundles from **15 October 2026** exist for Apple Silicon, Intel macOS and Linux x64. They are for **community testing, not production deployment**. ARM64 local mining and Mac Intel clean-host installation have been exercised; this does **not** yet qualify real two-peer PPLNS payouts or prove that a discovered block is spendable. The public packages are **unsigned**, and their third-party notices, licensing and final release signing still need review.
 
 - [Guided installation website](https://contractp2p.github.io/byze-p2pool-cli/)
 - [CLI documentation and developer bootstrap](cli/README.md)
