@@ -84,6 +84,16 @@ function verifyPplnsEvidence(evidence,candidate){
   const shares=evidence.poolShares
   if(!TIP.test(tip)||!Array.isArray(shares)||!shares.length||shares.length>20||
     shares[0]?.poolShareId!==tip)return no('missing-pplns-window')
+  // PPLNS attribution is never public when source signed packets are absent.
+  // Presence and share linkage are checked here; PoW/signature provenance still
+  // needs an independent operator review, not just arithmetic checks.
+  if(evidence.missingProofPackets!==0 ||
+     !Array.isArray(evidence.signedPoolSharePackets) ||
+     evidence.signedPoolSharePackets.length!==shares.length ||
+     evidence.signedPoolSharePackets.some((p,i)=>!p?.share||
+       p.share.poolShareId!==shares[i].poolShareId||
+       typeof p.signature!=='string'||!p.signature))
+    return no('signed-pplns-source-packets-missing')
   const seen=new Set()
   for(let i=0;i<shares.length;i++){
     const s=shares[i]
