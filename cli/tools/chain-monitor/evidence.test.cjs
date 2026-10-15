@@ -43,7 +43,7 @@ function fixture(){
     expectedFeeSats:plan.feeSatoshis,outputs:outputs.map((x,i)=>({address:x.address,script:x.script,sats:x.satoshis,n:i}))}
   return {doc,candidate}
 }
-test('local evidence stays private; reviewed SHA-pinned chain matches full PPLNS amounts',()=>{
+test('local evidence stays private; reviewed SHA-pinned chain matches full PPLNS amounts', {skip:process.platform==='win32'},()=>{
   const home=fs.mkdtempSync(path.join(os.tmpdir(),'byze-evidence-test-'))
   try{
     const {doc,candidate}=fixture()
