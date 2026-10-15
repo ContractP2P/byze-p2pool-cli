@@ -132,9 +132,10 @@ async function main() {
   const blockMessages=[]
   for(const candidate of candidates) {
     const confirmations=tip-candidate.height+1
+    const attribution=reviewed.get(candidate.hash)
     if(previouslyPosted.has(candidate.hash) ||
-       !eligibleBlock(candidate,reviewed.get(candidate.hash),confirmations))continue
-    const message=blockReport(candidate,{verified:true,confirmations})
+       !eligibleBlock(candidate,attribution,confirmations))continue
+    const message=blockReport(candidate,{verified:true,confirmations,evidenceUrl:attribution.evidenceUrl})
     if(!message)throw Error('Reviewed block has incomplete or invalid payout outputs at '+candidate.height)
     blockMessages.push({hash:candidate.hash,height:candidate.height,message})
   }
