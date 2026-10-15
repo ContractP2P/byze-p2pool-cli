@@ -177,7 +177,7 @@ jobs:
             /bin/bash docs/install-macos.sh --install > "$work/out" 2>&1; then
             echo 'Old rc3 package must not count as latest release' >&2; exit 1
           fi
-          grep -Fq 'v0.2.5-rc3-rpc-recovery-test1/byze-p2pool-cli-complete-' "$work/calls"
+          grep -Fq 'v0.2.5-rc3-evidence-test1/byze-p2pool-cli-complete-' "$work/calls"
           test -f "$old/byze-p2pool"
           test ! -e "$home/.local/bin/byze-p2pool"
           test -f "$home/ldev/byze/build/bin/byze-cli"
