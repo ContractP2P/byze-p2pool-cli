@@ -15,6 +15,13 @@ const MARKER='<!-- byze-p2pool-chain-monitor-state-v1 -->'
 const SHA=/^[0-9a-f]{64}$/,TIP=/^ps:[0-9a-f]{64}$/
 const REVIEW_URL=/^https:\/\/github\.com\/ContractP2P\/byze-p2pool-cli\/(?:issues|pull)\/[1-9][0-9]*$/
 const validReviewUrl=value=>REVIEW_URL.test(String(value||''))
+function validRandomxAudit(height,a){
+  if(!a||a.randomxHashMismatches!==0||
+     !Number.isSafeInteger(a.localProofsChecked)||a.localProofsChecked<1)return false
+  const legacy=(height===21127||height===21128)&&a.randomxUniqueHashesCombined===112
+  const n=a.randomxUniqueHashesChecked
+  return legacy||(Number.isSafeInteger(n)&&n>=1&&n<=a.localProofsChecked)
+}
 const EXPLORER='https://explorer.byze.org'
 const TOKEN=process.env.GITHUB_TOKEN||'',WEBHOOK=process.env.DISCORD_WEBHOOK_URL||''
 const DRY=process.env.COMMUNITY_DRY_RUN==='true'
@@ -71,17 +78,10 @@ function evidence(row){
     e.build?.releaseArchiveSha256==='f6c508bde9793aa7128985366afaa9f03de9a8bf6b13ec3df4cf086c5204ffce'&&
     e.build?.contractSourceHash==='0ba509a74eb5f475ce41f152349fe49a7d19e4fbd6c14c1833632c61681a0b66'&&
     e.build?.securityGeneration==='coinbase-binding-v2-global-epoch-v6','Unknown community release')
-  // Older Community Test 2 attestations documented one combined 112-header
-  // verification across blocks 21127/21128. New blocks must record their own
-  // positive RandomX verification count, bounded by the local source proofs.
-  const legacyCombinedAudit=(e.height===21127||e.height===21128)&&
-    e.audit?.randomxUniqueHashesCombined===112
-  const uniqueHashes=e.audit?.randomxUniqueHashesChecked
+  // Legacy blocks share a combined 112-header RandomX audit; future blocks
+  // record their own independently checked header count.
   ok(e.audit?.onChainOutputsMatchedAtOperatorReview===true&&
-    e.audit?.randomxHashMismatches===0&&
-    Number.isSafeInteger(e.audit?.localProofsChecked)&&e.audit.localProofsChecked>0&&
-    (legacyCombinedAudit||(Number.isSafeInteger(uniqueHashes)&&uniqueHashes>0&&
-      uniqueHashes<=e.audit.localProofsChecked))&&
+    validRandomxAudit(e.height,e.audit)&&
     e.audit?.witnessV1Spendability==='not-verified','Unreviewed private source')
   ok(!('signedPoolSharePackets' in e),'Private signed packets cannot be public')
   const shares=e.poolShares
@@ -214,4 +214,4 @@ async function main(){
 if(require.main===module){
   main().catch(e=>{console.error('REVIEWED_PPLNS_PUBLISH_FAILED',e.message);process.exitCode=1})
 }
-module.exports={validatedManifestRows,validReviewUrl}
+module.exports={validatedManifestRows,validReviewUrl,validRandomxAudit}
