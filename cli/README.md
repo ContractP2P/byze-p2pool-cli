@@ -1,8 +1,8 @@
-# BYZE P2Pool CLI v0.2.5-rc3
+# BYZE P2Pool CLI v0.2.5-rc4-community.1
 
 Standalone command-line peer for **BYZE P2Pool secure-v2**, with the `global-epoch-v6` compatibility generation.
 
-This package is a **community-testing source release candidate** (Experimental Test 1), not production-qualified. Source is [MIT-licensed](LICENSE); managed native bundles remain subject to the platform, third-party notices and signing gates in [the release checklist](RELEASE-CHECKLIST.md).
+This package is the **Community Test 1** experimental release candidate, not production-qualified. Source is [MIT-licensed](LICENSE); managed native bundles remain subject to the platform, third-party notices and signing gates in [the release checklist](RELEASE-CHECKLIST.md).
 
 ## Security model
 
@@ -25,7 +25,7 @@ Generation v6 uses a new discovery topic and a signed generation field. It does 
 
 ## Compatibility
 
-- CLI: `0.2.5-rc3`
+- CLI: `0.2.5-rc4-community.1`
 - Contract ancestry: `v0.15.85+`; unmodified v4/v5 peers are incompatible
 - contract: `org.contract.byze-p2pool@0.1.3`
 - contract source hash: `0ba509a74eb5f475ce41f152349fe49a7d19e4fbd6c14c1833632c61681a0b66`
