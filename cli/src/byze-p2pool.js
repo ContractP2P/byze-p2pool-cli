@@ -388,6 +388,9 @@ class MinerApp {
     this.jobContexts = new Map()
     this.payoutValidator = opts.payoutValidator || new PayoutAddressValidator((m,p) => this.byze.call(m,p,{timeout:10_000}), { warn })
     this.lastGbtAt = 0
+    this.nodeMiningReady = false
+    this.nodePauseReason = ''
+    this.jobRefreshPromise = null
     this.running = false
     this.acceptedLocal = 0
     this.acceptedRemote = 0
@@ -429,7 +432,7 @@ class MinerApp {
     return sha256Hex(Buffer.from(`contract-mining\0${CONTRACT_SOURCE_HASH}\0${POOL_ID}\0${this.policy.policyHash}\0${SECURITY_GENERATION}`))
   }
 
-  selfPresence(now = Date.now(), state='MINING') {
+  selfPresence(now = Date.now(), state=this.nodeMiningReady?'MINING':'PAUSED') {
     this.localSeq = Math.max(this.localSeq + 1, Math.floor(now))
     const payload = presenceSigningPayload({
       securityGeneration:SECURITY_GENERATION, peerKey:this.peerKey, alias:this.alias, instanceId:this.instanceId,
@@ -438,11 +441,11 @@ class MinerApp {
       feePolicyHash:this.policy.policyHash, feeBasisPoints:this.policy.feeBasisPoints, feeAddress:this.policy.feeAddress,
       miningState:state, updatedAt:now, expiresAt:now+(state==='LEFT'?30_000:PRESENCE_TTL_MS), seq:this.localSeq
     })
-    const telemetry = { hashrateHps:Math.min(1e12, Math.max(0, Number(this.workerState.hashrate)||0)), observedAt:now }
+    const telemetry = { hashrateHps:this.nodeMiningReady?Math.min(1e12, Math.max(0, Number(this.workerState.hashrate)||0)):0, observedAt:now }
     return { ...payload, telemetry, signature:sign(this.seed,payload) }
   }
 
-  broadcastPresence(state='MINING') {
+  broadcastPresence(state=this.nodeMiningReady?'MINING':'PAUSED') {
     const announcement = this.selfPresence(Date.now(), state)
     return this.transport.broadcast({ v:9, type:'mining-presence', announcement })
   }
@@ -477,7 +480,7 @@ class MinerApp {
   }
 
   members(now=Date.now()) {
-    const rows=[{peerKey:this.peerKey,alias:this.alias,instanceId:this.instanceId,payoutAddress:this.payoutAddress,miningState:'MINING',updatedAt:now,local:true,transportConnected:true,hashrateHps:Number(this.workerState.hashrate)||0,hashrateObservedAt:now}]
+    const rows=[{peerKey:this.peerKey,alias:this.alias,instanceId:this.instanceId,payoutAddress:this.payoutAddress,miningState:this.nodeMiningReady?'MINING':'PAUSED',updatedAt:now,local:true,transportConnected:true,hashrateHps:this.nodeMiningReady?(Number(this.workerState.hashrate)||0):0,hashrateObservedAt:now}]
     for (const [peerKey,rec] of [...this.remotePresence]) {
       const p=rec.payload
       if (!p || p.expiresAt<=now || p.miningState==='LEFT') { this.remotePresence.delete(peerKey); continue }
@@ -588,7 +591,7 @@ class MinerApp {
   async handleNative(message) {
     if(message?.kind==='status'){this.workerState={...this.workerState,...message.status}; return}
     if(message?.kind==='log'){if(message.message)warn('native:',message.message); return}
-    if(message?.kind!=='share')return
+    if(message?.kind!=='share'||!this.nodeMiningReady)return
     const raw=message.candidate, now=Math.max(1,Math.floor(Number(raw?.foundAt)||Date.now())), live=this.live(now)
     if(!live?.cellId||!this.currentJob||raw.jobId!==this.currentJob.id||String(raw.templateHash).toLowerCase()!==this.lastTemplateHash)return
     const built=buildRandomxLocalShare({contractHash:CONTRACT_SOURCE_HASH,poolId:POOL_ID,cellId:live.cellId,epoch:live.epoch,minerPeerId:this.peerKey,payoutAddress:this.payoutAddress,jobId:raw.jobId,nonce:raw.nonce,powHash:raw.powHash,createdAt:now,shareTarget:raw.shareTarget})
@@ -597,7 +600,9 @@ class MinerApp {
     const unsigned={proofMode:RANDOMX_PROOF_MODE,share:built.share,proof}
     const checked=validateRandomxEnvelope({...unsigned,signature:'pending'},{expectedPeerId:this.peerKey,expectedPayoutAddress:this.payoutAddress,expectedContractHash:CONTRACT_SOURCE_HASH,expectedPoolId:POOL_ID,expectedCellId:live.cellId,epochMs:WORK_EPOCH_MS,now,allowPreviousEpoch:true})
     if(!checked.ok)return
-    const binding=await this.verifyShareCoinbaseBinding(checked); if(!binding.ok){warn('local share coinbase binding rejected',binding.code);return}
+    const binding=await this.verifyShareCoinbaseBinding(checked)
+    if(!this.nodeMiningReady || !this.currentJob || raw.jobId!==this.currentJob.id)return
+    if(!binding.ok){warn('local share coinbase binding rejected',binding.code);return}
     const packet={...unsigned,signature:sign(this.seed,proofEnvelopeSigningPayload(unsigned))}
     const stored=this.storeShare(packet,{local:true}); if(!stored.ok||stored.duplicate)return
     this.acceptedLocal += 1; this.sendLocalPacket(packet)
@@ -976,12 +981,47 @@ class MinerApp {
     }finally{this.rewardScanBusy=false}
   }
 
+  shortNodeIssue(error){
+    const msg=String(error?.message||error||'').toLowerCase()
+    if (/node-not-ready:/.test(msg)) return msg.match(/node-not-ready:([a-z0-9-]+)/)?.[1]||'node-not-synchronized'
+    if (/loading block index|error code: -28|initializing|warming up/.test(msg)) return 'node-initializing'
+    if (/could not connect|cannot connect|connection refused|econnrefused|timeout|timed out/.test(msg)) return 'rpc-unreachable'
+    return 'mining-work-unavailable'
+  }
+
+  pauseForNodeFailure(error){
+    const reason=this.shortNodeIssue(error)
+    if(this.nodePauseReason) return
+    this.nodePauseReason=reason
+    this.nodeMiningReady=false
+    this.currentJob=null
+    this.lastTemplate=null
+    this.lastTemplateHash=''
+    this.directPlan=null
+    this.supervisor.pauseMining()
+    this.workerState={...this.workerState,hashrate:0,running:false}
+    if(this.running&&this.transport)this.broadcastPresence('PAUSED')
+    if(this.running)warn('BYZE mining paused ('+reason+'); retrying node every 10 s.')
+  }
+
   async refreshJob(force=false){
-    let raw
-    try{raw=await this.byze.call('getblocktemplate',[{rules:['segwit']}],{timeout:15_000})}catch{raw=await this.byze.call('getblocktemplate',[],{timeout:15_000})}
+    if(this.jobRefreshPromise)return this.jobRefreshPromise
+    const pending=this.refreshJobOnce(force)
+    this.jobRefreshPromise=pending
+    try{return await pending}finally{if(this.jobRefreshPromise===pending)this.jobRefreshPromise=null}
+  }
+
+  async refreshJobOnce(force=false){
+    try{
+    const info=await this.byze.call('getblockchaininfo',[],{timeout:10_000})
+    const ready=assertMainnetReady(info)
+    if(!ready.ok)throw new Error('node-not-ready:'+ready.code)
+    // Never fall back to getblocktemplate with no parameters: Byze requires
+    // the segwit rules object and otherwise emits its entire RPC help text.
+    const raw=await this.byze.call('getblocktemplate',[{rules:['segwit']}],{timeout:15_000})
     const sanitized=sanitizeGbtTemplate(raw); if(!sanitized.ok)throw new Error(`invalid getblocktemplate: ${sanitized.code}`)
     this.lastTemplate=clone(sanitized.template)
-    const live=this.live(); if(!live?.cellId)return false
+    const live=this.live(); if(!live?.cellId)throw new Error('P2P cell unavailable')
     const pplnsTipId=this.poolChain.tipBeforeEpoch(live.epoch)
     this.directPlan=await this.buildDirectPlan(sanitized.template.coinbasevalue,{tipId:pplnsTipId,payoutAddress:this.payoutAddress}).catch(e=>({ok:false,code:e.message}))
     if(!this.directPlan?.ok)throw new Error(`direct coinbase unavailable: ${this.directPlan?.code||'unknown'}`)
@@ -997,12 +1037,23 @@ class MinerApp {
     sanitized.template.coinbaseoutputs=this.directPlan.outputs.map(r=>({address:r.address,value:r.satoshis,script:r.script})); sanitized.template.directCoinbaseCommitment=this.directPlan.commitment; sanitized.templateHash=randomxTemplateHash(sanitized.template)
     const commitment=buildJobCommitment({contractHash:CONTRACT_SOURCE_HASH,poolId:POOL_ID,cellId:live.cellId,templateHash:sanitized.templateHash,feePolicyHash:this.policy.policyHash,pplnsTipId,coinbaseOutputs:this.directPlan.outputs,coinbaseValue:sanitized.template.coinbasevalue})
     if(!commitment.ok)throw new Error(`job commitment unavailable: ${commitment.code}`)
-    const id=randomxJobId({contractHash:CONTRACT_SOURCE_HASH,poolId:POOL_ID,cellId:live.cellId,templateHash:sanitized.templateHash,difficultyMultiplier:RANDOMX_SHARE_DIFFICULTY_MULTIPLIER}); if(!id)return false
+    const id=randomxJobId({contractHash:CONTRACT_SOURCE_HASH,poolId:POOL_ID,cellId:live.cellId,templateHash:sanitized.templateHash,difficultyMultiplier:RANDOMX_SHARE_DIFFICULTY_MULTIPLIER}); if(!id)throw new Error('RandomX job unavailable')
     const job={id,templateHash:sanitized.templateHash,template:sanitized.template,jobCommitmentHash:commitment.jobCommitmentHash,feePolicyHash:this.policy.policyHash,pplnsTipId}
     this.jobContexts.set(id,{commitment,plan:this.directPlan,createdAt:Date.now()}); while(this.jobContexts.size>32)this.jobContexts.delete(this.jobContexts.keys().next().value)
     if(!force&&this.currentJob?.id===job.id&&this.lastTemplateHash===job.templateHash)return true
     this.supervisor.setJob(job); this.currentJob=job; this.lastTemplateHash=job.templateHash; this.lastGbtAt=Date.now()
+    const recovered=!!this.nodePauseReason
+    this.nodeMiningReady=true
+    this.nodePauseReason=''
+    if(recovered&&this.running){
+      log('BYZE node ready; RandomX resumed.')
+      this.broadcastPresence('MINING')
+    }
     return true
+    }catch(error){
+      this.pauseForNodeFailure(error)
+      throw error
+    }
   }
 
   queuePrePresence(peerKey, frame){
@@ -1085,6 +1136,7 @@ class MinerApp {
   }
 
   async publishCandidate(raw,checked=null){
+    if(!this.nodeMiningReady)return
     if(!this.submitBlocks){warn('Block candidate found but --no-submit is enabled.');return}
     if(this.deferredLocalShares.size||this.deferredPoolShares.size){warn('Block candidate held: PPLNS chain-context synchronization is in progress.');return}
     const ctx=this.jobContexts.get(String(raw?.jobId||''))
@@ -1164,8 +1216,8 @@ class MinerApp {
     const pendingCtx=this.deferredLocalShares.size+this.deferredPoolShares.size
     const line=statusLine({
       time:localClock(),
-      localHashrate:formatHps(this.workerState.hashrate),
-      minerCount:poolMembers.length,
+      localHashrate:this.nodeMiningReady?formatHps(this.workerState.hashrate):'paused',
+      minerCount:poolMembers.filter(m=>String(m.miningState).toUpperCase()==='MINING').length,
       poolHashrate:`~${formatHps(poolHps)}`,
       localShares:this.acceptedLocal,
       remoteAccepted:this.acceptedRemote,
@@ -1202,7 +1254,7 @@ class MinerApp {
     await this.refreshJob(true)
     this.running=true; this.broadcastPresence()
     this.timers.push(setInterval(()=>this.broadcastPresence(),PRESENCE_HEARTBEAT_MS))
-    this.timers.push(setInterval(()=>void this.refreshJob().catch(e=>warn('GBT:',e.message)),10_000))
+    this.timers.push(setInterval(()=>void this.refreshJob().catch(()=>{}),10_000))
     this.timers.push(setInterval(()=>void this.maybePromotePoolShare().catch(e=>warn('PoolShare:',e.message)),1_500))
     this.timers.push(setInterval(()=>this.rebroadcastRecentLocalShares(),5_000))
     this.timers.push(setInterval(()=>this.pruneShares(),10_000))
@@ -1234,6 +1286,7 @@ class MinerApp {
     if(!this.running&& !this.transport)return
     this.history.stop()
     this.running=false
+    this.nodeMiningReady=false
     for(const t of this.timers)clearInterval(t); this.timers=[]
     try{this.broadcastPresence('LEFT'); await sleep(150)}catch{}
     try{this.supervisor.stop()}catch{}
