@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "description": "Operator-reviewed public attribution summaries; raw signed P2P evidence remains private and is not asserted as publicly reproducible. Full on-chain verification required before posting.",
+  "reviewedBlocks": [
+    {
+      "height": 21127,
+      "hash": "0000014e9bb4a17987d446a26847dbae9ca4fb4d7ce31b39d061729c8c7cae87",
+      "coinbaseTxid": "610acf6fa96c134bddbb2db475c6e8119c8d5ca96de64d189ee2213a61044580",
+      "proofFile": "cli/evidence/blocks/21127-610acf6fa96c134bddbb2db475c6e8119c8d5ca96de64d189ee2213a61044580.json",
+      "proofSha256": "1e38767c032066a29ed55dae7e7a30419b18555e94d12cfd8daf73cd7a30927b",
+      "sourceEvidenceSha256": "365f51fb8605a0833073bce5c044c6df84116d446c4db87d252a5411de1910ba",
+      "reviewUrl": "https://github.com/ContractP2P/byze-p2pool-cli/issues/44"
+    },
+    {
+      "height": 21128,
+      "hash": "00000366f5a606b917a5636b0de59d3b25cd726a51a15dea36ba903c513ab9cd",
+      "coinbaseTxid": "136f7d91ba241f56c2e7644e57a4678e343251c78e5ecd1ce17eab7fbfbeceb6",
+      "proofFile": "cli/evidence/blocks/21128-136f7d91ba241f56c2e7644e57a4678e343251c78e5ecd1ce17eab7fbfbeceb6.json",
+      "proofSha256": "83292c55eb47764483421edf5f23651cdc1887f5a8357958ab6fa49ae7b2660f",
+      "sourceEvidenceSha256": "565baff05f06a815850676248dfbd6ac6d2653342b41b20b900566a564240fba",
+      "reviewUrl": "https://github.com/ContractP2P/byze-p2pool-cli/issues/44"
+    }
+  ]
+}
