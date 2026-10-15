@@ -57,6 +57,7 @@ const { normalizePlan: normalizeDirectCoinbasePlan, resolveScripts: resolveDirec
 const { fitTemplateWeight } = require('./mining/block-weight')
 const { PayoutAddressValidator, TRANSIENT_PAYOUT_CODES } = require('./mining/payout-address')
 const { publishQuantumBlock } = require('./mining/byze-block-publisher')
+const { snapshotSubmission, saveSubmissionEvidence } = require('./mining/block-evidence')
 const { createPoolFeePolicy, DEFAULT_POOL_FEE_BASIS_POINTS } = require('./mining/pool-fee-policy')
 const { Supervisor, setNativeMessageHandler } = require('./mining/native-bridge')
 const { buildJobCommitment, verifyCoinbaseBinding } = require('./mining/mining-job-commitment')
@@ -1160,7 +1161,8 @@ class MinerApp {
     if(this.deferredLocalShares.size||this.deferredPoolShares.size){warn('Block candidate held: PPLNS chain-context synchronization is in progress.');return}
     const ctx=this.jobContexts.get(String(raw?.jobId||''))
     if(!raw?.blockHex||raw.blockCandidate!==true||!raw.directCoinbaseCommitted||!ctx?.commitment||raw.directCoinbaseCommitment!==ctx.plan?.commitment||raw.jobCommitmentHash!==ctx.commitment.jobCommitmentHash){warn('Block candidate cannot be submitted: bound PPLNS coinbase is not committed.');return}
-    if(checked){const binding=await verifyCoinbaseBinding({rpc:(m,p=[])=>this.byze.call(m,p,{timeout:15_000}),header80:checked.proof.header80,coinbaseNoWitnessHex:checked.proof.coinbaseNoWitnessHex,merkleBranch:checked.proof.coinbaseMerkleBranch,expectedCommitment:ctx.commitment,expectedHeight:checked.proof.height});if(!binding.ok){warn('Block candidate coinbase binding rejected:',binding.code);return}}
+    let checkedCoinbaseTxid=''
+    if(checked){const binding=await verifyCoinbaseBinding({rpc:(m,p=[])=>this.byze.call(m,p,{timeout:15_000}),header80:checked.proof.header80,coinbaseNoWitnessHex:checked.proof.coinbaseNoWitnessHex,merkleBranch:checked.proof.coinbaseMerkleBranch,expectedCommitment:ctx.commitment,expectedHeight:checked.proof.height});if(!binding.ok){warn('Block candidate coinbase binding rejected:',binding.code);return} checkedCoinbaseTxid=binding.coinbaseTxid}
     const candidate={...raw,previousBlockHash:raw.previousBlockHash||this.lastTemplate?.previousblockhash||''}
     let chainInfo
     try{chainInfo=await this.byze.call('getblockchaininfo',[],{timeout:10_000})}catch(e){warn('Block candidate held: unable to confirm mainnet synchronization.');return}
@@ -1169,6 +1171,17 @@ class MinerApp {
     const result=await publishQuantumBlock({rpc:async(method,params=[])=>this.byze.call(method,params,{timeout:30_000}),candidate,allowSubmit:true,expectedNetwork:'main',validateProposal:true})
     if(result.ok){
       if(this.uiReady)log('🔥 BYZE BLOCK SUBMITTED',`#${raw.height}`,short(raw.powHash,10,8))
+      try {
+        const evidence=snapshotSubmission({raw:candidate,ctx,coinbaseTxid:checkedCoinbaseTxid,
+          poolChain:this.poolChain,policy:this.policy,
+          identity:{cliVersion:APP_VERSION,securityGeneration:SECURITY_GENERATION,
+            contractSourceHash:CONTRACT_SOURCE_HASH,
+            releaseTag:process.env.BYZE_P2POOL_RELEASE_TAG||'',
+            releaseArchiveSha256:process.env.BYZE_P2POOL_ARCHIVE_SHA256||''}})
+        const saved=saveSubmissionEvidence(evidence)
+        log('P2Pool local submission evidence:',saved.path,'SHA-256:',saved.sha256)
+        log('Evidence is private and unconfirmed; review and verify before any public block attribution.')
+      } catch (e) { warn('P2Pool block evidence unavailable (does not affect submission):',e.message) }
       setTimeout(()=>void this.scanRewards(),800)
     } else warn('Block not submitted:',result.code||'',result.reason||'')
     setTimeout(()=>this.refreshJob(true).catch(()=>{}),500)
