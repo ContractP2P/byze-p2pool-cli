@@ -54,6 +54,8 @@ function snapshotSubmission({raw,ctx,coinbaseTxid,poolChain,policy,identity={}})
 }
 function saveSubmissionEvidence(document,{directory=process.env.BYZE_P2POOL_EVIDENCE_DIR||
   path.join(os.homedir(),'.local','state','byze-p2pool','block-evidence')}={}){
+  // Windows ACL semantics differ from POSIX mode bits and are not yet audited.
+  if(process.platform==='win32')throw Error('Private evidence capture is supported only on macOS and Linux')
   const dir=path.resolve(directory)
   fs.mkdirSync(dir,{recursive:true,mode:0o700})
   const st=fs.lstatSync(dir)
