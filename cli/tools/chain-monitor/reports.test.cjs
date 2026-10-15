@@ -45,6 +45,10 @@ test('block report masks wallet addresses, reconciles all outputs and fails clos
   assert.ok(!msg.includes(PAY_B))
   assert.ok(!msg.includes(fee))
   assert.ok(msg.length<2000)
+  const review='https://github.com/ContractP2P/byze-p2pool-cli/pull/34'
+  assert.match(report.blockReport(c,{verified:true,confirmations:6,evidenceUrl:review}),/PPLNS review evidence:/)
+  assert.ok(!report.blockReport(c,{verified:true,confirmations:6,evidenceUrl:'https://evil.example/'})
+    .includes('evil.example'))
   assert.equal(report.blockReport({...c,totalSats:'100000'}, {verified:true,confirmations:6}),null)
   assert.equal(report.abbreviateWallet('@everyone'),'unresolved')
 })
