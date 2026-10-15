@@ -3,7 +3,7 @@
 The scheduled GitHub Actions observer offers **two types of reports**:
 
 1. **Activity**: at most once per hour. A passive Hyperswarm observer listens for approximately 45 seconds to signed mining-presence announcements. It reports **observed** miners in MINING state and a **self-reported** hashrate. It is not a census of the global P2Pool network. **No activity message is posted** unless the snapshot is fresh, at least one verified miner is in MINING state, and a positive recent hashrate has been received. Unavailable measurements never imply that the pool is empty.
-2. **Block payouts**: a message for each independently **attributed** and confirmed P2Pool block. It shows total coinbase, 0.5% fee, amounts paid per wallet and fraction of the net payout. Wallets are displayed with the first ten characters, three dots, and the last six characters. A maximum of 12 wallets fit in the Discord table; other wallets are aggregated, with a link to the block's public on-chain data.
+2. **Block payouts**: a message for each independently **attributed** and confirmed P2Pool block. It shows total coinbase, 0.5% fee, amounts paid per wallet and fraction of the net payout. Wallets are displayed with the first ten characters, three dots, and the last six characters. A maximum of 12 wallets fit in the Discord table; other wallets are aggregated, with links to the block's public on-chain data **and the GitHub evidence review**.
 
 ## Public activity format
 
@@ -27,7 +27,11 @@ After reviewing that evidence, add one entry to the version-controlled file:
 
     cli/config/pool-block-attributions.json
 
-Fields: height, hash, coinbaseTxid, pplnsTipId (prefix ps: plus 64 hex characters) and evidenceUrl linking to the GitHub issue or PR that records the review. The observer checks block hash, height, coinbase txid, fee and amounts again. **This file records an operator attestation; the monitor does not independently validate PPLNS proof.** The file is initially empty; thus **no P2Pool block report can be posted until attribution has been established**. Fully automatic P2P evidence ingestion remains a future improvement.
+The required entry fields are `height`, `hash`, `coinbaseTxid`, `pplnsTipId` (prefix `ps:` and 64 hex digits), `proofFile`, `proofSha256` (exact SHA-256 of the committed public JSON proof), and `evidenceUrl` (the separately reviewed GitHub issue or PR).
+
+The original signed miner/protocol share evidence must be independently reviewed before accepting a PR. The monitor independently **recomputes payout arithmetic** from the committed PPLNS pool-share window and checks that **every positive coinbase output** (script and satoshis) agrees, including the exact 0.50% fee, on every scheduled check. It also verifies evidence file SHA-256, release metadata, hash, height, txid, six confirmations and canonical-chain identity. This numerical verification does **not** cryptographically verify the original PoW share proofs or establish that a self-reported submission actually occurred; a human reviewer must verify these additional source records.
+
+When the review has passed and the attribution manifest is committed to `main`, the existing scheduled GitHub Actions monitor publishes the payout message automatically to Discord once the block is confirmed (>=6), with the evidence review URL. **No auto-publishing from a mere fee-address candidate, local submission log or unreviewed PR.** The manifest remains empty until a real block is proved.
 
 ## Configuration and validation
 
@@ -37,7 +41,7 @@ Fields: height, hash, coinbaseTxid, pplnsTipId (prefix ps: plus 64 hex character
 - To test a real Discord message immediately when the current UTC hour already has a report, manually choose `dry_run=false` and `force_activity=true`. This explicit option bypasses the hourly activity gate for that manual run only; it **does not bypass** the requirement for a fresh, positive mining observation. Scheduled runs remain capped. Do not enable it for routine publication.
 - Run offline tests:
 
-    node --test cli/tools/chain-monitor/core.test.cjs cli/tools/chain-monitor/run.test.cjs cli/tools/chain-monitor/reports.test.cjs
+    node --test cli/tools/chain-monitor/core.test.cjs cli/tools/chain-monitor/run.test.cjs cli/tools/chain-monitor/reports.test.cjs cli/tools/chain-monitor/evidence.test.cjs
 
 The workflow runs at minutes 17 and 47 UTC, subject to GitHub scheduling delays. Routine activity posts are capped at once per UTC clock hour (manual forced tests are the documented exception). Verified block reports are deduplicated by block hash. A successful webhook followed by failed state persistence may result in repeat delivery.
 
@@ -50,3 +54,11 @@ The explorer scan stops on unexpected or malformed blockchain data. An unavailab
 - The payout table displays **addresses receiving coinbase outputs**, not necessarily distinct miners. It uses the actual payment amounts, not current hashrate or a live PPLNS estimate.
 - Abbreviated wallets are not anonymous: amounts and complete receiving addresses remain public on the blockchain. No alias-to-wallet association is published.
 - No mining CLI update is required. The observer imports the existing miner's exported network identity constants; the mining CLI code remains unchanged.
+
+## End-to-end block evidence workflow (no VPS)
+
+1. A new miner build containing `cli/src/mining/block-evidence.js` records a **private, unconfirmed** JSON file after a successful `submitblock` RPC, under `~/.local/state/byze-p2pool/block-evidence/` (mode 0700, file mode 0600). The miner does not contact GitHub or Discord. The already published **15 October** binary bundles do **not** contain this new feature: a future rebuilt and redistributed bundle is required for automatic local capture. A source build on this branch can be used for development testing.
+2. The operator independently checks that the block exists and has six confirmations, that the coinbase txid matches the saved submission, and that the correct signed pool-share / proof history genuinely produced the PPLNS window. Never upload wallet keys, raw RPC credentials or private network information. The locally saved file is **not** a complete cryptographic PoW proof.
+3. Copy the reviewed JSON to `cli/evidence/blocks/<height>-<coinbaseTxid>.json`, update the manifest with the exact file SHA-256, PPLNS tip and a GitHub issue/PR evidence review link. GitHub PR review is the provenance/attestation gate; never automatically commit miner claims.
+4. The GitHub CI runs deterministic evidence tests; the scheduled chain monitor rechecks the real chain, share weights, amount distribution and the exact pool fee. It **fails closed** on missing, forged, modified, incomplete or inconsistent evidence.
+5. Only after a completed review, the manifest entry is merged and the block has six confirmations, a concise `#p2pool-reports` payout report can be posted automatically, with both explorer and review links. The existing hourly activity report remains separate.
