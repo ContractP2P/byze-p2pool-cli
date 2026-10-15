@@ -159,6 +159,7 @@ async function main() {
   console.log(JSON.stringify({dryRun,tip,range,
     feeCandidateCount:candidates.length,unverifiedCandidates:newCandidates.length,
     reviewedBlocksReady:blockMessages.length,reorgs,activityDue,
+    activityPublishable:activityMessage!==null,
     activityReport:activityMessage,blockReports:blockMessages.map(x=>x.message)},null,2))
   if(dryRun)return
   // Fail closed: no payout report for a mere fee-address candidate.
@@ -167,10 +168,14 @@ async function main() {
     previouslyPosted.add(row.hash)
   }
   state.publishedBlocks=[...previouslyPosted].slice(-1200)
-  if(activityDue) {
+  if(activityDue && activityMessage) {
     await sendDiscord(activityMessage)
     state.lastActivityAt=Date.now()
-  } else state.lastActivityAt=Number(loaded.state?.lastActivityAt||0)
+  } else {
+    // An empty/unavailable sample must not create Discord noise or consume the
+    // hourly activity slot. A later run may post if a miner becomes visible.
+    state.lastActivityAt=Number(loaded.state?.lastActivityAt||0)
+  }
   state.lastReportAt=Number(loaded.state?.lastReportAt||0) // legacy field; no old candidate digest to Discord
   await persist(loaded.issue,state)
 }
