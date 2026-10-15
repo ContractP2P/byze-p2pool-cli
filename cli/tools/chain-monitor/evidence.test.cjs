@@ -84,3 +84,17 @@ test('rejects altered PPLNS work, recipient scripts, fees and missing provenance
   bad=edit(candidate);bad.paidFeeSats='1'
   assert.equal(verifyPplnsEvidence(doc,bad).ok,false)
 })
+
+test('community release validates version, immutable archive fingerprint and exact PPLNS payments',()=>{
+  const {doc,candidate}=fixture()
+  const community=JSON.parse(JSON.stringify(doc))
+  community.build.releaseTag='v0.2.5-rc4-community.1'
+  community.build.cliVersion='0.2.5-rc4-community.1'
+  community.build.releaseArchiveSha256='6881453c8e3b5f726920affa65fd6ba6127bbce6bfc67d9daf9ef39ec72802ef'
+  assert.equal(verifyPplnsEvidence(community,candidate).ok,true)
+  community.build.cliVersion='0.2.5-rc3'
+  assert.equal(verifyPplnsEvidence(community,candidate).ok,false,'tag and internal version must match')
+  community.build.cliVersion='0.2.5-rc4-community.1'
+  community.build.releaseArchiveSha256='4be720b76f5066edae2d8e84837efa2cd66349003f8a636335beeb83f614138b'
+  assert.equal(verifyPplnsEvidence(community,candidate).ok,false,'archive SHA and tag must match')
+})
