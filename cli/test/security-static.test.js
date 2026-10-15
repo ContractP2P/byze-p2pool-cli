@@ -83,7 +83,7 @@ test('v0.2.4 keeps coinbase-binding-v2 with global-epoch-v6 and managed native i
   assert.match(main,/SECURITY_GENERATION = 'coinbase-binding-v2-global-epoch-v6'/)
   assert.match(main,/verifyShareCoinbaseBinding\(checked,options=\{\}\)/)
   assert.match(main,/const binding=await this\.verifyShareCoinbaseBinding\(checked\); if\(!binding\.ok\)return binding/)
-  assert.match(main,/const binding=await this\.verifyShareCoinbaseBinding\(checked\); if\(!binding\.ok\)\{warn\('local share coinbase binding rejected'/)
+  assert.match(main,/const binding=await this\.verifyShareCoinbaseBinding\(checked\)\s+if\(!this\.nodeMiningReady \|\| !this\.currentJob \|\| raw\.jobId!==this\.currentJob\.id\)return\s+if\(!binding\.ok\)\{warn\('local share coinbase binding rejected'/)
   assert.match(main,/verifyCoinbaseBinding\(\{rpc:/)
   assert.match(rx,/RANDOMX_PROOF_MODE = 'byze-randomx-v2'/)
   assert.match(rx,/jobCommitmentHash/)

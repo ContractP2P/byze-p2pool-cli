@@ -215,6 +215,7 @@ class Supervisor {
     this.verifier = new RxVerifier(this.verifierPath)
     this.config = null
     this.job = null
+    this.miningPaused = false
     this.startedAt = 0
     this.hashrate = 0
     this.accepted = 0
@@ -253,10 +254,11 @@ class Supervisor {
       verifierQueueMax: MAX_RANDOMX_VERIFY_QUEUE,
       verifierBusyRejected: Number(this.verifier.busyRejected || 0),
       running: !!this.miner,
-      ready: !!this.miner && !!this.verifier.ready && !!this.job,
+      miningPaused: this.miningPaused,
+      ready: !!this.miner && !this.miningPaused && !!this.verifier.ready && !!this.job,
       threads: Number(this.config?.threads || 0),
       maxThreads: Math.max(1, Number(os.availableParallelism?.() || os.cpus()?.length || 1)),
-      hashrate: Number(this.hashrate || 0),
+      hashrate: this.miner && !this.miningPaused ? Number(this.hashrate || 0) : 0,
       accepted: Number(this.accepted || 0),
       rejected: Number(this.rejected || 0),
       networkCandidates: Number(this.networkCandidates || 0),
@@ -387,12 +389,14 @@ class Supervisor {
     const blockHex = String(params[1] || '').toLowerCase()
     const jobId = String(params[2] || '')
     const coinbaseNoWitnessHex = String(params[3] || '').toLowerCase()
-    if (!this.job || jobId !== this.job.id || !/^[0-9a-f]+$/.test(blockHex) || blockHex.length < 160 || blockHex.length > MAX_BLOCK_HEX || !/^[0-9a-f]+$/.test(coinbaseNoWitnessHex) || coinbaseNoWitnessHex.length % 2 || coinbaseNoWitnessHex.length > 128 * 1024) {
+    if (this.miningPaused || !this.job || jobId !== this.job.id || !/^[0-9a-f]+$/.test(blockHex) || blockHex.length < 160 || blockHex.length > MAX_BLOCK_HEX || !/^[0-9a-f]+$/.test(coinbaseNoWitnessHex) || coinbaseNoWitnessHex.length % 2 || coinbaseNoWitnessHex.length > 128 * 1024) {
       this.rejected += 1; this.send({ id: msg.id ?? null, result: false, error: [20, 'invalid share', null] }); this.emitStatus(); return
     }
     const header80 = blockHex.slice(0, 160)
     try {
       const powHash = await this.verifier.verify(header80)
+      // A verification started before RPC loss must not be credited after pause.
+      if (this.miningPaused || !this.job || this.job.id !== jobId) return
       const multiplier = Number(this.config?.difficultyMultiplier || RANDOMX_SHARE_DIFFICULTY_MULTIPLIER)
       const shareTarget = shareTargetFromNetworkTarget(this.job.template.target, multiplier)
       if (!shareTarget || !hashMeetsTarget(powHash, shareTarget)) throw Object.assign(new Error('share target miss'), { code: 'randomxTargetMiss' })
@@ -450,7 +454,7 @@ class Supervisor {
       const line = this.minerBuffer.slice(0, i).trim()
       this.minerBuffer = this.minerBuffer.slice(i + 1)
       const m = /hashrate=([0-9]+(?:\.[0-9]+)?)\s*H\/s/i.exec(line)
-      if (m) { this.hashrate = Number(m[1]) || 0; this.emitStatus() }
+      if (m && !this.miningPaused && this.miner) { this.hashrate = Number(m[1]) || 0; this.emitStatus() }
       if (/error|failed|abort/i.test(line)) { this.lastError = line.slice(0, 300); this.emitStatus() }
     }
   }
@@ -464,6 +468,7 @@ class Supervisor {
     const next = { instanceId: String(raw?.instanceId || '').slice(0, 128), payoutAddress, threads, workerTag: safeWorkerTag(raw?.workerTag), difficultyMultiplier: multiplier }
     const needsRestart = !this.config || this.config.payoutAddress !== next.payoutAddress || this.config.threads !== next.threads || this.config.workerTag !== next.workerTag || this.config.difficultyMultiplier !== next.difficultyMultiplier
     this.config = next
+    this.miningPaused = false
     if (!this.minerPath || !this.verifierPath) { this.lastError = !this.minerPath ? 'native-miner-not-found' : 'native-verifier-not-found'; this.emitStatus(); return this.status() }
     if (!this.minerFeatures.includes('contract-direct-coinbase-v2')) {
       this.stopMiner()
@@ -487,8 +492,8 @@ class Supervisor {
       const child = spawn(this.minerPath, args, { stdio: ['ignore','pipe','pipe'], windowsHide: true, env: minimalNativeEnv() })
       this.miner = child
       this.startedAt = Date.now()
-      child.stdout.setEncoding('utf8'); child.stdout.on('data', (chunk) => this.onMinerOutput(chunk))
-      child.stderr.setEncoding('utf8'); child.stderr.on('data', (chunk) => this.onMinerOutput(chunk))
+      child.stdout.setEncoding('utf8'); child.stdout.on('data', (chunk) => { if (this.miner === child) this.onMinerOutput(chunk) })
+      child.stderr.setEncoding('utf8'); child.stderr.on('data', (chunk) => { if (this.miner === child) this.onMinerOutput(chunk) })
       child.once('exit', (code) => { if (this.miner !== child) return; this.miner = null; this.hashrate = 0; this.lastError = `byze-p2pool-miner-exit-${code ?? 'unknown'}`; this.emitStatus() })
       child.once('error', (error) => { if (this.miner !== child) return; this.miner = null; this.hashrate = 0; this.lastError = String(error?.message || error); this.emitStatus() })
     } catch (error) { this.miner = null; this.lastError = String(error?.message || error); this.emitStatus() }
@@ -502,10 +507,25 @@ class Supervisor {
     this.hashrate = 0
   }
 
+  pauseMining() {
+    // Keep the local Stratum server and verifier; stop only the CPU miner.
+    // Invalidate the old job so a late share cannot be credited after outage.
+    if (this.miningPaused) return this.status()
+    this.miningPaused = true
+    this.job = null
+    this.stopMiner()
+    this.emitStatus({ immediate: true })
+    return this.status()
+  }
+
   setJob(raw) {
     const job = normalizeJob(raw)
     if (!job) throw Object.assign(new Error('Invalid RandomX job'), { code: 'randomxJobInvalid' })
     this.job = job
+    if (this.miningPaused) {
+      this.miningPaused = false
+      this.startMiner()
+    }
     this.sendJob()
     this.emitStatus()
     return this.status()
@@ -524,6 +544,7 @@ class Supervisor {
     this.server = null
     this.port = 0
     this.job = null
+    this.miningPaused = false
     this.config = null
     if (this.statusEmitTimer) { clearTimeout(this.statusEmitTimer); this.statusEmitTimer = null }
     this.emitStatus({ immediate: true })
@@ -540,6 +561,7 @@ async function handle(message) {
     if (action === 'discover') result = supervisor.refreshDiscovery()
     else if (action === 'configure') result = await supervisor.configure(message.payload || {})
     else if (action === 'job') result = supervisor.setJob(message.payload || {})
+    else if (action === 'pause') result = supervisor.pauseMining()
     else if (action === 'verify') result = { hash: await supervisor.verify(message.payload?.header80) }
     else if (action === 'stop') { supervisor.stop(); result = { ok: true } }
     else throw Object.assign(new Error('Unsupported RandomX action'), { code: 'randomxActionBlocked' })

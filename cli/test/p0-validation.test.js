@@ -275,7 +275,7 @@ test('refreshJob adjusts template and rebuilds payout amounts before handing job
   const txs=[gbtTx({outputScripts:['00'.repeat(30_000)],nonce:1},1000),gbtTx({outputScripts:['00'.repeat(30_000)],nonce:2},2000,[1])]
   const raw=template(txs)
   raw.weightlimit=200_000
-  const a=app(async m=>{if(m==='getblocktemplate')return raw;if(m==='validateaddress')return {isvalid:true,scriptPubKey:script};return {}})
+  const a=app(async m=>{if(m==='getblockchaininfo')return {chain:'main',blocks:21113,headers:21113,initialblockdownload:false};if(m==='getblocktemplate')return raw;if(m==='validateaddress')return {isvalid:true,scriptPubKey:script};return {}})
   a.live=()=>({cellId:'cell:1:1234567890abcdef',epoch:1})
   let job
   a.supervisor.setJob=j=>{job=j}
