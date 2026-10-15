@@ -70,7 +70,7 @@ jobs:
             arm64) plat="darwin-arm64" ;;
             *) exit 1 ;;
           esac
-          pool="$home/.local/opt/byze-p2pool-0.2.5-rc3-$plat/bin"
+          pool="$home/.local/opt/byze-p2pool-0.2.5-rc3-rpc-recovery-test1-$plat/bin"
           mkdir -p "$pool"
           cat > "$pool/byze-p2pool" <<'POOL'
           #!/bin/sh
@@ -95,7 +95,8 @@ jobs:
           test ! -e "$work/curl.calls"
           grep -q '# BYZE_P2POOL_MANAGED_LAUNCHER' "$home/.local/bin/byze-p2pool"
           test -f "$home/ldev/byze/build/bin/byze-cli"
-          echo 'PASS: existing Core untouched, pool launcher configured'
+          grep -Fq 'byze-p2pool-0.2.5-rc3-rpc-recovery-test1-' "$home/.local/bin/byze-p2pool"
+          echo 'PASS: existing Core untouched, current pool launcher configured'
           # Regression: an unsynchronized, zero-block Core must not be
           # labelled READY, even if the reused rc3 bundle says otherwise.
           cat > "$home/ldev/byze/build/bin/byze-cli" <<'ZERO_CORE'
@@ -146,6 +147,41 @@ jobs:
           echo 'PASS: percentage progresses to 100% without modifying or restarting Core'
 
 
+
+      - name: Earlier rc3 Mac test package cannot silently replace the new release
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          trap 'rm -rf -- "$work"' EXIT
+          home="$work/home"
+          mkdir -p "$home/ldev/byze/build/bin" "$work/mockbin"
+          printf '#!/bin/sh\nexit 0\n' > "$home/ldev/byze/build/bin/byze-cli"
+          chmod 700 "$home/ldev/byze/build/bin/byze-cli"
+          case "$(uname -m)" in
+            x86_64) plat=darwin-x64 ;;
+            arm64) plat=darwin-arm64 ;;
+            *) exit 1 ;;
+          esac
+          old="$home/.local/opt/byze-p2pool-0.2.5-rc3-$plat/bin"
+          mkdir -p "$old"
+          printf '#!/bin/sh\nexit 0\n' > "$old/byze-p2pool"
+          chmod 700 "$old/byze-p2pool"
+          cat > "$work/mockbin/curl" <<'MOCK'
+          #!/bin/sh
+          echo "$*" >> "$CURL_CALLS"
+          exit 22
+          MOCK
+          chmod 700 "$work/mockbin/curl"
+          if CURL_CALLS="$work/calls" HOME="$home" PATH="$work/mockbin:$PATH" \
+            /bin/bash docs/install-macos.sh --install > "$work/out" 2>&1; then
+            echo 'Old rc3 package must not count as latest release' >&2; exit 1
+          fi
+          grep -Fq 'v0.2.5-rc3-rpc-recovery-test1/byze-p2pool-cli-complete-' "$work/calls"
+          test -f "$old/byze-p2pool"
+          test ! -e "$home/.local/bin/byze-p2pool"
+          test -f "$home/ldev/byze/build/bin/byze-cli"
+          echo 'PASS: previous CLI preserved, new release required; Core untouched'
 
       - name: Existing Core data fails closed without any network access
         shell: bash
