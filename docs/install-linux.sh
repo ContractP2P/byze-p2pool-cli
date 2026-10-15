@@ -9,13 +9,14 @@ CORE_FPR=9F11E836EB4B7F464ADBB1E7AC11CA674828CAE1
 CORE_ASSET=byze-core-linux-x86_64.tar.gz
 CORE_URL="https://github.com/powhermes/byze/releases/download/$CORE_TAG"
 VERSION=0.2.5-rc3
-CLI_TAG=v0.2.5-rc3-linux-x64-test1
+CLI_TAG=v0.2.5-rc3-rpc-recovery-test1
 # Immutable trusted archive fingerprint, independently pinned from the GitHub Release asset digest.
-CLI_SHA=3481ebacc1a237598da6ad383a903dcf8f9532853d18f64f49f77783b1293766
+CLI_SHA=1c6eee109bc65008ccad476f80aa57ab5c04bd3ed678d3c447671e85952893ea
 CLI_ASSET="byze-p2pool-cli-complete-$VERSION-linux-x64.tar.gz"
 CLI_URL="https://github.com/ContractP2P/byze-p2pool-cli/releases/download/$CLI_TAG"
 BASE="$HOME/.local/opt"
-POOL="$BASE/byze-p2pool-$VERSION-linux-x64"
+# Separate the 15 October package from older rc3 builds; preserve the old files.
+POOL="$BASE/byze-p2pool-$VERSION-rpc-recovery-test1-linux-x64"
 LAUNCHER="$HOME/.local/bin/byze-p2pool"
 MARKER="$BASE/byze-p2pool-core-cli.path"
 CORE_CLI=
@@ -196,7 +197,7 @@ if [ -z "$BYZE_CLI" ]; then
   BYZE_CLI="$(cat "$HOME/.local/opt/byze-p2pool-core-cli.path")"
   export BYZE_CLI
 fi
-exec "$HOME/.local/opt/byze-p2pool-0.2.5-rc3-linux-x64/bin/byze-p2pool" "$@"
+exec "$HOME/.local/opt/byze-p2pool-0.2.5-rc3-rpc-recovery-test1-linux-x64/bin/byze-p2pool" "$@"
 EOF
   chmod 0755 "$LAUNCHER"
   "$LAUNCHER" --version
