@@ -8,7 +8,7 @@ const crypto=require('node:crypto')
 const policy=require('../../config/pool-policy.json')
 const {buildPoolShare,calculateDirectPayouts}=require('../../src/mining/p2pool-protocol')
 const {buildJobCommitment}=require('../../src/mining/mining-job-commitment')
-const {snapshotSubmission,saveSubmissionEvidence}=require('../../src/mining/block-evidence')
+const {snapshotSubmission,snapshotSubmissionRecovery,saveSubmissionEvidence}=require('../../src/mining/block-evidence')
 const {verifyPplnsEvidence}=require('./verify-payout-evidence.cjs')
 const {verifiedAttributions,eligibleBlock}=require('./block-proof.cjs')
 
@@ -97,4 +97,56 @@ test('community release validates version, immutable archive fingerprint and exa
   community.build.cliVersion='0.2.5-rc4-community.1'
   community.build.releaseArchiveSha256='4be720b76f5066edae2d8e84837efa2cd66349003f8a636335beeb83f614138b'
   assert.equal(verifyPplnsEvidence(community,candidate).ok,false,'archive SHA and tag must match')
+})
+
+test('a single miner can capture and independently review a real bootstrap payout without inventing a PPLNS window', {skip:process.platform==='win32'},()=>{
+  const home=fs.mkdtempSync(path.join(os.tmpdir(),'byze-bootstrap-evidence-'))
+  try{
+    const reward='5000000000',fee='25000000',miner='4975000000',txid='c'.repeat(64)
+    const outputs=[{address:policy.feeAddress,satoshis:fee,script:'0014'+'a'.repeat(40)},
+      {address:A,satoshis:miner,script:'0014'+'b'.repeat(40)}]
+    const commitment=buildJobCommitment({contractHash:CONTRACT,poolId:policy.poolId,
+      cellId:'cell:bootstrap',templateHash:'d'.repeat(64),feePolicyHash:'e'.repeat(64),
+      pplnsTipId:'',coinbaseOutputs:outputs,coinbaseValue:reward})
+    assert.equal(commitment.ok,true)
+    const capture={raw:{height:2346,previousBlockHash:'f'.repeat(64),powHash:'e'.repeat(64),jobId:'bootstrap'},
+      ctx:{commitment,plan:{ok:true,outputs}},coinbaseTxid:txid,policy,
+      poolChain:{windowFrom:()=>{throw Error('Bootstrap must not ask for an imaginary PoolShare')}},
+      identity:{cliVersion:'0.2.5-rc4-community.1',securityGeneration:'coinbase-binding-v2-global-epoch-v6',
+        contractSourceHash:CONTRACT,releaseTag:'v0.2.5-rc4-community.1',
+        releaseArchiveSha256:'6881453c8e3b5f726920affa65fd6ba6127bbce6bfc67d9daf9ef39ec72802ef'}}
+    const doc=snapshotSubmission(capture)
+    assert.equal(doc.payoutMode,'bootstrap')
+    assert.equal(doc.proofStatus,'bootstrap-payout-checked')
+    assert.equal(doc.pplnsTipId,'')
+    assert.deepEqual(doc.poolShares,[])
+    assert.deepEqual(doc.signedPoolSharePackets,[])
+    const candidate={height:2346,hash:'a'.repeat(64),coinbaseTxid:txid,
+      feeApproxMatch:true,totalSats:reward,paidFeeSats:fee,expectedFeeSats:fee,
+      outputs:outputs.map((x,i)=>({n:i,address:x.address,sats:x.satoshis,script:x.script}))}
+    assert.equal(verifyPplnsEvidence(doc,candidate).payoutMode,'bootstrap')
+    const saved=saveSubmissionEvidence(doc,{directory:path.join(home,'private')})
+    const rel='cli/evidence/blocks/2346-'+txid+'.json'
+    const dest=path.join(home,rel)
+    fs.mkdirSync(path.dirname(dest),{recursive:true})
+    fs.copyFileSync(saved.path,dest)
+    const entry={height:2346,hash:candidate.hash,coinbaseTxid:txid,payoutMode:'bootstrap',pplnsTipId:'',
+      evidenceUrl:'https://github.com/ContractP2P/byze-p2pool-cli/pull/123',
+      proofFile:rel,proofSha256:saved.sha256}
+    const manifest=path.join(home,'attributions.json')
+    fs.writeFileSync(manifest,JSON.stringify({schema:1,confirmedBlocks:[entry]}))
+    const reviewed=verifiedAttributions(manifest,home)
+    assert.equal(eligibleBlock(candidate,reviewed.get(candidate.hash),5),false)
+    assert.equal(eligibleBlock(candidate,reviewed.get(candidate.hash),6),true)
+    assert.equal(eligibleBlock({...candidate,paidFeeSats:'1'},reviewed.get(candidate.hash),6),false)
+    assert.equal(eligibleBlock({...candidate,outputs:[{...candidate.outputs[0],sats:'25000001'},candidate.outputs[1]]},reviewed.get(candidate.hash),6),false)
+    const invalidDoc={...doc,payoutMode:'pplns'}
+    assert.equal(verifyPplnsEvidence(invalidDoc,candidate).ok,false)
+    const recovered=snapshotSubmissionRecovery(capture,Error('PPLNS window absent'))
+    assert.equal(recovered.proofStatus,'incomplete')
+    assert.equal(verifyPplnsEvidence(recovered,candidate).ok,false)
+    assert.ok(saveSubmissionEvidence(recovered,{directory:path.join(home,'private')}).path)
+    fs.writeFileSync(dest,JSON.stringify(recovered))
+    assert.equal(eligibleBlock(candidate,reviewed.get(candidate.hash),6),false)
+  }finally{fs.rmSync(home,{recursive:true,force:true})}
 })
