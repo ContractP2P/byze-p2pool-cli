@@ -49,7 +49,7 @@ jobs:
           work="$(mktemp -d)"
           trap 'rm -rf "$work"' EXIT
           home="$work/home"
-          mkdir -p "$home/byze/build/bin" "$home/.local/opt/byze-p2pool-0.2.5-rc4-community.1-linux-x64/bin" "$work/mock"
+          mkdir -p "$home/byze/build/bin" "$home/.local/opt/byze-p2pool-0.2.5-rc4-community.2-linux-x64/bin" "$work/mock"
           cat > "$home/byze/build/bin/byze-cli" <<'CLI'
           #!/bin/sh
           if [ "$1" = getblockchaininfo ]; then
@@ -58,9 +58,9 @@ jobs:
           fi
           exit 1
           CLI
-          cat > "$home/.local/opt/byze-p2pool-0.2.5-rc4-community.1-linux-x64/bin/byze-p2pool" <<'POOL'
+          cat > "$home/.local/opt/byze-p2pool-0.2.5-rc4-community.2-linux-x64/bin/byze-p2pool" <<'POOL'
           #!/bin/sh
-          if [ "$1" = --version ]; then echo 0.2.5-rc4-community.1; exit 0; fi
+          if [ "$1" = --version ]; then echo 0.2.5-rc4-community.2; exit 0; fi
           if [ "$1" = --check-node ]; then echo BYZE_NODE_READY; exit 0; fi
           exit 1
           POOL
@@ -70,13 +70,13 @@ jobs:
           exit 99
           CURL
           chmod +x "$home/byze/build/bin/byze-cli" \
-            "$home/.local/opt/byze-p2pool-0.2.5-rc4-community.1-linux-x64/bin/byze-p2pool" "$work/mock/curl"
+            "$home/.local/opt/byze-p2pool-0.2.5-rc4-community.2-linux-x64/bin/byze-p2pool" "$work/mock/curl"
           HOME="$home" PATH="$work/mock:$PATH" bash docs/install-linux.sh --install > "$work/result"
           grep -q 'CORE_ACTION: REUSE_ONLY' "$work/result"
           grep -q 'BYZE_NODE_READY' "$work/result"
           grep -qx '# BYZE_P2POOL_MANAGED_LAUNCHER' "$home/.local/bin/byze-p2pool"
           test -f "$home/byze/build/bin/byze-cli"
-          grep -Fq 'byze-p2pool-0.2.5-rc4-community.1-linux-x64/bin' "$home/.local/bin/byze-p2pool"
+          grep -Fq 'byze-p2pool-0.2.5-rc4-community.2-linux-x64/bin' "$home/.local/bin/byze-p2pool"
           echo 'PASS: no BYZE Core/CLI redownload or replacement'
           cat > "$home/byze/build/bin/byze-cli" <<'EMPTY_CLI'
           #!/bin/sh
@@ -143,7 +143,7 @@ jobs:
             bash docs/install-linux.sh --install > "$work/out" 2>&1; then
             echo 'Old rc3 package must not count as latest release' >&2; exit 1
           fi
-          grep -Fq 'v0.2.5-rc4-community.1/byze-p2pool-cli-complete-' "$work/calls"
+          grep -Fq 'v0.2.5-rc4-community.2/byze-p2pool-cli-complete-' "$work/calls"
           test -f "$old/byze-p2pool"
           test ! -e "$home/.local/bin/byze-p2pool"
           test -f "$home/byze/build/bin/byze-cli"
