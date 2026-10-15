@@ -42,7 +42,7 @@ function eligibleBlock(candidate,entry,confirmations){
   // Fail closed: do not allow a mutable link or a substituted proof bundle.
   try{
     const stat=fs.lstatSync(entry.proofPath)
-    if(!stat.isFile()||stat.isSymbolicLink()||stat.size>2_000_000||stat.size<100)return false
+    if(!stat.isFile()||stat.isSymbolicLink()||stat.size>8_000_000||stat.size<100)return false
     const bytes=fs.readFileSync(entry.proofPath)
     if(crypto.createHash('sha256').update(bytes).digest('hex')!==entry.proofSha256)return false
     const evidence=JSON.parse(bytes.toString('utf8'))
