@@ -18,6 +18,11 @@ const TRUSTED_RELEASES=Object.freeze({
     '22ad3f666e4e487c848dbc6133ee1aa91fea0fd8e299944fa9b04e77c6d86986',
     'f86ee84a54d818b16098b68996473a61f22c7d8481f2b9d02251ffbb7a625b47',
     '6881453c8e3b5f726920affa65fd6ba6127bbce6bfc67d9daf9ef39ec72802ef'
+  ])},
+  'v0.2.5-rc4-community.2':{version:'0.2.5-rc4-community.2',sha256:new Set([
+    'f6c508bde9793aa7128985366afaa9f03de9a8bf6b13ec3df4cf086c5204ffce',
+    'a51326d40de13e6bb1246a8470066b676f6140f79c7725cb393d4d5028021391',
+    'ee398f908b4e587bb027803d53326cdb11a77ec60cea958e911c152e342d684d'
   ])}
 })
 function positive(v){try{const n=BigInt(String(v));return n>0n?n:null}catch{return null}}
