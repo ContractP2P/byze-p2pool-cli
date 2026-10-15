@@ -164,7 +164,7 @@ async function post(content){
 async function main(){
   const manifest=JSON.parse(fs.readFileSync(path.join(ROOT,'cli/config/operator-reviewed-blocks.json'),'utf8'))
   ok(manifest.schema===1&&Array.isArray(manifest.reviewedBlocks)&&
-    manifest.reviewedBlocks.length===2,'Unexpected reviewed block manifest')
+    manifest.reviewedBlocks.length>=1&&manifest.reviewedBlocks.length<=100,'Invalid reviewed block manifest size')
   const unique=new Set()
   const entries=manifest.reviewedBlocks.map(row=>{
     ok(!unique.has(row.hash),'Duplicate reviewed block')
@@ -175,12 +175,14 @@ async function main(){
   const tip=tipHeight(await fetchJson(explorerUrl(process.env.BYZE_TIP_URL||EXPLORER+'/api/status')))
   const state=await loadState()
   for(const e of entries){
-    await checkChain(e,tip)
-    const report=message(e,tip-e.height+1)
+    // An already-published report must never prevent a newly reviewed block
+    // from posting if the older block later reorgs or ages out of the explorer.
     if(state.publishedBlocks.includes(e.hash)){
       console.log('ALREADY_POSTED',e.height,e.hash)
       continue
     }
+    await checkChain(e,tip)
+    const report=message(e,tip-e.height+1)
     if(DRY){
       console.log('DRY_RUN_VERIFIED',e.height,report)
       continue
