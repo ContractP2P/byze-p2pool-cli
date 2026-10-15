@@ -34,7 +34,8 @@ function fixture(){
   assert.equal(commitment.ok,true)
   const doc=snapshotSubmission({raw:{height:2345,previousBlockHash:'f'.repeat(64),powHash:'e'.repeat(64),jobId:'test-job'},
     ctx:{commitment,plan:{ok:true,outputs}},coinbaseTxid:'b'.repeat(64),
-    poolChain:{windowFrom:()=>[share]},policy,
+    poolChain:{windowFrom:()=>[share]},poolPackets:new Map([[share.poolShareId,
+      {share,signature:'test-packet-signature',signerPeerKey:'f'.repeat(64)}]]),policy,
     identity:{cliVersion:'0.2.5-rc3',securityGeneration:'coinbase-binding-v2-global-epoch-v6',
       contractSourceHash:CONTRACT,releaseTag:'v0.2.5-rc3-evidence-test1',
       releaseArchiveSha256:RELEASE}})
@@ -73,7 +74,11 @@ test('rejects altered PPLNS work, recipient scripts, fees and missing provenance
   const {doc,candidate}=fixture()
   assert.equal(verifyPplnsEvidence(doc,candidate).ok,true)
   const edit=x=>JSON.parse(JSON.stringify(x))
-  let bad=edit(doc);bad.poolShares[0].payoutWeights[A]='7'
+  let bad=edit(doc);bad.missingProofPackets=1
+  assert.equal(verifyPplnsEvidence(bad,candidate).reason,'signed-pplns-source-packets-missing')
+  bad=edit(doc);bad.signedPoolSharePackets[0]=null
+  assert.equal(verifyPplnsEvidence(bad,candidate).reason,'signed-pplns-source-packets-missing')
+  bad=edit(doc);bad.poolShares[0].payoutWeights[A]='7'
   assert.equal(verifyPplnsEvidence(bad,candidate).ok,false)
   bad=edit(doc);bad.poolShares[0].poolShareId='ps:'+'0'.repeat(64);bad.pplnsTipId=bad.poolShares[0].poolShareId
   assert.equal(verifyPplnsEvidence(bad,candidate).ok,false)
