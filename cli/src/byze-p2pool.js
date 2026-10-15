@@ -391,6 +391,7 @@ class MinerApp {
     this.nodeMiningReady = false
     this.nodePauseReason = ''
     this.jobRefreshPromise = null
+    this.jobRefreshForcePending = false
     this.running = false
     this.acceptedLocal = 0
     this.acceptedRemote = 0
@@ -1019,10 +1020,21 @@ class MinerApp {
   }
 
   async refreshJob(force=false){
-    if(this.jobRefreshPromise)return this.jobRefreshPromise
+    if(this.jobRefreshPromise){
+      // A changed PPLNS tip requires another freshly built job; do not lose
+      // the event merely because a routine RPC poll is already in flight.
+      if(force)this.jobRefreshForcePending=true
+      return this.jobRefreshPromise
+    }
     const pending=this.refreshJobOnce(force)
     this.jobRefreshPromise=pending
-    try{return await pending}finally{if(this.jobRefreshPromise===pending)this.jobRefreshPromise=null}
+    try{return await pending}finally{
+      if(this.jobRefreshPromise===pending)this.jobRefreshPromise=null
+      if(this.jobRefreshForcePending&&this.running){
+        this.jobRefreshForcePending=false
+        setImmediate(()=>void this.refreshJob(true).catch(()=>{}))
+      }
+    }
   }
 
   async refreshJobOnce(force=false){
