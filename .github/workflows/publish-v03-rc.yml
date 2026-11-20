@@ -1,0 +1,214 @@
+name: Publish BYZE P2Pool v0.3 experimental release candidate
+
+# Single pinned-source, three-platform pre-release. Do not publish stable
+# or reactivate the guided installer until post-fork and multi-peer release
+# gates pass. The GitHub release is intentionally UNSIGNED / UNNOTARIZED.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-v03-rc.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: byze-p2pool-v03-rc1-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    name: Verified v0.3 RC / ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: darwin-arm64
+            os: macos-15
+          - platform: darwin-x64
+            os: macos-15-intel
+          - platform: linux-x64
+            os: ubuntu-24.04
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 100
+    defaults:
+      run:
+        working-directory: cli
+        shell: bash
+    env:
+      RELEASE_VERSION: '0.3.0-rc1.dev'
+      EXPECTED_PLATFORM: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: cli/package-lock.json
+      - name: Exact release version, source and platform gates
+        run: |
+          set -euo pipefail
+          test "$(node -p 'require("./package.json").version')" = "$RELEASE_VERSION"
+          test "$(node -p 'require("./COMPATIBILITY.json").cliVersion')" = "$RELEASE_VERSION"
+          test "$(node -p 'process.platform+"-"+process.arch')" = "$EXPECTED_PLATFORM"
+          test -f ../docs/byze-v03-upgrade.md
+          test -f ../cli/config/pool-policy.json
+          echo "Source $GITHUB_SHA / $RELEASE_VERSION / $EXPECTED_PLATFORM"
+      - name: Prepare reproducible pinned native build toolchain
+        run: |
+          set -euo pipefail
+          if [ "$RUNNER_OS" = macOS ]; then
+            brew install cmake boost openssl@3 pkg-config
+            echo "CMAKE_PREFIX_PATH=$(brew --prefix boost):$(brew --prefix openssl@3)" >> "$GITHUB_ENV"
+          else
+            sudo apt-get update
+            sudo apt-get install -y build-essential cmake git pkg-config libboost-dev libssl-dev
+          fi
+      - name: Test exact checkout
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run check
+          npm test
+          node --test tools/chain-monitor/core.test.cjs tools/chain-monitor/run.test.cjs tools/chain-monitor/reports.test.cjs tools/chain-monitor/evidence.test.cjs
+          npm run test:dht
+          npm run release:preflight:source
+      - name: Build native miner/verifier from pinned official source
+        run: |
+          set -euo pipefail
+          rm -rf "native/$EXPECTED_PLATFORM"
+          npm run native:bootstrap-official
+          npm run native:ensure
+          node - <<'JS'
+          const {nativeBundleStatus,EXPECTED_NATIVE_SOURCE_COMMIT}=require('./src/mining/native-components')
+          const s=nativeBundleStatus()
+          if(s.platformKey!==process.env.EXPECTED_PLATFORM ||
+             !s.miner.ok || !s.verifier.ok ||
+             s.miner.sourceCommit!==EXPECTED_NATIVE_SOURCE_COMMIT ||
+             s.verifier.sourceCommit!==EXPECTED_NATIVE_SOURCE_COMMIT ||
+             s.miner.feature!=='contract-direct-coinbase-v2') {
+            throw Error('Native pinned source manifest or feature mismatch')
+          }
+          console.log('Pinned native components:',s.miner.sha256,s.verifier.sha256)
+          JS
+      - name: Package, unpack and verify complete RC artifact
+        run: |
+          set -euo pipefail
+          archive="byze-p2pool-cli-complete-$RELEASE_VERSION-$EXPECTED_PLATFORM.tar.gz"
+          mkdir -p dist
+          case "$EXPECTED_PLATFORM" in
+            darwin-arm64) bash tools/build-portable-macos.sh ;;
+            darwin-x64) bash tools/build-portable-macos-intel.sh ;;
+            linux-x64)
+              bash tools/build-portable-lab.sh
+              tar -czf "dist/$archive" -C .portable-lab linux-x64
+              ;;
+            *) echo "Unsupported release platform" >&2; exit 2 ;;
+          esac
+          test -s "dist/$archive"
+          tar -tzf "dist/$archive" > "dist/$EXPECTED_PLATFORM-files.txt"
+          case "$EXPECTED_PLATFORM" in
+            darwin-*) root="byze-p2pool-$RELEASE_VERSION-$EXPECTED_PLATFORM" ;;
+            linux-x64) root="linux-x64" ;;
+          esac
+          dir="$(mktemp -d)"
+          trap 'rm -rf -- "$dir"' EXIT
+          tar -xzf "dist/$archive" -C "$dir"
+          test -x "$dir/$root/bin/byze-p2pool"
+          test -x "$dir/$root/bin/node"
+          test -x "$dir/$root/app/native/$EXPECTED_PLATFORM/byze-p2pool-miner"
+          test -x "$dir/$root/app/native/$EXPECTED_PLATFORM/byze-rxhash"
+          test -f "$dir/$root/app/COMPATIBILITY.json"
+          test -f "$dir/$root/app/THIRD_PARTY-NOTICES.md"
+          test -f "$dir/$root/app/licenses/byze-miner-MIT.txt"
+          test -f "$dir/$root/app/licenses/RandomX-BSD-3-Clause.txt"
+          test "$("$dir/$root/bin/byze-p2pool" --version)" = "$RELEASE_VERSION"
+          "$dir/$root/bin/byze-p2pool" --help >/dev/null
+          "$dir/$root/bin/node" "$dir/$root/app/tools/test-private-dht.js"
+          (cd dist && shasum -a 256 "$archive" > "$EXPECTED_PLATFORM.sha256" && shasum -a 256 -c "$EXPECTED_PLATFORM.sha256")
+          echo "RC candidate ready: $archive"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: byze-v03-rc1-release-${{ matrix.platform }}
+          path: cli/dist/byze-p2pool-cli-complete-0.3.0-rc1.dev-${{ matrix.platform }}.tar.gz
+          retention-days: 14
+          compression-level: 0
+          if-no-files-found: error
+
+  publish:
+    name: Publish immutable experimental RC only after all three builds
+    if: github.ref == 'refs/heads/main'
+    needs: [build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: '0.3.0-rc1.dev'
+      TAG: 'v0.3.0-rc1.dev'
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: byze-v03-rc1-release-*
+          merge-multiple: true
+          path: release
+      - name: Verify release is new, all archives complete and checksums valid
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Refusing to overwrite existing release $TAG" >&2; exit 1
+          fi
+          if git ls-remote --tags "https://github.com/$GITHUB_REPOSITORY.git" "refs/tags/$TAG" | grep -q .; then
+            echo "Refusing to reuse existing tag $TAG" >&2; exit 1
+          fi
+          for platform in darwin-arm64 darwin-x64 linux-x64; do
+            archive="release/byze-p2pool-cli-complete-$VERSION-$platform.tar.gz"
+            test -s "$archive"
+            tar -tzf "$archive" >/dev/null
+          done
+          (
+            cd release
+            sha256sum "byze-p2pool-cli-complete-$VERSION"-*.tar.gz > SHA256SUMS
+            sha256sum -c SHA256SUMS
+          )
+          cat release/SHA256SUMS
+      - name: Write prominent experimental release notes
+        run: |
+          cat > release/RELEASE-NOTES.md <<'NOTES'
+          # BYZE P2Pool CLI v0.3.0-rc1.dev — EXPERIMENTAL
+
+          Experimental release candidate for BYZE Core v0.3.0 and the mainnet fork at block 28,000.
+          Tested source compatibility and native miners for macOS Apple Silicon, macOS Intel and Linux x64.
+
+          ### Evidence and current limits
+          - A live mainnet block at height 24,798 was found on Mac ARM and accepted on chain.
+          - Its coinbase contains 49.75 BYZE to the miner and 0.25 BYZE fee (0.50%).
+          - This proves only an observed **single-miner, pre-fork** payout. It is NOT a multi-peer or post-fork guarantee.
+          - Experimental releases are NOT signed, notarized, audited or approved for production.
+          - The existing official fee address and P2P discovery topic remain unchanged.
+          - Hard-fork witness-v2 (byz1z) payouts are activated only at block 28,000.
+          - Post-fork real-Core spendability, native block signing, and two-peer PPLNS accounting remain separate release gates.
+
+          ### Installation precautions
+          These archives are not a Byze Core upgrade. Never replace, erase or reindex an existing Core node or wallets.
+          Compare SHA256SUMS before extracting. Use the source upgrade guide for careful existing-CLI migration:
+          https://github.com/ContractP2P/byze-p2pool-cli/blob/main/docs/byze-v03-upgrade.md
+
+          The historical Community Test 2 releases are preserved, and the guided installer remains paused
+          until a separately reviewed, pinned-checksum update has been published.
+          NOTES
+      - name: Publish experimental pre-release (no stable/latest designation)
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" release/*.tar.gz release/SHA256SUMS release/RELEASE-NOTES.md \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "BYZE P2Pool CLI $TAG — Experimental RC / Core v0.3" \
+            --notes-file release/RELEASE-NOTES.md \
+            --prerelease
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json tagName,isPrerelease,assets \
+            --jq '{tag:.tagName, prerelease:.isPrerelease, assets:[.assets[].name]}'

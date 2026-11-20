@@ -149,7 +149,7 @@ test('publisher rejects an overweight signed block before proposal or submission
   const calls = []
   const rpc = async method => {
     calls.push(method)
-    if (method==='getblockchaininfo') return {chain:'main'}
+    if (method==='getblockchaininfo') return {chain:'main',blocks:21112}
     if (method==='getbestblockhash') return '11'.repeat(32)
     if (method==='signpoolblock') return {hex:signed,quantum_signed:true}
     throw new Error('unexpected RPC')
@@ -165,7 +165,7 @@ test('publisher accepts a correctly weighted signed block after Core proposal va
   const calls=[]
   const rpc=async method=>{
     calls.push(method)
-    if(method==='getblockchaininfo')return {chain:'main'}
+    if(method==='getblockchaininfo')return {chain:'main',blocks:21112}
     if(method==='getbestblockhash')return '11'.repeat(32)
     if(method==='signpoolblock')return {hex:signed,quantum_signed:true}
     return null
@@ -173,6 +173,37 @@ test('publisher accepts a correctly weighted signed block after Core proposal va
   const result=await publishQuantumBlock({rpc,candidate:{blockHex:signed},allowSubmit:true})
   assert.equal(result.ok,true)
   assert.deepEqual(calls.slice(-2),['getblocktemplate','submitblock'])
+})
+
+test('post-fork publisher submits a signed bit-4 template and rejects header tampering', async () => {
+  const bytes = Buffer.from(block([transaction({witness:true})]),'hex')
+  bytes.writeUInt32LE(0x20000010,0)
+  const unsigned = bytes.toString('hex')
+  const calls=[]
+  let tamper=false
+  const rpc=async method=>{
+    calls.push(method)
+    if(method==='getblockchaininfo')return {chain:'main',blocks:27999}
+    if(method==='getbestblockhash')return '11'.repeat(32)
+    if(method==='getnetworkinfo')return {version:300}
+    if(method==='signpoolblock'){
+      if(!tamper)return {hex:unsigned,quantum_signed:true}
+      const changed=Buffer.from(bytes)
+      changed.writeUInt32LE(0x20000000,0)
+      return {hex:changed.toString('hex'),quantum_signed:true}
+    }
+    if(method==='getblocktemplate' || method==='submitblock')return null
+    throw Error('unexpected RPC method')
+  }
+  const candidate={blockHex:unsigned,height:28000,previousBlockHash:'11'.repeat(32),expectedVersion:0x20000010}
+  const valid=await publishQuantumBlock({rpc,candidate,allowSubmit:true})
+  assert.equal(valid.ok,true)
+  assert.ok(calls.includes('submitblock'))
+  calls.length=0
+  tamper=true
+  const invalid=await publishQuantumBlock({rpc,candidate,allowSubmit:true})
+  assert.equal(invalid.code,'miningSignedBlockHeaderMismatch')
+  assert.ok(!calls.includes('submitblock'))
 })
 
 test('payout validator distinguishes invalid, known unspendable, known quantum and unknown', async () => {

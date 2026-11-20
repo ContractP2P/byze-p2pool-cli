@@ -1,5 +1,8 @@
 # BYZE P2Pool CLI
 
+> **Byze v0.3.0 / block 28,000:** Unreleased experimental source `fix/byze-v0.3-p0-hardfork` is now `0.3.0-rc1.dev`. The published Community Test 2 archives listed below are legacy, **not fork-certified**. Guided `--install` is paused until new P2Pool bundles are independently verified. See [Byze v0.3 upgrade and macOS ARM testing](docs/byze-v03-upgrade.md). There is no automatic coin or fee-wallet migration.
+
+
 **Peer-to-peer CPU mining for BYZE** — a standalone RandomX miner using Hyperswarm discovery, direct PPLNS coinbase payouts, and a **0.50% pool fee**. No Electron or Contract desktop application is needed.
 
 **[▶ Open the guided installer — macOS Apple Silicon, macOS Intel & Linux x64](https://contractp2p.github.io/byze-p2pool-cli/)**
@@ -10,10 +13,10 @@
 
 | Option | Best for | What you get |
 | --- | --- | --- |
-| **1. [Guided installation (recommended)](https://contractp2p.github.io/byze-p2pool-cli/)** | Miners who want to get started without compiling | Platform-specific complete test bundle, a BYZE Core detection/reuse check, and personalized mining commands |
+| **1. [Guided installation (temporarily paused)](https://contractp2p.github.io/byze-p2pool-cli/)** | Previous Community Test 2 operators | Old packages are retained for reference; installer will not deploy them as fork-ready |
 | **2. [Git clone / source installation](#2-install-from-source-developer-path)** | Developers, reviewers and people building their own native components | Editable source, JavaScript tests, and an explicit optional native build |
 
-### 1. Guided installation (recommended)
+### 1. Historical guided installation (paused during hard-fork validation)
 
 Open **https://contractp2p.github.io/byze-p2pool-cli/** and:
 
@@ -43,7 +46,7 @@ The miner command displayed by the website **enables real mainnet block submissi
 
 **Current community test packages (15 October 2026):** [macOS Apple Silicon, macOS Intel, and Linux x64 — Community Test 2](https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/v0.2.5-rc4-community.2) · [All releases](https://github.com/ContractP2P/byze-p2pool-cli/releases). The guided installers pin the exact SHA-256 for each platform and also verify the release manifest.
 
-**Already installed an earlier experimental CLI?** Fetch the updated guided installer and run `--install` again after stopping the existing P2Pool miner. The Community Test 2 build has a **unique internal version**, and installs to a **new versioned directory** and the managed `~/.local/bin/byze-p2pool` launcher is repointed to it. The previous P2Pool files are not deleted. An existing **BYZE Core node is never reinstalled or upgraded**. `--wait-sync` only monitors synchronization; it does not update the CLI.
+**Already installed an earlier experimental CLI?** Do not use the old guided installer for v0.3. Follow the [Mac ARM source testing / launcher replacement procedure](docs/byze-v03-upgrade.md) after stopping the existing miner. The Community Test 2 build has a **unique internal version**, and installs to a **new versioned directory** and the managed `~/.local/bin/byze-p2pool` launcher is repointed to it. The previous P2Pool files are not deleted. An existing **BYZE Core node is never reinstalled or upgraded**. `--wait-sync` only monitors synchronization; it does not update the CLI.
 
 ### 2. Install from source (developer path)
 
@@ -99,7 +102,7 @@ Without `--no-submit`, a found network block **may be submitted to BYZE mainnet*
 - Each miner computes **RandomX** hashes locally; P2P peers communicate through **Hyperswarm**.
 - Validated shares contribute to the **PPLNS** payout window, and candidates commit miner payouts plus the **0.50% fee directly in the coinbase**.
 - **Generation v6** has its own discovery topic and PPLNS history; it is **incompatible with older v4/v5 peers**. Coordinate restarts if upgrading a pool.
-- The CLI does not ask for BYZE wallet secrets and uses temporary P2P identities. `validateaddress` does **not** prove that a payout address is spendable. Prefer an address obtained and independently verified on **BYZE Core rc4 or later**. Older Core versions can be reused, but may not confirm spendability.
+- The CLI does not ask for BYZE wallet secrets and uses temporary P2P identities. `validateaddress` does **not** prove that a payout address is spendable. Prefer an address obtained and independently verified on **BYZE Core v0.3.0**; stateless `byz1z…` coinbase outputs are valid only from block 28,000. Older Core versions can be reused, but may not confirm spendability.
 
 A synchronized node means `chain=main`, a non-empty blockchain, matching/near-matching block and header heights, and `initialblockdownload=false`. **Older 13 October rc3 binaries may misclassify a freshly started zero-block Core as ready.** The Community Test 2 packages include fail-closed node readiness, RandomX pause/resume handling and private capture of a submitted block's committed PPLNS window. The guided installers also independently require nonzero block height and `initialblockdownload=false` before displaying `BYZE_NODE_READY`. The latest binaries still need live multi-peer outage and payout validation.
 

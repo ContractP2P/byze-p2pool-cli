@@ -30,3 +30,20 @@
 - [x] Published experimental `.tar.gz` archives have final `SHA256SUMS`, independently pinned in guided installers and tested against altered downloads (15 October 2026). This does **not** meet the separate unsigned-release signing gate.
 
 **Status distinction:** the 15 October 2026 `v0.2.5-rc4-community.2` bundles and their checksums are public **Experimental Test 2** artefacts. Their availability closes the community-test packaging task only; unchecked items above (including native signatures/notarization where applicable, full multi-peer evidence, exact PPLNS payouts and package notice review) still block a stable production release. An administratively closed tracking issue is not evidence of a passed test.
+
+
+## Byze v0.3.0 hard-fork source validation (NOT production qualified)
+
+- [x] Accept legacy witness-v1 `5120` payouts; gate witness-v2 `5220` payouts at mainnet block 28,000.
+- [x] Enforce Core v0.3+ and block version bit 4 after activation.
+- [x] Pin official v0.3 Core checksums; preserve existing Core and wallet data.
+- [x] Provide a read-only fee policy/address migration planner; leave the live fee policy and DHT topic unchanged.
+- [x] Identify source test versions separately from legacy Community Test 2 bundles.
+- [x] Pause legacy installer `--install` until fork-ready, checksum-pinned P2Pool bundles exist.
+- [ ] Isolated real-Core regtest block-28,000 acceptance and stateless payouts.
+- [ ] Post-fork two-peer native RandomX / PPLNS full-block and fee-spendability validation.
+- [ ] Signed/notarized P2Pool release bundles and review of each installer's pinned SHA-256.
+- [ ] Coordinated fee-address migration, reviewed payout window and new DHT topic if approved.
+- [x] Mac ARM source smoke test: 116/116 unit tests, `--check-node`, dry-run and 6-thread RandomX `--no-submit` with accepted local shares.
+- [x] Mainnet pre-fork block candidate passed `submitblock` RPC and entered the active chain (height 24,798, at least three confirmations observed). **Coinbase outputs, reward maturity and spendability still require independent verification.**
+- [ ] Rollback-safe managed CLI launcher replacement on the operator's Mac (old package preserved).

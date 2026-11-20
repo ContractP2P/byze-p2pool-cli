@@ -5,6 +5,7 @@ const MAX_BLOCK_WEIGHT = 4_000_000
 // Core rc4: XMSS 2500, SPHINCS+ 7856, dual public key 100 bytes.
 // All three vectors are in BOTH block serializations, not in the witness.
 const QUANTUM_TAIL_BYTES = 3 + 2500 + 3 + 7856 + 1 + 100
+const { checkPayoutScript } = require('./byze-v03-compat')
 const sha256d = b => crypto.createHash('sha256').update(crypto.createHash('sha256').update(b).digest()).digest()
 const compactSizeBytes = n => n < 253 ? 1 : n <= 65535 ? 3 : n <= 0xffffffff ? 5 : 9
 
@@ -88,13 +89,14 @@ function blockWeight(hex) {
   return weight + (r.p - tailStart) * 4
 }
 
-function coinbaseWeightBound(outputs) {
+function coinbaseWeightBound(outputs, height = 0) {
   if (!Array.isArray(outputs) || !outputs.length || outputs.length > 400) throw new Error('invalid coinbase outputs')
   // One input with the consensus maximum 100-byte scriptSig; one witness
   // commitment output; marker/flag and the 32-byte reserved witness value.
   let stripped = 4 + 1 + 36 + 1 + 100 + 4 + compactSizeBytes(outputs.length + 1) + 4
   for (const output of outputs) {
-    if (!/^5120[0-9a-f]{64}$/i.test(output.script || '')) throw new Error('unsupported payout script')
+    const checked = checkPayoutScript(output.script, height)
+    if (!checked.ok) throw new Error(checked.code)
     const bytes = output.script.length / 2
     stripped += 8 + compactSizeBytes(bytes) + bytes
   }
@@ -118,7 +120,7 @@ function witnessCommitment(transactions) {
 function fitTemplateWeight(template, outputs) {
   const transactions = template.transactions.map(tx => ({ ...tx }))
   const limit = Math.min(MAX_BLOCK_WEIGHT, template.weightlimit || MAX_BLOCK_WEIGHT)
-  const coinbaseWeight = coinbaseWeightBound(outputs)
+  const coinbaseWeight = coinbaseWeightBound(outputs, template.height)
   let txWeight = transactions.reduce((sum, tx) => sum + tx.weight, 0)
   let reward = BigInt(template.coinbasevalue)
   let removed = 0

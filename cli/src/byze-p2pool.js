@@ -65,6 +65,7 @@ const { satoshisToByze, sumPayoutFromVouts } = require('./reward-telemetry')
 const { ANSI, color, launchPresentation, statusLine, rewardCelebration } = require('./console-ui')
 const { assertMainnetReady, PeerRateLimiter, ValidationGate } = require('./security-hardening')
 const { candidates: nodeCandidates, executable: nodeExecutable, inspectNode, operatorGuidance } = require('./node-discovery')
+const { FORK_HEIGHT, checkTemplateCompatibility } = require('./mining/byze-v03-compat')
 
 const APP_VERSION = require('../package.json').version
 const CONTRACT_ID = 'org.contract.byze-p2pool'
@@ -1047,6 +1048,10 @@ class MinerApp {
     // the segwit rules object and otherwise emits its entire RPC help text.
     const raw=await this.byze.call('getblocktemplate',[{rules:['segwit']}],{timeout:15_000})
     const sanitized=sanitizeGbtTemplate(raw); if(!sanitized.ok)throw new Error(`invalid getblocktemplate: ${sanitized.code}`)
+    const network = sanitized.template.height >= FORK_HEIGHT
+      ? await this.byze.call('getnetworkinfo',[],{timeout:10_000}) : null
+    const fork = checkTemplateCompatibility(sanitized.template,network)
+    if(!fork.ok)throw new Error(`Byze hard-fork compatibility: ${fork.code}`)
     this.lastTemplate=clone(sanitized.template)
     const live=this.live(); if(!live?.cellId)throw new Error('P2P cell unavailable')
     const pplnsTipId=this.poolChain.tipBeforeEpoch(live.epoch)
@@ -1066,7 +1071,7 @@ class MinerApp {
     if(!commitment.ok)throw new Error(`job commitment unavailable: ${commitment.code}`)
     const id=randomxJobId({contractHash:CONTRACT_SOURCE_HASH,poolId:POOL_ID,cellId:live.cellId,templateHash:sanitized.templateHash,difficultyMultiplier:RANDOMX_SHARE_DIFFICULTY_MULTIPLIER}); if(!id)throw new Error('RandomX job unavailable')
     const job={id,templateHash:sanitized.templateHash,template:sanitized.template,jobCommitmentHash:commitment.jobCommitmentHash,feePolicyHash:this.policy.policyHash,pplnsTipId}
-    this.jobContexts.set(id,{commitment,plan:this.directPlan,createdAt:Date.now()}); while(this.jobContexts.size>32)this.jobContexts.delete(this.jobContexts.keys().next().value)
+    this.jobContexts.set(id,{commitment,plan:this.directPlan,templateVersion:sanitized.template.version,createdAt:Date.now()}); while(this.jobContexts.size>32)this.jobContexts.delete(this.jobContexts.keys().next().value)
     if(!force&&this.currentJob?.id===job.id&&this.lastTemplateHash===job.templateHash)return true
     this.activateMiningJob(job)
     return true
@@ -1163,7 +1168,7 @@ class MinerApp {
     if(!raw?.blockHex||raw.blockCandidate!==true||!raw.directCoinbaseCommitted||!ctx?.commitment||raw.directCoinbaseCommitment!==ctx.plan?.commitment||raw.jobCommitmentHash!==ctx.commitment.jobCommitmentHash){warn('Block candidate cannot be submitted: bound PPLNS coinbase is not committed.');return}
     let checkedCoinbaseTxid=''
     if(checked){const binding=await verifyCoinbaseBinding({rpc:(m,p=[])=>this.byze.call(m,p,{timeout:15_000}),header80:checked.proof.header80,coinbaseNoWitnessHex:checked.proof.coinbaseNoWitnessHex,merkleBranch:checked.proof.coinbaseMerkleBranch,expectedCommitment:ctx.commitment,expectedHeight:checked.proof.height});if(!binding.ok){warn('Block candidate coinbase binding rejected:',binding.code);return} checkedCoinbaseTxid=binding.coinbaseTxid}
-    const candidate={...raw,previousBlockHash:raw.previousBlockHash||this.lastTemplate?.previousblockhash||''}
+    const candidate={...raw,previousBlockHash:raw.previousBlockHash||this.lastTemplate?.previousblockhash||'',expectedVersion:ctx.templateVersion}
     let chainInfo
     try{chainInfo=await this.byze.call('getblockchaininfo',[],{timeout:10_000})}catch(e){warn('Block candidate held: unable to confirm mainnet synchronization.');return}
     const ready=assertMainnetReady(chainInfo)

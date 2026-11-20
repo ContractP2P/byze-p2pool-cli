@@ -5,6 +5,7 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const { assertMainnetReady } = require('./security-hardening')
+const { FORK_HEIGHT, checkCoreVersion } = require('./mining/byze-v03-compat')
 
 function executable(file) {
   if (typeof file !== 'string' || !file.trim()) return false
@@ -35,6 +36,7 @@ function candidates({explicit, env=process.env, home=os.homedir(),
     add(path.join(dir,binary),'PATH')
   }
   for (const suffix of [
+    ['ldev','byze-v0.3.0'],
     ['ldev','byze','build','bin'],
     ['byze','build','bin'],
     ['Downloads','byze','build','bin'],
@@ -60,6 +62,19 @@ async function inspectNode({explicit,env,home,platform,pathValue,call,
     try {
       const info = await call(entry.path,'getblockchaininfo')
       const checked = readiness(info)
+      if (checked.ok && checked.blocks + 1 >= FORK_HEIGHT) {
+        let network
+        try { network = await call(entry.path, 'getnetworkinfo') }
+        catch {
+          observations.push({...entry,status:'not-ready',code:'miningCoreVersionUnavailable'})
+          continue
+        }
+        const core = checkCoreVersion(network, checked.blocks + 1)
+        if (!core.ok) {
+          observations.push({...entry,status:'not-ready',code:core.code})
+          continue
+        }
+      }
       if (checked.ok) return {
         status:'ready',path:entry.path,source:entry.source,chain:checked.chain,
         blocks:checked.blocks,headers:checked.headers,observations,
@@ -81,6 +96,9 @@ async function inspectNode({explicit,env,home,platform,pathValue,call,
 }
 
 function operatorGuidance(result) {
+  if (result.observations?.some(row => row.code === 'miningByzeCoreV03Required')) {
+    return 'BYZE Core v0.3.0 or later is required for mining after the block 28,000 hard fork. Upgrade the existing Core; never install another node over its wallet.'
+  }
   if (result.status === 'ready') {
     return 'Existing BYZE Core endpoint is healthy. No installation or node startup required.'
   }

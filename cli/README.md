@@ -1,4 +1,4 @@
-# BYZE P2Pool CLI v0.2.5-rc4-community.2
+# BYZE P2Pool CLI 0.3.0-rc1.dev — unreleased experimental source
 
 Standalone command-line peer for **BYZE P2Pool secure-v2**, with the `global-epoch-v6` compatibility generation.
 
@@ -25,7 +25,7 @@ Generation v6 uses a new discovery topic and a signed generation field. It does 
 
 ## Compatibility
 
-- CLI: `0.2.5-rc4-community.2`
+- CLI: `0.3.0-rc1.dev` (source branch; old Community Test 2 packaged binaries are not upgraded)
 - Contract ancestry: `v0.15.85+`; unmodified v4/v5 peers are incompatible
 - contract: `org.contract.byze-p2pool@0.1.3`
 - contract source hash: `0ba509a74eb5f475ce41f152349fe49a7d19e4fbd6c14c1833632c61681a0b66`
@@ -37,7 +37,7 @@ Generation v6 uses a new discovery topic and a signed generation field. It does 
 - cell size: up to 20 miners; global epoch aggregation combines valid cell checkpoints
 - pool fee: 50 bp = 0.50%
 
-See `COMPATIBILITY.json` for machine-readable compatibility metadata.
+See `COMPATIBILITY.json` for machine-readable compatibility metadata and [the v0.3 hard-fork / Mac ARM test guide](../docs/byze-v03-upgrade.md). Community Test 2 packages remain legacy.
 
 ## Validation
 
@@ -46,7 +46,7 @@ The regression suite covers PoW ordering, payout validation, a near-full block w
 400 recipients, fee conservation after template adjustment, and protocol compatibility.
 
 For an isolated Core RPC integration check, set `BYZE_CORE_BIN` to a directory
-containing verified Byze rc4 `byzed` and `byze-cli` binaries, then run `npm run test:core`.
+containing verified Byze v0.3.0 `byzed` and `byze-cli` binaries, then run `npm run test:core`.
 This creates a temporary regtest node with networking disabled, checks wallet address
 classification and serialization against Core, mines one test block, and stops the node.
 It does not access an existing wallet or mainnet. End-to-end multi-peer mining with a
@@ -55,7 +55,7 @@ full mempool and real-wallet test spends remain separate release checks.
 ## Requirements
 
 - Node.js 20 or newer;
-- a local, synchronized BYZE rc4 or later mainnet node (`chain=main`, `initialblockdownload=false`);
+- a local, synchronized BYZE v0.3.0 mainnet node (`chain=main`, `initialblockdownload=false`);
 - `byze-cli` able to communicate with that node;
 - a managed native bundle for the current platform:
 
@@ -95,7 +95,7 @@ If Core is disconnected or unsynchronized, the CLI refuses mining and
 recommends repairing that endpoint; **it never installs, starts or
 synchronizes another BYZE node automatically**. `--setup-core` offers
 an interactive, explicit-consent download of the official pinned/signed
-rc4 archive only when no Core client exists; it never extracts or starts
+v0.3.0 archive only when no Core client exists; it never extracts or starts
 `byzed`. See [Core discovery & SafeLabEnv lab plan](docs/core-discovery-and-live-lab.md).
 
 ## Installation
@@ -197,7 +197,7 @@ Proof bundles remain independently chunked and bounded by the consensus-layer li
 
 ## Pool fee policy
 
-`config/pool-policy.json` contains the current official policy. Its `policyHash` participates in the pool discovery topic. A client changing the fee address/policy therefore moves to a different P2P topic instead of silently joining the official pool with a different fee.
+`config/pool-policy.json` contains the current official policy. Its `policyHash` participates in the pool discovery topic. Changing the fee address/policy moves a client to a different P2P topic instead of silently joining the official pool. The existing `byz1p…` fee address is deliberately unchanged. A read-only preview of a proposed, wallet-owned stateless address is available with `node tools/plan-fee-migration.js --candidate byz1z... --byze-cli /absolute/path/to/byze-cli`. All miners must coordinate a later change after reviewing pending PPLNS rewards and proving fee-wallet spendability.
 
 ## Block publication
 
@@ -280,8 +280,8 @@ With GnuPG available on PATH, from `cli/`:
 npm run core:download -- --dest ./core-rc4-download
 ```
 
-The destination must be new, and its parent must exist. The tool selects Linux x64, macOS arm64/x64 or Windows x64; `--platform` can select one explicitly. It verifies the signed checksum manifest against pinned release-key fingerprint `9F11E836EB4B7F464ADBB1E7AC11CA674828CAE1`, then verifies the archive against both the signed manifest and the pinned rc4 SHA-256. It uses an isolated public-key ring and removes partial downloads on failure.
+The destination must be new, and its parent must exist. The tool selects Linux x64, macOS arm64/x64 or Windows x64; `--platform` can select one explicitly. It verifies the signed checksum manifest against pinned release-key fingerprint `9F11E836EB4B7F464ADBB1E7AC11CA674828CAE1`, then verifies the archive against both the signed manifest and the pinned v0.3.0 SHA-256. It uses an isolated public-key ring and removes partial downloads on failure.
 
-The verified archive is left unextracted. Stop your node before manually replacing its binaries, then restart and select the new `byze-cli` with `--byze-cli PATH`. The downloader never opens wallets or changes node data. Platform requirements and the source release are documented in the [official rc4 release](https://github.com/powhermes/byze/releases/tag/v0.2.5-rc4-plain-taproot-guard).
+The verified archive is left unextracted. Stop your node before manually replacing its binaries, then restart and select the new `byze-cli` with `--byze-cli PATH`. The downloader never opens wallets or changes node data. Platform requirements and the source release are documented in the [official v0.3 release](https://github.com/powhermes/byze/releases/tag/v0.3.0-stateless-pq).
 
 For the optional Core integration test, set `BYZE_CORE_BIN` to the directory containing verified `byzed` and `byze-cli`, then run `npm run test:core`. It creates a temporary regtest node with networking disabled, verifies payouts and block metrics, and checks chain context after block invalidation/restoration.

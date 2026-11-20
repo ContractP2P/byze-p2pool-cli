@@ -2,19 +2,15 @@ name: First-run macOS installer (Core preservation)
 
 on:
   push:
-    branches:
-      - feature/first-run-core-preserving-macos-installer
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
 
 permissions:
   contents: read
 
 jobs:
   installer:
-    name: Guard existing BYZE Core on ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
@@ -25,181 +21,76 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Shell syntax and read-only detection
+      - name: Syntax and published Core v0.3 checksum pins
         shell: bash
         run: |
           set -euo pipefail
-          /bin/bash -n docs/install-macos.sh
+          bash -n docs/install-macos.sh
+          grep -Fq 'CORE_TAG="v0.3.0-stateless-pq"' docs/install-macos.sh
+          grep -Fq 'CORE_SHA_ARM="5693e22bf4cb9b51293f149852ff342e577de5fee6b422659c758c64cac75267"' docs/install-macos.sh
+          grep -Fq 'CORE_SHA_X64="af471b282c1f1d75ea3830c63332b7db78f91ed0ca7ba0895269e3c88f6a389c"' docs/install-macos.sh
+      - name: Read-only discovery detects existing Core; legacy P2Pool installation is blocked
+        shell: bash
+        run: |
+          set -euo pipefail
           work="$(mktemp -d)"
           trap 'rm -rf -- "$work"' EXIT
           home="$work/home"
-          mkdir -p "$home"
-          HOME="$home" /bin/bash docs/install-macos.sh --probe > "$work/clean.txt"
-          grep -q 'CORE_ABSENT' "$work/clean.txt"
+          mkdir -p "$home" "$work/mock"
+          HOME="$home" bash docs/install-macos.sh --probe > "$work/clean"
+          grep -q CORE_ABSENT "$work/clean"
           mkdir -p "$home/Library/Application Support/Byze"
-          HOME="$home" /bin/bash docs/install-macos.sh --probe > "$work/existing-data.txt"
-          grep -q 'CORE_FOUND' "$work/existing-data.txt"
-          grep -q 'DO_NOT_REINSTALL' "$work/existing-data.txt"
+          HOME="$home" bash docs/install-macos.sh --probe > "$work/data"
+          grep -q CORE_FOUND "$work/data"
+          grep -q DO_NOT_REINSTALL "$work/data"
           rm -rf "$home/Library/Application Support/Byze"
-          mkdir -p "$home/ldev/byze/build/bin"
-          printf '#!/bin/sh\nexit 0\n' > "$home/ldev/byze/build/bin/byze-cli"
-          chmod +x "$home/ldev/byze/build/bin/byze-cli"
-          HOME="$home" /bin/bash docs/install-macos.sh --probe > "$work/existing-client.txt"
-          grep -q 'CORE_FOUND' "$work/existing-client.txt"
-          grep -q 'REUSE_ONLY' "$work/existing-client.txt"
-      - name: Existing Core installation cannot trigger a Core download
-        shell: bash
-        run: |
-          set -euo pipefail
-          work="$(mktemp -d)"
-          trap 'rm -rf -- "$work"' EXIT
-          home="$work/home"
-          mock="$work/mockbin"
-          mkdir -p "$home/ldev/byze/build/bin" "$home/.local/opt" "$mock"
-          cat > "$home/ldev/byze/build/bin/byze-cli" <<'CLI'
+          mkdir -p "$home/ldev/byze-v0.3.0" "$home/.local/bin" "$home/.local/opt/old-p2pool"
+          printf '#!/bin/sh\nexit 0\n' > "$home/ldev/byze-v0.3.0/byze-cli"
+          chmod 700 "$home/ldev/byze-v0.3.0/byze-cli"
+          printf '#!/bin/sh\n# BYZE_P2POOL_MANAGED_LAUNCHER\nexit 0\n' > "$home/.local/bin/byze-p2pool"
+          chmod 700 "$home/.local/bin/byze-p2pool"
+          printf 'existing\n' > "$home/.local/opt/old-p2pool/protected"
+          HOME="$home" bash docs/install-macos.sh --probe > "$work/client"
+          grep -q REUSE_ONLY "$work/client"
+          cat > "$work/mock/curl" <<'MOCK'
           #!/bin/sh
-          if [ "$1" = "getblockchaininfo" ]; then
-            echo '{"chain":"main","blocks":999,"headers":999,"initialblockdownload":false}'
-            exit 0
-          fi
-          exit 1
-          CLI
-          chmod 700 "$home/ldev/byze/build/bin/byze-cli"
-          case "$(uname -m)" in
-            x86_64) plat="darwin-x64" ;;
-            arm64) plat="darwin-arm64" ;;
-            *) exit 1 ;;
-          esac
-          pool="$home/.local/opt/byze-p2pool-0.2.5-rc4-community.2-$plat/bin"
-          mkdir -p "$pool"
-          cat > "$pool/byze-p2pool" <<'POOL'
-          #!/bin/sh
-          if [ "$1" = "--version" ]; then echo "0.2.5-rc4-community.2"; exit 0; fi
-          if [ "$1" = "--check-node" ]; then echo "BYZE_NODE_READY"; exit 0; fi
-          exit 1
-          POOL
-          chmod 700 "$pool/byze-p2pool"
-          cat > "$mock/curl" <<'CURL'
-          #!/bin/sh
-          printf 'curl:%s\n' "$*" >> "$CURL_CALLS"
-          case " $* " in *" --head "*) exit 0;; esac
-          echo "Unexpected Core/Pool download!" >&2
-          exit 71
-          CURL
-          chmod 700 "$mock/curl"
-          CURL_CALLS="$work/curl.calls" PATH="$mock:$PATH" HOME="$home" \
-            /bin/bash docs/install-macos.sh --install > "$work/install.txt"
-          grep -q 'CORE_ACTION: REUSE_ONLY' "$work/install.txt"
-          grep -q 'BYZE_NODE_READY' "$work/install.txt"
-          # Existing complete P2Pool + Core must not even contact the network.
-          test ! -e "$work/curl.calls"
-          grep -q '# BYZE_P2POOL_MANAGED_LAUNCHER' "$home/.local/bin/byze-p2pool"
-          test -f "$home/ldev/byze/build/bin/byze-cli"
-          grep -Fq 'byze-p2pool-0.2.5-rc4-community.2-' "$home/.local/bin/byze-p2pool"
-          echo 'PASS: existing Core untouched, current pool launcher configured'
-          # Regression: an unsynchronized, zero-block Core must not be
-          # labelled READY, even if the reused rc3 bundle says otherwise.
-          cat > "$home/ldev/byze/build/bin/byze-cli" <<'ZERO_CORE'
-          #!/bin/sh
-          if [ "$1" = "getblockchaininfo" ]; then
-            echo '{"chain":"main","blocks":0,"headers":0,"initialblockdownload":false}'
-            exit 0
-          fi
-          exit 1
-          ZERO_CORE
-          chmod 700 "$home/ldev/byze/build/bin/byze-cli"
-          CURL_CALLS="$work/curl.calls" PATH="$mock:$PATH" HOME="$home" \
-            BYZE_SYNC_INTERVAL_SECONDS=0 BYZE_SYNC_MAX_POLLS=1 \
-            /bin/bash docs/install-macos.sh --install > "$work/empty-chain.txt" 2>&1 && exit 1
-          grep -q 'BYZE_NODE_NOT_READY' "$work/empty-chain.txt"
-          grep -Fq '0 / 0 blocks (waiting for block headers)' "$work/empty-chain.txt"
-          ! grep -q '^BYZE_NODE_READY' "$work/empty-chain.txt"
-          test ! -e "$work/curl.calls"
-          echo 'PASS: zero-height Core is never reported ready; no download or duplicate daemon'
-          # A live monitor can be resumed without rerunning the installer or
-          # modifying the existing daemon; it reports percentage by block height.
-          count="$work/reads"
-          cat > "$home/ldev/byze/build/bin/byze-cli" <<'SYNC_CORE'
-          #!/bin/sh
-          if [ "$1" = "getblockchaininfo" ]; then
-            n=0
-            if [ -f "$SYNC_READS" ]; then n="$(cat "$SYNC_READS")"; fi
-            n=$((n + 1))
-            echo "$n" > "$SYNC_READS"
-            case "$n" in
-              1) echo '{"chain":"main","blocks":500,"headers":1000,"initialblockdownload":true}' ;;
-              2) echo '{"chain":"main","blocks":750,"headers":1000,"initialblockdownload":true}' ;;
-              *) echo '{"chain":"main","blocks":1000,"headers":1000,"initialblockdownload":false}' ;;
-            esac
-            exit 0
-          fi
-          exit 1
-          SYNC_CORE
-          chmod 700 "$home/ldev/byze/build/bin/byze-cli"
-          SYNC_READS="$count" HOME="$home" PATH="$mock:$PATH" \
-            BYZE_SYNC_INTERVAL_SECONDS=0 BYZE_SYNC_MAX_POLLS=4 \
-            /bin/bash docs/install-macos.sh --wait-sync > "$work/progress"
-          grep -Fq '500 / 1000 blocks (50.0% by height); IBD: true' "$work/progress"
-          grep -Fq '750 / 1000 blocks (75.0% by height); IBD: true' "$work/progress"
-          grep -Fq '1000 / 1000 blocks (100.0% by height); IBD: false' "$work/progress"
-          grep -q 'BYZE_NODE_READY' "$work/progress"
-          test ! -e "$work/curl.calls"
-          echo 'PASS: percentage progresses to 100% without modifying or restarting Core'
-
-
-
-      - name: Earlier rc3 Mac test package cannot silently replace the new release
-        shell: bash
-        run: |
-          set -euo pipefail
-          work="$(mktemp -d)"
-          trap 'rm -rf -- "$work"' EXIT
-          home="$work/home"
-          mkdir -p "$home/ldev/byze/build/bin" "$work/mockbin"
-          printf '#!/bin/sh\nexit 0\n' > "$home/ldev/byze/build/bin/byze-cli"
-          chmod 700 "$home/ldev/byze/build/bin/byze-cli"
-          case "$(uname -m)" in
-            x86_64) plat=darwin-x64 ;;
-            arm64) plat=darwin-arm64 ;;
-            *) exit 1 ;;
-          esac
-          old="$home/.local/opt/byze-p2pool-0.2.5-rc3-$plat/bin"
-          mkdir -p "$old"
-          printf '#!/bin/sh\nexit 0\n' > "$old/byze-p2pool"
-          chmod 700 "$old/byze-p2pool"
-          cat > "$work/mockbin/curl" <<'MOCK'
-          #!/bin/sh
-          echo "$*" >> "$CURL_CALLS"
-          exit 22
-          MOCK
-          chmod 700 "$work/mockbin/curl"
-          if CURL_CALLS="$work/calls" HOME="$home" PATH="$work/mockbin:$PATH" \
-            /bin/bash docs/install-macos.sh --install > "$work/out" 2>&1; then
-            echo 'Old rc3 package must not count as latest release' >&2; exit 1
-          fi
-          grep -Fq 'v0.2.5-rc4-community.2/byze-p2pool-cli-complete-' "$work/calls"
-          test -f "$old/byze-p2pool"
-          test ! -e "$home/.local/bin/byze-p2pool"
-          test -f "$home/ldev/byze/build/bin/byze-cli"
-          echo 'PASS: previous CLI preserved, new release required; Core untouched'
-
-      - name: Existing Core data fails closed without any network access
-        shell: bash
-        run: |
-          set -euo pipefail
-          work="$(mktemp -d)"
-          trap 'rm -rf -- "$work"' EXIT
-          mkdir -p "$work/home/Library/Application Support/Byze" "$work/bin"
-          cat > "$work/bin/curl" <<'MOCK'
-          #!/bin/sh
-          echo 'Unexpected network operation' >&2
+          echo 'Unexpected download' >&2
           exit 99
           MOCK
-          chmod +x "$work/bin/curl"
-          if HOME="$work/home" PATH="$work/bin:$PATH" /bin/bash docs/install-macos.sh --install > "$work/output" 2>&1; then
-            echo "ERROR: installer proceeded despite existing Core data"
+          chmod 700 "$work/mock/curl"
+          if HOME="$home" PATH="$work/mock:$PATH" bash docs/install-macos.sh --install > "$work/block" 2>&1; then
+            echo 'Obsolete Community Test 2 installer must not run' >&2
             exit 1
           fi
-          grep -q 'Existing Core footprint:' "$work/output"
-          ! grep -q 'Unexpected network operation' "$work/output"
-          echo 'PASS: existing Core footprint blocked without network access'
+          grep -q 'installer paused' "$work/block"
+          test -f "$home/.local/opt/old-p2pool/protected"
+          grep -q BYZE_P2POOL_MANAGED_LAUNCHER "$home/.local/bin/byze-p2pool"
+          test -x "$home/ldev/byze-v0.3.0/byze-cli"
+          ! grep -q 'Unexpected download' "$work/block"
+      - name: Existing CLI sync monitoring remains read-only and resumable
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          trap 'rm -rf -- "$work"' EXIT
+          home="$work/home"
+          mkdir -p "$home/ldev/byze-v0.3.0" "$home/.local/bin"
+          cat > "$home/ldev/byze-v0.3.0/byze-cli" <<'CLI'
+          #!/bin/sh
+          if [ "$1" = getblockchaininfo ]; then
+            count=0
+            [ ! -f "$SYNC_COUNT" ] || count="$(cat "$SYNC_COUNT")"
+            count=$((count + 1))
+            echo "$count" > "$SYNC_COUNT"
+            case "$count" in
+              1) echo '{"chain":"main","blocks":500,"headers":1000,"initialblockdownload":true}' ;;
+              *) echo '{"chain":"main","blocks":1000,"headers":1000,"initialblockdownload":false}' ;;
+            esac
+          fi
+          CLI
+          printf '#!/bin/sh\nexit 0\n' > "$home/.local/bin/byze-p2pool"
+          chmod 700 "$home/ldev/byze-v0.3.0/byze-cli" "$home/.local/bin/byze-p2pool"
+          SYNC_COUNT="$work/count" HOME="$home" BYZE_SYNC_INTERVAL_SECONDS=0 BYZE_SYNC_MAX_POLLS=3 \
+            bash docs/install-macos.sh --wait-sync > "$work/progress"
+          grep -Fq '500 / 1000 blocks (50.0% by height); IBD: true' "$work/progress"
+          grep -q BYZE_NODE_READY "$work/progress"

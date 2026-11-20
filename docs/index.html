@@ -115,6 +115,8 @@
   'darwin-x64':{tag:'v0.2.5-rc4-community.2',archive:'byze-p2pool-cli-complete-0.2.5-rc4-community.2-darwin-x64.tar.gz'},
   'linux-x64':{tag:'v0.2.5-rc4-community.2',archive:'byze-p2pool-cli-complete-0.2.5-rc4-community.2-linux-x64.tar.gz'}
  };
+ // Legacy P2Pool test bundles must not be advertised as Byze v0.3-ready.
+ const FORK_P2POOL_INSTALLER_PAUSED = true;
  const releaseReady={'darwin-arm64':false,'darwin-x64':false,'linux-x64':false};
  const translations=window.BYZE_I18N||{en:{}};
  let currentLang='en';
@@ -165,17 +167,17 @@
  function validWallet(v){return /^byz1[a-z0-9]{8,156}$/.test(v)}
  function render(){
   const platform=choose(),d=catalog[platform],w=wallet.value.trim(),a=alias.value.trim(),n=Number(threads.value);
-  const available=releaseReady[platform]===true, mac=platform==='darwin-arm64'||platform==='darwin-x64';
+  const available=!FORK_P2POOL_INSTALLER_PAUSED && releaseReady[platform]===true, mac=platform==='darwin-arm64'||platform==='darwin-x64';
   const release=RELEASES[platform];
-  $('install-status').textContent=available?(platform==='darwin-x64'?t('intelReady'):platform==='linux-x64'?t('linuxReady'):t('macReady')):t(d.statusKey);
+  $('install-status').textContent=FORK_P2POOL_INSTALLER_PAUSED?t('forkInstallerPaused'):available?(platform==='darwin-x64'?t('intelReady'):platform==='linux-x64'?t('linuxReady'):t('macReady')):t(d.statusKey);
   installCode.textContent=mac?macInstall():platform==='linux-x64'?linuxInstall():t('installUnavailable');
   installCopy.disabled=!available;
   installMsg.textContent=available?t('installReady'):t('installPending');
-  $('release-warning').textContent=available?t('releaseReady',{tag:release.tag}):t('releasePending',{tag:release.tag});
+  $('release-warning').textContent=FORK_P2POOL_INSTALLER_PAUSED?t('forkInstallerPaused'):available?t('releaseReady',{tag:release.tag}):t('releasePending',{tag:release.tag});
   $('installer-platform').textContent=platform==='darwin-x64'?'macOS Intel x64':platform==='darwin-arm64'?'macOS Apple Silicon':'Linux x64';
   $('download-link').href=d.link;
   $('install-hint').textContent=mac?t('macHint'):platform==='linux-x64'?(available?t('macHint'):t('linuxHint')):t('otherHint');
-  $('availability-banner').textContent=(releaseReady['linux-x64']||releaseReady['darwin-x64'])?t('bannerReady'):t('bannerText');
+  $('availability-banner').textContent=FORK_P2POOL_INSTALLER_PAUSED?t('forkInstallerPaused'):(releaseReady['linux-x64']||releaseReady['darwin-x64'])?t('bannerReady'):t('bannerText');
   wallet.setAttribute('aria-invalid',w!==''&&!validWallet(w)?'true':'false');
   $('wallet-error').textContent=w!==''&&!validWallet(w)?t('walletError'):'';
   const valid=validWallet(w)&&/^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$/.test(a)&&Number.isInteger(n)&&n>=1&&n<=128;
@@ -183,7 +185,7 @@
   if(a!==''&&!/^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$/.test(a))errors.push(t('aliasError'));
   if(!Number.isInteger(n)||n<1||n>128)errors.push(t('threadsError'));
   code.textContent=valid?`"$HOME/.local/bin/byze-p2pool" --alias ${q(a)} --wallet ${q(w)} --threads ${n}`:t('commandPrompt');
-  copy.disabled=!valid;
+  copy.disabled=FORK_P2POOL_INSTALLER_PAUSED||!valid;
   msg.textContent=errors.length?errors.join(' · '):valid?t('readyToCopy'):t('walletNeeded');
  }
  for(const el of [...osRadios,wallet,alias,threads])el.addEventListener('input',render);

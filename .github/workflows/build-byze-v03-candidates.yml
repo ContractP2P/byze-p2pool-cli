@@ -1,0 +1,149 @@
+name: BYZE P2Pool v0.3 complete RC artifacts (unpublished)
+
+# This job only builds and uploads disposable workflow artifacts.
+# No GitHub Release, tag, live node, wallet or mainnet mining is used.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'cli/**'
+      - '.github/workflows/build-byze-v03-candidates.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Candidate ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: darwin-arm64
+            os: macos-15
+          - platform: darwin-x64
+            os: macos-15-intel
+          - platform: linux-x64
+            os: ubuntu-24.04
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: cli
+        shell: bash
+    env:
+      EXPECTED_VERSION: '0.3.0-rc1.dev'
+      EXPECTED_PLATFORM: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: cli/package-lock.json
+      - name: Require exact RC version and platform
+        run: |
+          set -euo pipefail
+          test "$(node -p 'require("./package.json").version')" = "$EXPECTED_VERSION"
+          test "$(node -p 'require("./COMPATIBILITY.json").cliVersion')" = "$EXPECTED_VERSION"
+          test "$(node -p 'process.platform+"-"+process.arch')" = "$EXPECTED_PLATFORM"
+      - name: Prepare pinned upstream miner build toolchain
+        run: |
+          set -euo pipefail
+          if [ "$RUNNER_OS" = macOS ]; then
+            brew install cmake boost openssl@3 pkg-config
+            echo "CMAKE_PREFIX_PATH=$(brew --prefix boost):$(brew --prefix openssl@3)" >> "$GITHUB_ENV"
+          else
+            sudo apt-get update
+            sudo apt-get install -y build-essential cmake git pkg-config libboost-dev libssl-dev
+          fi
+      - name: Full source validation
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run check
+          npm test
+          npm run test:dht
+          npm run release:preflight:source
+      - name: Rebuild and validate native miner/verifier from pinned upstream source
+        run: |
+          set -euo pipefail
+          rm -rf "native/$EXPECTED_PLATFORM"
+          npm run native:bootstrap-official
+          npm run native:ensure
+          node - <<'JS'
+          const {nativeBundleStatus,EXPECTED_NATIVE_SOURCE_COMMIT}=require('./src/mining/native-components')
+          const s=nativeBundleStatus()
+          if(s.platformKey!==process.env.EXPECTED_PLATFORM || !s.miner.ok || !s.verifier.ok ||
+             s.miner.feature!=='contract-direct-coinbase-v2' ||
+             s.miner.sourceCommit!==EXPECTED_NATIVE_SOURCE_COMMIT ||
+             s.verifier.sourceCommit!==EXPECTED_NATIVE_SOURCE_COMMIT) {
+            throw new Error('Pinned native miner/verifier integrity gate failed')
+          }
+          JS
+      - name: Package and inspect complete platform bundle
+        run: |
+          set -euo pipefail
+          archive="byze-p2pool-cli-complete-$EXPECTED_VERSION-$EXPECTED_PLATFORM.tar.gz"
+          mkdir -p dist
+          case "$EXPECTED_PLATFORM" in
+            darwin-arm64)
+              bash tools/build-portable-macos.sh
+              ;;
+            darwin-x64)
+              bash tools/build-portable-macos-intel.sh
+              ;;
+            linux-x64)
+              bash tools/build-portable-lab.sh
+              tar -czf "dist/$archive" -C .portable-lab linux-x64
+              ;;
+            *)
+              echo 'Unknown platform' >&2; exit 2
+              ;;
+          esac
+          test -s "dist/$archive"
+          tar -tzf "dist/$archive" > "dist/$EXPECTED_PLATFORM-file-list.txt"
+          case "$EXPECTED_PLATFORM" in
+            darwin-*) root="byze-p2pool-$EXPECTED_VERSION-$EXPECTED_PLATFORM" ;;
+            linux-x64) root="linux-x64" ;;
+          esac
+          testdir="$(mktemp -d)"
+          trap 'rm -rf -- "$testdir"' EXIT
+          tar -xzf "dist/$archive" -C "$testdir"
+          test -x "$testdir/$root/bin/node"
+          test -x "$testdir/$root/bin/byze-p2pool"
+          test -x "$testdir/$root/app/native/$EXPECTED_PLATFORM/byze-p2pool-miner"
+          test -x "$testdir/$root/app/native/$EXPECTED_PLATFORM/byze-rxhash"
+          test -f "$testdir/$root/app/COMPATIBILITY.json"
+          test -f "$testdir/$root/app/THIRD_PARTY-NOTICES.md"
+          test -f "$testdir/$root/app/licenses/byze-miner-MIT.txt"
+          test -f "$testdir/$root/app/licenses/RandomX-BSD-3-Clause.txt"
+          test "$("$testdir/$root/bin/byze-p2pool" --version)" = "$EXPECTED_VERSION"
+          "$testdir/$root/bin/byze-p2pool" --help > /dev/null
+          "$testdir/$root/bin/node" "$testdir/$root/app/tools/test-private-dht.js"
+          (cd dist && shasum -a 256 "$archive" > SHA256SUMS && shasum -a 256 -c SHA256SUMS)
+          cat > dist/RC-NOTICE.txt <<TXT
+          BYZE P2Pool $EXPECTED_VERSION / $EXPECTED_PLATFORM
+          Unpublished experimental release candidate.
+          Source commit: $GITHUB_SHA
+          Native miner source pinned and rebuilt from verified upstream.
+          Built with official checksummed Node.js or verified workflow Node.js.
+          No BYZE Core, wallet files, private keys or RPC credentials included.
+          NOT SIGNED OR NOTARIZED. NO PRODUCTION APPROVAL.
+          No automatic installation; old community releases are unmodified.
+          TXT
+      - name: Upload temporary RC archive and checksums (no public release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: byze-p2pool-v03-rc-${{ matrix.platform }}
+          path: |
+            cli/dist/byze-p2pool-cli-complete-0.3.0-rc1.dev-${{ matrix.platform }}.tar.gz
+            cli/dist/SHA256SUMS
+            cli/dist/RC-NOTICE.txt
+            cli/dist/${{ matrix.platform }}-file-list.txt
+          retention-days: 14
+          if-no-files-found: error
+          compression-level: 0

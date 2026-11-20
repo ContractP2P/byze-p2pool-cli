@@ -110,7 +110,7 @@ jobs:
           set -euo pipefail
           mkdir -p ../test-artifacts
           short_sha="$(git rev-parse --short=12 HEAD)"
-          archive="byze-p2pool-native-0.2.5-rc3-${EXPECTED_PLATFORM}-${short_sha}.tar.gz"
+          archive="byze-p2pool-native-0.3.0-rc1.dev-${EXPECTED_PLATFORM}-${short_sha}.tar.gz"
           tar -czf "../test-artifacts/$archive" -C . "native/${EXPECTED_PLATFORM}"
           (
             cd ../test-artifacts
