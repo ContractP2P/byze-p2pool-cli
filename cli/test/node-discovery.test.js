@@ -147,7 +147,7 @@ test('explicit stale Core path cannot cause acquisition while an existing client
     assert.notEqual(result.status,0)
     assert.match(result.stderr,/Existing byze-cli.*Core download refused/)
     assert.doesNotMatch(result.stderr,/requires an interactive terminal/)
-    assert.equal(fs.existsSync(path.join(home,'byze-core-verified-rc4')),false)
+    assert.equal(fs.existsSync(path.join(home,'byze-core-verified-v03')),false)
   }finally{fs.rmSync(root,{recursive:true,force:true})}
 })
 

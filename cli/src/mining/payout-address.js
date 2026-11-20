@@ -6,6 +6,7 @@
 // for the miner's own address ({ local: true }); addresses of other peers are judged
 // on validateaddress alone so that every honest node reaches the same verdict.
 // RPC outages and a full validation queue say nothing about the address itself.
+const { payoutScriptKind, checkPayoutScript, checkCoreVersion } = require('./byze-v03-compat')
 const TRANSIENT_PAYOUT_CODES = new Set(['miningPayoutValidationUnavailable', 'miningPayoutValidationBusy'])
 
 class PayoutAddressValidator {
@@ -39,7 +40,7 @@ class PayoutAddressValidator {
       if (local && result.ok && result.spendability === 'unknown' && (!this.warned.has(address) || this.now() - this.warned.get(address) >= 600_000)) {
         this.warned.set(address, this.now())
         while (this.warned.size > this.maxEntries) this.warned.delete(this.warned.keys().next().value)
-        this.warn(`Payout ${address}: valid output script, but this node cannot confirm spendability. Use getnewaddress on Byze rc4 or later and verify the receiving wallet.`)
+        this.warn(`Payout ${address}: valid output script, but wallet spendability is not confirmed. Verify the recipient wallet before mining.`)
       }
       return result
     } finally {
@@ -53,9 +54,28 @@ class PayoutAddressValidator {
     catch { return { ok: false, code: 'miningPayoutValidationUnavailable' } }
     if (validated?.isvalid !== true) return { ok: false, code: 'miningPayoutAddressInvalid' }
     const script = String(validated.scriptPubKey || '').toLowerCase()
-    // Byze rc4 supports witness-v1 32-byte payout programs only.
-    if (!/^5120[0-9a-f]{64}$/.test(script)) return { ok: false, code: 'miningPayoutScriptUnsupported' }
+    const kind = payoutScriptKind(script)
+    if (!kind) return { ok: false, code: 'miningPayoutScriptUnsupported' }
     if (validated.unspendable === true) return { ok: false, code: 'miningPayoutUnspendable' }
+    // Before block 28,000, witness-v2 payouts cannot be mined; also refuse
+    // stale/pre-v0.3 Core after activation. This applies to remote peers too.
+    if (kind === 'stateless') {
+      let chain, network
+      try { chain = await this.rpc('getblockchaininfo', []) }
+      catch { return { ok:false, code:'miningPayoutValidationUnavailable' } }
+      const blocks = Number(chain?.blocks)
+      if (chain?.chain !== 'main' || !Number.isSafeInteger(blocks) || blocks < 0 ||
+          chain.initialblockdownload !== false) {
+        return { ok:false, code:'miningPayoutValidationUnavailable' }
+      }
+      const nextHeight = blocks + 1
+      const policy = checkPayoutScript(script, nextHeight)
+      if (!policy.ok) return { ok:false, code:policy.code }
+      try { network = await this.rpc('getnetworkinfo', []) }
+      catch { return { ok:false, code:'miningPayoutValidationUnavailable' } }
+      const node = checkCoreVersion(network, nextHeight)
+      if (!node.ok) return { ok:false, code:node.code }
+    }
     if (!local) return { ok: true, scriptPubKey: script, spendability: 'not-checked' }
     let info
     try { info = await this.rpc('getaddressinfo', [address]) } catch {}
@@ -63,8 +83,9 @@ class PayoutAddressValidator {
     if (info?.scriptPubKey && String(info.scriptPubKey).toLowerCase() !== script) {
       return { ok: false, code: 'miningPayoutScriptMismatch' }
     }
-    const quantum = info?.solvable === true && info?.desc === `quantum_program(${script.slice(4)})`
-    return { ok: true, scriptPubKey: script, spendability: quantum ? 'wallet-quantum' : 'unknown' }
+    const quantum = kind === 'legacy' && info?.solvable === true && info?.desc === `quantum_program(${script.slice(4)})`
+    const stateless = kind === 'stateless' && info?.ismine === true && info?.solvable === true
+    return { ok: true, scriptPubKey: script, spendability: quantum ? 'wallet-quantum' : stateless ? 'wallet-stateless' : 'unknown' }
   }
 }
 

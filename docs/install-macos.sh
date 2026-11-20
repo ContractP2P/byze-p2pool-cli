@@ -1,10 +1,10 @@
 #!/bin/bash
 # BYZE P2Pool installer for stock macOS. Never re-installs detected BYZE Core.
 set -euo pipefail
-CORE_TAG="v0.2.5-rc5-change-keyspace"
+CORE_TAG="v0.3.0-stateless-pq"
 CORE_BASE="https://github.com/powhermes/byze/releases/download/$CORE_TAG"
-CORE_SHA_X64="08392d6daf5597b45749f2fa18cfbac585510ca591df2f70f555d5093b16bf28"
-CORE_SHA_ARM="d71baa8534515027b60a0c7b9de71ffe75ae236322a5cbb5e77056a5f1731a62"
+CORE_SHA_X64="af471b282c1f1d75ea3830c63332b7db78f91ed0ca7ba0895269e3c88f6a389c"
+CORE_SHA_ARM="5693e22bf4cb9b51293f149852ff342e577de5fee6b422659c758c64cac75267"
 VERSION="0.2.5-rc4-community.2"
 BASE="$HOME/.local/opt"
 LAUNCHER="$HOME/.local/bin/byze-p2pool"
@@ -54,7 +54,7 @@ discover_core() {
  fi
  path="$(command -v byze-cli 2>/dev/null || true)"
  try_client "$path" && return 0
- for path in "$HOME/ldev/byze/build/bin/byze-cli" "$HOME/byze/build/bin/byze-cli" \
+ for path in "$HOME/ldev/byze-v0.3.0/byze-cli" "$HOME/ldev/byze/build/bin/byze-cli" "$HOME/byze/build/bin/byze-cli" \
       /usr/local/bin/byze-cli /opt/homebrew/bin/byze-cli; do
    try_client "$path" && return 0
  done
@@ -262,6 +262,9 @@ case "$MODE" in
    discover_core || fail 'Existing BYZE Core client could not be found; no installation attempted.'
    wait_for_mainnet_sync ;;
  --install)
+   # P2Pool Community Test 2 archives are NOT fork-qualified. Do not silently
+   # install them as Byze Core v0.3-ready bundles, even if Core is up-to-date.
+   fail "P2Pool Community Test 2 installer paused until v0.3-compatible, checksum-pinned P2Pool packages are published. Existing node and wallets unchanged. See docs/byze-v03-upgrade.md."
    message "BYZE P2Pool full installation for $PLATFORM"
    # Inspect local installations before any network operation. A detected
    # footprint with no usable byze-cli must fail closed even when offline.

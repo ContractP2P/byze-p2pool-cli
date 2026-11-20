@@ -3,14 +3,14 @@
 
 const fs=require('fs'),path=require('path'),os=require('os'),crypto=require('crypto')
 const {execFileSync}=require('child_process')
-const TAG='v0.2.5-rc4-plain-taproot-guard'
+const TAG='v0.3.0-stateless-pq'
 const FINGERPRINT='9F11E836EB4B7F464ADBB1E7AC11CA674828CAE1'
 const BASE=`https://github.com/powhermes/byze/releases/download/${TAG}/`
 const ASSETS={
- 'linux-x64':{name:'byze-core-linux-x86_64.tar.gz',sha256:'45db51d035f7e2edfd8ebe6dc08c83ae062ad4d3e744bd8057fed797cd0be4d3'},
- 'darwin-arm64':{name:'byze-core-macos-arm64.zip',sha256:'7f55b31cb505165e4d8f7b5448aef67822d513cfc55b31ca93617eb3ff086df3'},
- 'darwin-x64':{name:'byze-core-macos-x86_64.zip',sha256:'aecd7b1e8861ea4dfa53f80fcaa86634b1995989dac8240648d7942d6a5d547b'},
- 'win32-x64':{name:'byze-core-windows-x86_64.zip',sha256:'db73783f0e3056d1df6e371e0136e7477cf6e4f50f6bffbcd16766aec881f540'}
+ 'linux-x64':{name:'byze-core-linux-x86_64.tar.gz',sha256:'6278412d3376b653172bd2f4c84d21af513526feba30d9363b5f3efb2707e0c2'},
+ 'darwin-arm64':{name:'byze-core-macos-arm64.zip',sha256:'5693e22bf4cb9b51293f149852ff342e577de5fee6b422659c758c64cac75267'},
+ 'darwin-x64':{name:'byze-core-macos-x86_64.zip',sha256:'af471b282c1f1d75ea3830c63332b7db78f91ed0ca7ba0895269e3c88f6a389c'},
+ 'win32-x64':{name:'byze-core-windows-x86_64.zip',sha256:'2d106213a3a287b810665aadd86d0757f045b62c300c7811e3facf3aac961465'}
 }
 function checksumFor(text,name){
  const matches=String(text).split(/\r?\n/).map(line=>/^([0-9a-f]{64}) [ *](\S+)$/.exec(line)).filter(m=>m&&m[2]===name)
@@ -52,7 +52,7 @@ async function downloadCore({destination,platform=`${process.platform}-${process
   gpg(['--dearmor','--output',keyring,path.join(dest,'byze-release-signing-key.asc')])
   const status=gpg(['--no-default-keyring','--keyring',keyring,'--trust-model','always','--status-fd','1','--verify',path.join(dest,'SHA256SUMS.asc'),path.join(dest,'SHA256SUMS')])
   if(!validSignature(status))throw new Error('Checksum signature does not match the pinned release key')
-  if(checksumFor(fs.readFileSync(path.join(dest,'SHA256SUMS'),'utf8'),asset.name)!==asset.sha256)throw new Error('Signed checksum differs from pinned rc4 archive')
+  if(checksumFor(fs.readFileSync(path.join(dest,'SHA256SUMS'),'utf8'),asset.name)!==asset.sha256)throw new Error('Signed checksum differs from pinned v0.3.0 archive')
   const partial=path.join(dest,asset.name+'.partial')
   await fetchFile(BASE+asset.name,partial,64*1024*1024)
   const hash=crypto.createHash('sha256')
@@ -65,7 +65,7 @@ async function downloadCore({destination,platform=`${process.platform}-${process
 }
 async function main(){
  const args=process.argv.slice(2)
- if(args.includes('--help')){console.log('Usage: npm run core:download -- --dest NEW_DIRECTORY [--platform linux-x64|darwin-arm64|darwin-x64|win32-x64]\nRequires GnuPG. Downloads and verifies rc4; does not extract, start or replace a node.');return}
+ if(args.includes('--help')){console.log('Usage: npm run core:download -- --dest NEW_DIRECTORY [--platform linux-x64|darwin-arm64|darwin-x64|win32-x64]\nRequires GnuPG. Downloads and verifies v0.3.0; does not extract, start or replace a node.');return}
  let destination,platform
  for(let i=0;i<args.length;i+=2){if(!args[i+1]||args[i+1].startsWith('--'))throw Error('Missing option value');if(args[i]==='--dest')destination=args[i+1];else if(args[i]==='--platform')platform=args[i+1];else throw Error('Unknown option')}
  const result=await downloadCore({destination,platform});console.log(`Verified ${result.tag}: ${result.archive}\nSHA-256: ${result.sha256}\nGPG: ${result.fingerprint}`)

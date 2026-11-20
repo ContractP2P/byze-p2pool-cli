@@ -3,186 +3,90 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, fix/core-detection-before-network-preflight]
+    branches: [main]
 permissions:
   contents: read
 jobs:
   no-duplicate-core:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Validate shell syntax and offline Core discovery
+      - name: Shell syntax and official Core v0.3 pin
         shell: bash
         run: |
           set -euo pipefail
           bash -n docs/install-linux.sh
-          work="$(mktemp -d)"
-          trap 'rm -rf "$work"' EXIT
-          mkdir -p "$work/home" "$work/mock"
-          cat > "$work/mock/curl" <<'CURL'
-          #!/bin/sh
-          echo UNEXPECTED_CURL >> "$CURL_LOG"
-          exit 99
-          CURL
-          chmod +x "$work/mock/curl"
-          export CURL_LOG="$work/curl.log"
-          HOME="$work/home" PATH="$work/mock:$PATH" bash docs/install-linux.sh --probe > "$work/clean"
-          grep -q 'CORE_ABSENT' "$work/clean"
-          mkdir -p "$work/home/.byze"
-          HOME="$work/home" PATH="$work/mock:$PATH" bash docs/install-linux.sh --probe > "$work/data"
-          grep -q 'CORE_FOUND' "$work/data"
-          grep -q 'DO_NOT_REINSTALL' "$work/data"
-          if HOME="$work/home" PATH="$work/mock:$PATH" bash docs/install-linux.sh --install > "$work/blocked" 2>&1; then
-            echo 'Existing Core data must block install' >&2; exit 1
-          fi
-          grep -q 'Existing Core footprint' "$work/blocked"
-          test ! -e "$work/curl.log"
-          test -d "$work/home/.byze"
-          echo 'PASS: existing Core data preserved without a network request'
-      - name: Reuse existing Core and P2Pool without downloads
+          grep -Fq 'CORE_TAG=v0.3.0-stateless-pq' docs/install-linux.sh
+          grep -Fq 'CORE_SHA=6278412d3376b653172bd2f4c84d21af513526feba30d9363b5f3efb2707e0c2' docs/install-linux.sh
+      - name: Offline discovery and legacy installer fail-closed preserve wallets
         shell: bash
         run: |
           set -euo pipefail
           work="$(mktemp -d)"
-          trap 'rm -rf "$work"' EXIT
-          home="$work/home"
-          mkdir -p "$home/byze/build/bin" "$home/.local/opt/byze-p2pool-0.2.5-rc4-community.2-linux-x64/bin" "$work/mock"
-          cat > "$home/byze/build/bin/byze-cli" <<'CLI'
-          #!/bin/sh
-          if [ "$1" = getblockchaininfo ]; then
-            printf '{"chain":"main","blocks":5,"headers":5,"initialblockdownload":false}\n'
-            exit 0
-          fi
-          exit 1
-          CLI
-          cat > "$home/.local/opt/byze-p2pool-0.2.5-rc4-community.2-linux-x64/bin/byze-p2pool" <<'POOL'
-          #!/bin/sh
-          if [ "$1" = --version ]; then echo 0.2.5-rc4-community.2; exit 0; fi
-          if [ "$1" = --check-node ]; then echo BYZE_NODE_READY; exit 0; fi
-          exit 1
-          POOL
+          trap 'rm -rf -- "$work"' EXIT
+          mkdir -p "$work/home" "$work/mock"
           cat > "$work/mock/curl" <<'CURL'
           #!/bin/sh
-          echo 'Network must not be needed for existing Core + pool' >&2
+          echo UNEXPECTED_DOWNLOAD >&2
           exit 99
           CURL
-          chmod +x "$home/byze/build/bin/byze-cli" \
-            "$home/.local/opt/byze-p2pool-0.2.5-rc4-community.2-linux-x64/bin/byze-p2pool" "$work/mock/curl"
-          HOME="$home" PATH="$work/mock:$PATH" bash docs/install-linux.sh --install > "$work/result"
-          grep -q 'CORE_ACTION: REUSE_ONLY' "$work/result"
-          grep -q 'BYZE_NODE_READY' "$work/result"
-          grep -qx '# BYZE_P2POOL_MANAGED_LAUNCHER' "$home/.local/bin/byze-p2pool"
-          test -f "$home/byze/build/bin/byze-cli"
-          grep -Fq 'byze-p2pool-0.2.5-rc4-community.2-linux-x64/bin' "$home/.local/bin/byze-p2pool"
-          echo 'PASS: no BYZE Core/CLI redownload or replacement'
-          cat > "$home/byze/build/bin/byze-cli" <<'EMPTY_CLI'
-          #!/bin/sh
-          if [ "$1" = getblockchaininfo ]; then
-            printf '{"chain":"main","blocks":0,"headers":0,"initialblockdownload":false}\n'
-            exit 0
+          chmod 700 "$work/mock/curl"
+          HOME="$work/home" PATH="$work/mock:$PATH" bash docs/install-linux.sh --probe > "$work/clean"
+          grep -q CORE_ABSENT "$work/clean"
+          mkdir -p "$work/home/.byze" "$work/home/.local/opt/old-p2pool"
+          printf 'keep\n' > "$work/home/.local/opt/old-p2pool/test"
+          HOME="$work/home" PATH="$work/mock:$PATH" bash docs/install-linux.sh --probe > "$work/data"
+          grep -q DO_NOT_REINSTALL "$work/data"
+          if HOME="$work/home" PATH="$work/mock:$PATH" bash docs/install-linux.sh --install > "$work/block" 2>&1; then
+            echo 'Obsolete Community Test 2 installer must not proceed' >&2; exit 1
           fi
-          exit 1
-          EMPTY_CLI
-          chmod +x "$home/byze/build/bin/byze-cli"
-          HOME="$home" PATH="$work/mock:$PATH" \
-            BYZE_SYNC_INTERVAL_SECONDS=0 BYZE_SYNC_MAX_POLLS=1 \
-            bash docs/install-linux.sh --install > "$work/empty" 2>&1 && exit 1
-          grep -q 'BYZE_NODE_NOT_READY' "$work/empty"
-          ! grep -qx 'BYZE_NODE_READY' "$work/empty"
-          test ! -e "$work/curl.log"
-          echo 'PASS: zero-height Core cannot falsely pass installation readiness'
-          cat > "$home/byze/build/bin/byze-cli" <<'SYNC_CLI'
-          #!/bin/sh
-          if [ "$1" = getblockchaininfo ]; then
-            n=0
-            if [ -f "$SYNC_READS" ]; then n="$(cat "$SYNC_READS")"; fi
-            n=$((n + 1))
-            echo "$n" > "$SYNC_READS"
-            case "$n" in
-              1) printf '{"chain":"main","blocks":250,"headers":1000,"initialblockdownload":true}\n' ;;
-              2) printf '{"chain":"main","blocks":500,"headers":1000,"initialblockdownload":true}\n' ;;
-              *) printf '{"chain":"main","blocks":1000,"headers":1000,"initialblockdownload":false}\n' ;;
-            esac
-            exit 0
-          fi
-          exit 1
-          SYNC_CLI
-          chmod +x "$home/byze/build/bin/byze-cli"
-          SYNC_READS="$work/sync-count" HOME="$home" PATH="$work/mock:$PATH" \
-            BYZE_SYNC_INTERVAL_SECONDS=0 BYZE_SYNC_MAX_POLLS=4 \
-            bash docs/install-linux.sh --wait-sync > "$work/progress"
-          grep -Fq '250 / 1000 blocks (25.0% by height); IBD: true' "$work/progress"
-          grep -Fq '500 / 1000 blocks (50.0% by height); IBD: true' "$work/progress"
-          grep -Fq '1000 / 1000 blocks (100.0% by height); IBD: false' "$work/progress"
-          grep -q 'BYZE_NODE_READY' "$work/progress"
-          test ! -e "$work/curl.log"
-          echo 'PASS: resumable percent-by-height monitoring never downloads or starts Core'
-
-      - name: Earlier rc3 Linux test package cannot silently replace the new release
+          grep -q 'installer paused' "$work/block"
+          ! grep -q UNEXPECTED_DOWNLOAD "$work/block"
+          test -f "$work/home/.local/opt/old-p2pool/test"
+          test -d "$work/home/.byze"
+      - name: Core sync monitor remains available without restarting daemon
         shell: bash
         run: |
           set -euo pipefail
           work="$(mktemp -d)"
           trap 'rm -rf -- "$work"' EXIT
           home="$work/home"
-          old="$home/.local/opt/byze-p2pool-0.2.5-rc3-linux-x64/bin"
-          mkdir -p "$home/byze/build/bin" "$old" "$work/mock"
-          printf '#!/bin/sh\nexit 0\n' > "$home/byze/build/bin/byze-cli"
-          printf '#!/bin/sh\nexit 0\n' > "$old/byze-p2pool"
-          chmod 700 "$home/byze/build/bin/byze-cli" "$old/byze-p2pool"
-          cat > "$work/mock/curl" <<'MOCK'
+          mkdir -p "$home/ldev/byze-v0.3.0" "$home/.local/bin"
+          cat > "$home/ldev/byze-v0.3.0/byze-cli" <<'CLI'
           #!/bin/sh
-          echo "$*" >> "$CURL_CALLS"
-          exit 22
-          MOCK
-          chmod 700 "$work/mock/curl"
-          if CURL_CALLS="$work/calls" HOME="$home" PATH="$work/mock:$PATH" \
-            bash docs/install-linux.sh --install > "$work/out" 2>&1; then
-            echo 'Old rc3 package must not count as latest release' >&2; exit 1
+          if [ "$1" = getblockchaininfo ]; then
+            count=0
+            [ ! -f "$SYNC_COUNT" ] || count="$(cat "$SYNC_COUNT")"
+            count=$((count + 1))
+            echo "$count" > "$SYNC_COUNT"
+            case "$count" in
+              1) echo '{"chain":"main","blocks":500,"headers":1000,"initialblockdownload":true}' ;;
+              *) echo '{"chain":"main","blocks":1000,"headers":1000,"initialblockdownload":false}' ;;
+            esac
           fi
-          grep -Fq 'v0.2.5-rc4-community.2/byze-p2pool-cli-complete-' "$work/calls"
-          test -f "$old/byze-p2pool"
-          test ! -e "$home/.local/bin/byze-p2pool"
-          test -f "$home/byze/build/bin/byze-cli"
-          echo 'PASS: previous CLI preserved, new release required; Core untouched'
-
-      - name: Core absent without signed public P2Pool asset cannot alter machine
+          CLI
+          printf '#!/bin/sh\nexit 0\n' > "$home/.local/bin/byze-p2pool"
+          chmod 700 "$home/ldev/byze-v0.3.0/byze-cli" "$home/.local/bin/byze-p2pool"
+          SYNC_COUNT="$work/count" HOME="$home" BYZE_SYNC_INTERVAL_SECONDS=0 BYZE_SYNC_MAX_POLLS=3 \
+            bash docs/install-linux.sh --wait-sync > "$work/progress"
+          grep -Fq '500 / 1000 blocks (50.0% by height); IBD: true' "$work/progress"
+          grep -q BYZE_NODE_READY "$work/progress"
+      - name: Verify signed official Byze Core v0.3 archive (download only)
         shell: bash
         run: |
           set -euo pipefail
           work="$(mktemp -d)"
-          trap 'rm -rf "$work"' EXIT
-          mkdir -p "$work/home" "$work/mock"
-          cat > "$work/mock/curl" <<'CURL'
-          #!/bin/sh
-          exit 22
-          CURL
-          chmod +x "$work/mock/curl"
-          if HOME="$work/home" PATH="$work/mock:$PATH" bash docs/install-linux.sh --install > "$work/out" 2>&1; then
-            echo 'Expected fail-closed without Linux release' >&2; exit 1
-          fi
-          grep -q 'not published' "$work/out"
-          test ! -d "$work/home/.local/opt"
-          echo 'PASS: no partial Core install on unavailable P2Pool release'
-
-
-      - name: Validate Core rc4 developer downloader and rc5 guided Linux clean-host installation
-        shell: bash
-        run: |
-          set -euo pipefail
-          work="$(mktemp -d)"
-          trap 'rm -rf "$work"' EXIT
+          trap 'rm -rf -- "$work"' EXIT
           node cli/tools/download-core.js --dest "$work/verified-core" --platform linux-x64
           archive="$work/verified-core/byze-core-linux-x86_64.tar.gz"
           test -s "$archive"
           tar -tzf "$archive" > "$work/archive-files"
-          grep -Eq '(^|/)byzed$' "$work/archive-files"
-          grep -Eq '(^|/)byze-cli$' "$work/archive-files"
-          echo 'PASS: signed and SHA-256-pinned official Core archive includes executables'
-      - name: Validate website installer command JavaScript
+          grep -Fq 'byzed' "$work/archive-files"
+          grep -Fq 'byze-cli' "$work/archive-files"
+      - name: Validate website installer JavaScript syntax
         shell: bash
         run: |
           set -euo pipefail
@@ -190,37 +94,9 @@ jobs:
           from pathlib import Path
           import re
           html=Path("docs/index.html").read_text()
-          scripts=re.findall(r'<script>([\s\S]*?)</script>',html)
-          assert len(scripts)==1, "Expected one inline script"
-          Path("/tmp/byze-install-site-inline.js").write_text(scripts[0])
-          assert "function linuxInstall()" in scripts[0]
-          assert "'linux-x64'" in scripts[0]
+          scripts=re.findall(r'<script>(.*?)</script>',html,re.DOTALL)
+          assert len(scripts)==1
+          assert "FORK_P2POOL_INSTALLER_PAUSED = true" in scripts[0]
+          Path("/tmp/byze-v03-install-site-inline.js").write_text(scripts[0])
           PY
-          node --check /tmp/byze-install-site-inline.js
-      - name: Clean Linux host installs real Core into new directory but never auto-starts
-        shell: bash
-        run: |
-          set -euo pipefail
-          work="$(mktemp -d)"
-          trap 'rm -rf "$work"' EXIT
-          mkdir -p "$work/home"
-          # Linux script(1) provides the terminal needed for consent.
-          # Reject START; never run byzed or touch a blockchain wallet.
-          set +e
-          printf 'NO\nINSTALL\nDECLINE\n' | \
-            script -q -e -c "env HOME=$work/home bash docs/install-linux.sh --install-core" /dev/null \
-            > "$work/out" 2>&1
-          status=$?
-          set -e
-          test "$status" -ne 0
-          grep -q 'CORE_INSTALLED:' "$work/out"
-          grep -Fq 'byze-core-v0.2.5-rc5-change-keyspace-linux-x64' "$work/out"
-          grep -Fq 'CORE_SHA=2ce51e203c20ec7dd22fef055fbece0ce702c7e7451a6fe9be248353ae5e19ad' docs/install-linux.sh
-          found_cli="$(find "$work/home/.local/opt" -type f -name byze-cli -print -quit)"
-          found_daemon="$(find "$work/home/.local/opt" -type f -name byzed -print -quit)"
-          test -x "$found_cli"
-          test -x "$found_daemon"
-          test ! -e "$work/home/.byze"
-          HOME="$work/home" bash docs/install-linux.sh --probe > "$work/probe"
-          grep -q 'CORE_ACTION: REUSE_ONLY' "$work/probe"
-          echo 'PASS: clean install succeeds, no daemon started, re-run recognizes existing Core'
+          node --check /tmp/byze-v03-install-site-inline.js

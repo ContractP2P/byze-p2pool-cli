@@ -2,7 +2,7 @@
 'use strict'
 
 // Optional isolated RPC integration check. No mainnet connection or real funds.
-// BYZE_CORE_BIN=/path/to/rc4/bin npm run test:core
+// BYZE_CORE_BIN=/path/to/v0.3.0/bin npm run test:core
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const os = require('node:os')
@@ -17,7 +17,7 @@ const run = promisify(execFile)
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 async function main() {
-  if (!process.env.BYZE_CORE_BIN) throw new Error('Set BYZE_CORE_BIN to the directory containing verified Byze rc4 binaries.')
+  if (!process.env.BYZE_CORE_BIN) throw new Error('Set BYZE_CORE_BIN to the directory containing verified Byze v0.3.0 binaries.')
   const bin = path.resolve(process.env.BYZE_CORE_BIN)
   const suffix = process.platform === 'win32' ? '.exe' : ''
   for (const name of ['byzed','byze-cli']) fs.accessSync(path.join(bin,name+suffix),fs.constants.X_OK)

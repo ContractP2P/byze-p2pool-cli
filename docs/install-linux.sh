@@ -3,8 +3,8 @@
 set -euo pipefail
 [ "$(uname -s)" = Linux ] || { echo 'Linux only' >&2; exit 1; }
 [ "$(uname -m)" = x86_64 ] || { echo 'Linux x86_64 only' >&2; exit 1; }
-CORE_TAG=v0.2.5-rc5-change-keyspace
-CORE_SHA=2ce51e203c20ec7dd22fef055fbece0ce702c7e7451a6fe9be248353ae5e19ad
+CORE_TAG=v0.3.0-stateless-pq
+CORE_SHA=6278412d3376b653172bd2f4c84d21af513526feba30d9363b5f3efb2707e0c2
 CORE_FPR=9F11E836EB4B7F464ADBB1E7AC11CA674828CAE1
 CORE_ASSET=byze-core-linux-x86_64.tar.gz
 CORE_URL="https://github.com/powhermes/byze/releases/download/$CORE_TAG"
@@ -56,7 +56,7 @@ discover_core() {
   fi
   p="$(command -v byze-cli 2>/dev/null || true)"
   client "$p" && return 0
-  for p in "$HOME/ldev/byze/build/bin/byze-cli" "$HOME/byze/build/bin/byze-cli" \
+  for p in "$HOME/ldev/byze-v0.3.0/byze-cli" "$HOME/ldev/byze/build/bin/byze-cli" "$HOME/byze/build/bin/byze-cli" \
     "$HOME/.local/bin/byze-cli" /usr/local/bin/byze-cli /usr/bin/byze-cli; do
     client "$p" && return 0
   done
@@ -266,6 +266,9 @@ case "$MODE" in
     discover_core || fail 'Existing BYZE Core client not found; no installation attempted.'
     wait_for_mainnet_sync ;;
   --install|--install-core)
+    if [ "$MODE" = --install ]; then
+      fail 'P2Pool Community Test 2 installer paused until v0.3-compatible, checksum-pinned P2Pool packages are released. Existing node and wallets unchanged. See docs/byze-v03-upgrade.md.'
+    fi
     for c in curl tar sha256sum awk grep realpath mktemp; do
       command -v "$c" >/dev/null || fail "Missing prerequisite: $c"
     done

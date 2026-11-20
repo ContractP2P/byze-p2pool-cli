@@ -1,6 +1,7 @@
 'use strict'
 
 const { blockWeight, MAX_BLOCK_WEIGHT } = require('./block-weight')
+const { FORK_HEIGHT, checkCandidateCompatibility } = require('./byze-v03-compat')
 
 function hexBlock(v) {
   const s = String(v || '').toLowerCase()
@@ -35,16 +36,32 @@ async function publishQuantumBlock({ rpc, candidate, allowSubmit = false, expect
   catch (error) { return { ok: false, code: 'miningBlockNodeUnavailable', error: String(error?.message || error) } }
   const chain = String(info?.chain || '')
   if (expectedNetwork && chain !== expectedNetwork) return { ok: false, code: 'miningBlockSubmissionNetworkGuard', chain }
+  const blocks = Number(info?.blocks)
+  if (!Number.isSafeInteger(blocks) || blocks < 0) return { ok:false, code:'miningBlockHeightUnavailable', chain }
+  const nextHeight = blocks + 1
+  if (candidate.height != null && Number(candidate.height) !== nextHeight) {
+    return { ok:false, code:'miningBlockCandidateStale', chain }
+  }
 
   let best = ''
   try { best = String(await rpc('getbestblockhash', [])).toLowerCase() } catch {}
   if (candidate.previousBlockHash && best && best !== String(candidate.previousBlockHash).toLowerCase()) return { ok: false, code: 'miningBlockCandidateStale', chain }
   if (!allowSubmit) return { ok: false, code: 'miningBlockSubmissionDisabled', chain }
+  let networkInfo = null
+  if (nextHeight >= FORK_HEIGHT) {
+    try { networkInfo = await rpc('getnetworkinfo', []) }
+    catch { return { ok:false, code:'miningCoreVersionUnavailable', chain } }
+  }
+  const compatible = checkCandidateCompatibility(blockHex,nextHeight,candidate.expectedVersion,networkInfo)
+  if (!compatible.ok) return { ok:false, code:compatible.code, chain }
 
   const signed = await signPoolBlock(rpc, blockHex)
   if (!signed.ok) return { ...signed, chain }
   const signedHex = signedHexFromRpc(signed.result)
   if (!signedHex) return { ok: false, code: 'miningQuantumSignerInvalidResult', chain, signerMethod: signed.method }
+  if (signedHex.slice(0,160) !== blockHex.slice(0,160)) {
+    return { ok:false, code:'miningSignedBlockHeaderMismatch', chain, signerMethod:signed.method }
+  }
   if (chain === 'main' && signed.result?.quantum_signed !== true) {
     return { ok: false, code: 'miningQuantumSignatureMissing', chain, signerMethod: signed.method }
   }

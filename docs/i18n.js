@@ -2,6 +2,7 @@
 // Offline-only interface translations. No translation provider or wallet data transfer.
 window.BYZE_I18N = Object.freeze({
   "en": {
+    "forkInstallerPaused": "Byze v0.3 / block 28,000: legacy P2Pool packages are not fork-qualified. Guided installation and mining commands are paused until new bundles pass testing. See the source upgrade guide in GitHub.",
     "pageTitle": "Install BYZE P2Pool CLI — Guided setup",
     "metaDescription": "BYZE P2Pool CLI: guided installation on macOS and Linux without compiling source code.",
     "brand": "GUIDED INSTALLATION",
@@ -74,6 +75,7 @@ window.BYZE_I18N = Object.freeze({
     "bannerReady": "Experimental Test 1 packages are available for community testing only, not production deployment. Existing BYZE Core is never replaced; installing Core on a clean host requires explicit consent. Test binaries are unsigned."
   },
   "fr": {
+    "forkInstallerPaused": "Byze v0.3 / bloc 28 000 : les anciens paquets P2Pool ne sont pas validés pour le fork. Installation guidée et commandes de minage suspendues jusqu’aux nouveaux tests. Consultez le guide de migration du dépôt GitHub.",
     "pageTitle": "Installer BYZE P2Pool CLI — Assistant guidé",
     "metaDescription": "BYZE P2Pool CLI : installation guidée sur macOS et Linux, sans compilation.",
     "brand": "INSTALLATION GUIDÉE",
