@@ -44,4 +44,6 @@
 - [ ] Post-fork two-peer native RandomX / PPLNS full-block and fee-spendability validation.
 - [ ] Signed/notarized P2Pool release bundles and review of each installer's pinned SHA-256.
 - [ ] Coordinated fee-address migration, reviewed payout window and new DHT topic if approved.
-- [ ] Mac ARM `--no-submit` source smoke test, followed by rollback-safe managed launcher cutover.
+- [x] Mac ARM source smoke test: 116/116 unit tests, `--check-node`, dry-run and 6-thread RandomX `--no-submit` with accepted local shares.
+- [x] Mainnet pre-fork block candidate passed `submitblock` RPC and entered the active chain (height 24,798, at least three confirmations observed). **Coinbase outputs, reward maturity and spendability still require independent verification.**
+- [ ] Rollback-safe managed CLI launcher replacement on the operator's Mac (old package preserved).
