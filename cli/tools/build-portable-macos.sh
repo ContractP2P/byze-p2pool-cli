@@ -6,7 +6,7 @@ set -Eeuo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$PWD"
 PLATFORM='darwin-arm64'
-APP_VERSION='0.2.5-rc4-community.2'
+APP_VERSION="$(node -p "require('./package.json').version")"
 NODE_VERSION='v22.23.3'
 NODE_NAME="node-${NODE_VERSION}-${PLATFORM}.tar.gz"
 NODE_URL="https://nodejs.org/dist/${NODE_VERSION}"
@@ -87,8 +87,8 @@ exec "$here/node" "$here/../app/src/byze-p2pool.js" "$@"
 SH
 chmod 0755 "$STAGE/bin/byze-p2pool"
 
-cat > "$STAGE/README-FIRST.txt" <<'DOC'
-BYZE P2Pool CLI 0.2.5-rc4-community.2 / macOS Apple Silicon — EXPERIMENTAL TEST BUILD
+cat > "$STAGE/README-FIRST.txt" <<DOC
+BYZE P2Pool CLI $APP_VERSION / macOS Apple Silicon — EXPERIMENTAL TEST BUILD
 
 The Node.js runtime, JS dependencies and pinned native miner/verifier are bundled.
 A separately installed and synchronized BYZE Core daemon/client is required.
@@ -100,7 +100,8 @@ From the uncompressed folder:
   ./bin/byze-p2pool --wallet YOUR_BYZE_ADDRESS --threads 2
 
 To install in your home directory, use the documented release installation
-commands at https://contractp2p.github.io/byze-p2pool-cli/ once published.
+procedure in docs/byze-v03-upgrade.md after the new archives have been
+reviewed, checksummed and published. The legacy guided installer is paused.
 
 NOTE: Unsigned/unnotarized test package. Not a validated mining or payout release.
 DOC
@@ -132,5 +133,5 @@ PACKAGE_READY
 Package: $DIST/$ARCHIVE
 Checksums: $DIST/SHA256SUMS
 Source commit: $(git rev-parse HEAD)
-Community test version: v0.2.5-rc4-community.2
+Experimental source version: $APP_VERSION
 INFO
