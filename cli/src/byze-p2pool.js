@@ -418,6 +418,8 @@ class MinerApp {
     this.deferredPoolShares = new Map()
     this.missingTipRequestAt = new Map()
     this.retryingDeferred = false
+    this.pplnsHistoryIncomplete = false
+    this.deferredReasonLog = new Map()
     this.validationGate = new ValidationGate()
     this.presenceGate = new ValidationGate({maxGlobal:8,maxPerPeer:1})
     this.sessionStartHeight = 0
@@ -543,7 +545,7 @@ class MinerApp {
     }catch(error){return {ok:false,code:error?.code||'randomx-verifier-unavailable'}}
   }
 
-  async acceptLocalShare(peerKey, packet) {
+  async acceptLocalShare(peerKey, packet, {receivedAt=null}={}) {
     if(!this.remotePoolPeer(peerKey)||!packet?.share||typeof packet.signature!=='string')return {ok:false,code:'share-unauthorized'}
     const rawShareId=String(packet.share.shareId||'')
     if(/^ls:[0-9a-f]{64}$/.test(rawShareId)){
@@ -557,7 +559,10 @@ class MinerApp {
       if(!isDeterministicCellId({cellId:shareCellId,contractHash:CONTRACT_SOURCE_HASH,poolId:POOL_ID}))return {ok:false,code:'share-cell-invalid'}
       const member=this.members().find(m=>m.peerKey===peerKey); if(!member||String(member.miningState).toUpperCase()!=='MINING')return {ok:false,code:'share-member-invalid'}
       if(packet.proofMode!==RANDOMX_PROOF_MODE)return {ok:false,code:'share-proof-mode-invalid'}
-      const checked=validateRandomxEnvelope(packet,{expectedPeerId:peerKey,expectedPayoutAddress:member.payoutAddress,expectedContractHash:CONTRACT_SOURCE_HASH,expectedPoolId:POOL_ID,expectedCellId:shareCellId,epochMs:WORK_EPOCH_MS,now:Date.now(),allowPreviousEpoch:true})
+      // A share that passed its first temporal check must not age out solely
+      // because an unknown PPLNS/consensus context was resolved later.
+      const validationNow=Number.isSafeInteger(receivedAt)&&receivedAt>0&&receivedAt<=Date.now()?receivedAt:Date.now()
+      const checked=validateRandomxEnvelope(packet,{expectedPeerId:peerKey,expectedPayoutAddress:member.payoutAddress,expectedContractHash:CONTRACT_SOURCE_HASH,expectedPoolId:POOL_ID,expectedCellId:shareCellId,epochMs:WORK_EPOCH_MS,now:validationNow,allowPreviousEpoch:true})
       if(!checked.ok)return checked
       if(!verify(peerKey,proofEnvelopeSigningPayload(packet),packet.signature))return {ok:false,code:'share-signature-invalid'}
       const context=await this.validateConsensusContext(checked.proof); if(!context.ok)return context
@@ -657,12 +662,13 @@ class MinerApp {
     if(packet)this.sendPoolPacket(packet,[peerKey])
   }
 
-  precheckRelay(packet,checkpoint,proofs,signer,previousPoolShareId,{historical=false}={}){
+  precheckRelay(packet,checkpoint,proofs,signer,previousPoolShareId,{historical=false,receivedAt=null}={}){
     if(!checkpoint)return {ok:false,code:'relay-checkpoint-invalid'}
     if(!Array.isArray(proofs)||!proofs.length||proofs.length>MAX_POOLSHARE_PROOFS)return {ok:false,code:'relay-proof-count-invalid'}
     const contributors=[]
+    const validationNow=Number.isSafeInteger(receivedAt)&&receivedAt>0&&receivedAt<=Date.now()?receivedAt:Date.now()
     for(const pp of proofs){
-      const checked=validateRandomxEnvelope(pp,{expectedContractHash:checkpoint.contractHash,expectedPoolId:checkpoint.poolId,now:Date.now(),epochMs:WORK_EPOCH_MS,maxAgeMs:historical?MAX_HISTORY_AGE_MS:180000,aggregate:true})
+      const checked=validateRandomxEnvelope(pp,{expectedContractHash:checkpoint.contractHash,expectedPoolId:checkpoint.poolId,now:validationNow,epochMs:WORK_EPOCH_MS,maxAgeMs:historical?MAX_HISTORY_AGE_MS:180000,aggregate:true})
       if(!checked.ok)return checked
       if(checked.payload.epoch!==checkpoint.epoch||String(checked.proof.pplnsTipId||'')!==String(previousPoolShareId||'')||!verify(checked.payload.minerPeerId,proofEnvelopeSigningPayload(pp),pp.signature))return {ok:false,code:'relay-proof-signature-invalid'}
       contributors.push(checked.payload.minerPeerId)
@@ -671,10 +677,11 @@ class MinerApp {
     return relay?.ok&&[relay.primary,...relay.backups].includes(signer)?{ok:true}:{ok:false,code:'relay-unauthorized'}
   }
 
-  async verifyCellProof(pp,{contractHash,poolId,cellId,epoch,previousPoolShareId,historical=false}){
+  async verifyCellProof(pp,{contractHash,poolId,cellId,epoch,previousPoolShareId,historical=false,receivedAt=null}){
     if(pp?.proofMode!==RANDOMX_PROOF_MODE||!pp.share||!pp.proof||!pp.signature)return {ok:false,code:'cell-checkpoint-proof-invalid'}
     const rs=pp.share
-    const checked=validateRandomxEnvelope(pp,{expectedPeerId:rs.minerPeerId,expectedPayoutAddress:rs.payoutAddress,expectedContractHash:contractHash,expectedPoolId:poolId,expectedCellId:cellId,epochMs:WORK_EPOCH_MS,now:Date.now(),allowPreviousEpoch:true,aggregate:true,maxAgeMs:historical?MAX_HISTORY_AGE_MS:180000})
+    const validationNow=Number.isSafeInteger(receivedAt)&&receivedAt>0&&receivedAt<=Date.now()?receivedAt:Date.now()
+    const checked=validateRandomxEnvelope(pp,{expectedPeerId:rs.minerPeerId,expectedPayoutAddress:rs.payoutAddress,expectedContractHash:contractHash,expectedPoolId:poolId,expectedCellId:cellId,epochMs:WORK_EPOCH_MS,now:validationNow,allowPreviousEpoch:true,aggregate:true,maxAgeMs:historical?MAX_HISTORY_AGE_MS:180000})
     if(!checked.ok||Number(checked.payload.epoch)!==Number(epoch))return {ok:false,code:checked.code||'cell-checkpoint-proof-invalid'}
     if(!verify(String(checked.payload.minerPeerId).toLowerCase(),proofEnvelopeSigningPayload(pp),pp.signature))return {ok:false,code:'cell-checkpoint-proof-signature-invalid'}
     const context=await this.validateConsensusContext(checked.proof,{historical}); if(!context.ok)return context
@@ -720,7 +727,7 @@ class MinerApp {
     return {ok:true,checkpoint:verified.checkpoint}
   }
 
-  async verifyPoolProofBundle(packet,{historical=false}={}){
+  async verifyPoolProofBundle(packet,{historical=false,receivedAt=null}={}){
     const share=packet?.share,checkpoint=packet?.checkpoint,proofs=Array.isArray(packet?.proofs)?packet.proofs:[]
     if(!share||!checkpoint||checkpoint.checkpointId!==share.checkpointId||checkpoint.contractHash!==share.contractHash||checkpoint.poolId!==share.poolId||checkpoint.cellId!==share.cellId)return {ok:false,code:'poolshare-checkpoint-invalid'}
     if(!proofs.length||proofs.length>MAX_POOLSHARE_PROOFS)return {ok:false,code:'poolshare-proof-count-invalid'}
@@ -729,7 +736,7 @@ class MinerApp {
     const groups=new Map()
     for(const pp of proofs){
       const cellId=String(pp?.share?.cellId||'')
-      const result=await this.verifyCellProof(pp,{contractHash:share.contractHash,poolId:share.poolId,cellId,epoch:Number(checkpoint.epoch||0),previousPoolShareId,historical})
+      const result=await this.verifyCellProof(pp,{contractHash:share.contractHash,poolId:share.poolId,cellId,epoch:Number(checkpoint.epoch||0),previousPoolShareId,historical,receivedAt})
       if(!result.ok)return {ok:false,code:result.code||'poolshare-proof-invalid',missingTip:result.missingTip}
       verified.push(result.payload)
       if(!groups.has(cellId))groups.set(cellId,[])
@@ -763,7 +770,7 @@ class MinerApp {
     return {ok:true,checkpoint:rebuiltCheckpoint,minerPeerIds:[...new Set(verified.map(x=>String(x.minerPeerId).toLowerCase()).filter(validPeerKey))]}
   }
 
-  async acceptPoolShare(peerKey,packet){
+  async acceptPoolShare(peerKey,packet,{receivedAt=null}={}){
     if(!this.remotePoolPeer(peerKey)||!packet?.share)return {ok:false,code:'poolshare-unauthorized'}
     const share=packet.share, id=String(share.poolShareId||''), signer=String(packet.signerPeerKey||peerKey).toLowerCase()
     if(/^ps:[0-9a-f]{64}$/.test(id)){
@@ -774,8 +781,8 @@ class MinerApp {
     try{
       if(share.contractHash!==CONTRACT_SOURCE_HASH||share.poolId!==POOL_ID||!validPeerKey(signer)||!verify(signer,this.poolShareSigningPayload(share),packet.signature))return {ok:false,code:'poolshare-signature-invalid'}
       const historical=this.history.isRequested(peerKey,id)
-      const authorized=this.precheckRelay(packet,packet.checkpoint,packet.proofs,signer,share.previousPoolShareId,{historical});if(!authorized.ok)return authorized
-      const proof=await this.verifyPoolProofBundle(packet,{historical}); if(!proof.ok)return proof
+      const authorized=this.precheckRelay(packet,packet.checkpoint,packet.proofs,signer,share.previousPoolShareId,{historical,receivedAt});if(!authorized.ok)return authorized
+      const proof=await this.verifyPoolProofBundle(packet,{historical,receivedAt}); if(!proof.ok)return proof
       const relay=electCellRelays({members:proof.minerPeerIds,cellId:share.cellId,epoch:this.relayTermForWorkEpoch(proof.checkpoint.epoch),seed:membershipSeed({contractHash:CONTRACT_SOURCE_HASH,poolId:POOL_ID}),backups:RELAY_BACKUPS})
       if(!relay?.ok||![relay.primary,...relay.backups].includes(signer))return {ok:false,code:'poolshare-relay-unauthorized'}
       const normalized={...clone(packet),signerPeerKey:signer}
@@ -808,7 +815,7 @@ class MinerApp {
 
   maybePublishCellCheckpoints(){
     const now=Date.now(),currentEpoch=Math.floor(now/WORK_EPOCH_MS),closed=currentEpoch-1
-    if(closed<0||this.deferredLocalShares.size||this.deferredPoolShares.size)return 0
+    if(closed<0||this.hasDeferredForEpoch(closed))return 0
     const previousPoolShareId=this.poolChain.tipBeforeEpoch(closed)
     const groups=this.closedEpochProofGroups(closed,previousPoolShareId)
     const elapsed=Math.max(0,now-currentEpoch*WORK_EPOCH_MS)
@@ -851,7 +858,7 @@ class MinerApp {
   async maybePromotePoolShare(){
     this.maybePublishCellCheckpoints()
     const now=Date.now(),currentEpoch=Math.floor(now/WORK_EPOCH_MS),closed=currentEpoch-1
-    if(closed<0||this.deferredLocalShares.size||this.deferredPoolShares.size)return
+    if(closed<0||this.hasDeferredForEpoch(closed))return
     const previousPoolShareId=this.poolChain.tipBeforeEpoch(closed)
     const cellPackets=this.globalCellCandidates(closed,previousPoolShareId)
     if(!cellPackets.length)return
@@ -1121,15 +1128,38 @@ class MinerApp {
     return this.history.request(peerKey,id)
   }
 
-  deferContext(kind, peerKey, packet){
+  deferContext(kind, peerKey, packet, {receivedAt=null,code=''}={}){
     const isPool=kind==='pool', id=String(isPool?packet?.share?.poolShareId:packet?.share?.shareId||'')
     const valid=isPool?/^ps:[0-9a-f]{64}$/.test(id):/^ls:[0-9a-f]{64}$/.test(id)
     if(!valid)return false
     const map=isPool?this.deferredPoolShares:this.deferredLocalShares
-    const prior=map.get(id)
-    map.set(id,{peerKey:String(peerKey||'').toLowerCase(),packet:clone(packet),firstSeen:prior?.firstSeen||Date.now(),retryAt:Date.now()+DEFERRED_CONTEXT_RETRY_MS})
+    const prior=map.get(id),now=Date.now()
+    const observedAt=Number.isSafeInteger(receivedAt)&&receivedAt>0&&receivedAt<=now?receivedAt:now
+    map.set(id,{peerKey:String(peerKey||'').toLowerCase(),packet:clone(packet),
+      firstSeen:prior?.firstSeen||now,receivedAt:prior?.receivedAt||observedAt,
+      reason:prior?.reason||String(code||''),retryAt:now+DEFERRED_CONTEXT_RETRY_MS})
     while(map.size>MAX_DEFERRED_CONTEXT_ITEMS)map.delete(map.keys().next().value)
     return true
+  }
+
+  hasDeferredForEpoch(epoch){
+    // Only unresolved proofs from the epoch being closed can change its checkpoint.
+    // Older deferrals must not freeze every later epoch; block submission remains
+    // separately fail-closed while ANY PPLNS context is unresolved.
+    if(!Number.isSafeInteger(epoch)||epoch<0)return true
+    for(const rec of this.deferredLocalShares.values())
+      if(Number(rec?.packet?.share?.epoch)===epoch)return true
+    for(const rec of this.deferredPoolShares.values())
+      if(Number(rec?.packet?.checkpoint?.epoch)===epoch)return true
+    return false
+  }
+
+  noteDeferred(kind,code){
+    const key=kind+':'+String(code||''),now=Date.now()
+    if(now-Number(this.deferredReasonLog.get(key)||0)<30_000)return
+    this.deferredReasonLog.set(key,now)
+    while(this.deferredReasonLog.size>32)this.deferredReasonLog.delete(this.deferredReasonLog.keys().next().value)
+    warn('P2Pool deferred context',kind,code)
   }
 
   async retryDeferredContext(){
@@ -1139,23 +1169,25 @@ class MinerApp {
       const now=Date.now()
       for(const [id,rec] of [...this.deferredLocalShares]){
         if(now<rec.retryAt)continue
-        if(now-rec.firstSeen>DEFERRED_CONTEXT_TTL_MS){this.deferredLocalShares.delete(id); warn('deferred share expired',short(id,8,6)); continue}
-        const r=await this.validationGate.run(rec.peerKey,()=>this.acceptLocalShare(rec.peerKey,rec.packet))
+        if(now-rec.firstSeen>DEFERRED_CONTEXT_TTL_MS){this.deferredLocalShares.delete(id); this.pplnsHistoryIncomplete=true; warn('deferred share expired; PPLNS submission held',short(id,8,6)); continue}
+        const r=await this.validationGate.run(rec.peerKey,()=>this.acceptLocalShare(rec.peerKey,rec.packet,{receivedAt:rec.receivedAt}))
         if(r.ok){this.deferredLocalShares.delete(id); if(!r.duplicate)this.recordRemoteOutcome('local',rec.packet,'accepted'); continue}
         if(DEFERRABLE_CODES.has(r.code)){if(r.code==='pplns-context-unknown')this.requestMissingPplnsTip(rec.peerKey,r);rec.retryAt=Date.now()+DEFERRED_CONTEXT_RETRY_MS; continue}
         this.deferredLocalShares.delete(id)
         if(r.code==='pplns-tip-stale-fork'){this.recordRemoteOutcome('local',rec.packet,'stale',r.code);continue}
-        this.recordRemoteOutcome('local',rec.packet,'rejected',r.code); warn('deferred share rejected',r.code)
+        this.pplnsHistoryIncomplete=true
+        this.recordRemoteOutcome('local',rec.packet,'rejected',r.code); warn('deferred share rejected; PPLNS submission held',r.code)
       }
       for(const [id,rec] of [...this.deferredPoolShares]){
         if(now<rec.retryAt)continue
-        if(now-rec.firstSeen>DEFERRED_CONTEXT_TTL_MS){this.deferredPoolShares.delete(id); warn('deferred PoolShare expired',short(id,8,6)); continue}
-        const r=await this.validationGate.run(rec.peerKey,()=>this.acceptPoolShare(rec.peerKey,rec.packet))
+        if(now-rec.firstSeen>DEFERRED_CONTEXT_TTL_MS){this.deferredPoolShares.delete(id); this.pplnsHistoryIncomplete=true; warn('deferred PoolShare expired; PPLNS submission held',short(id,8,6)); continue}
+        const r=await this.validationGate.run(rec.peerKey,()=>this.acceptPoolShare(rec.peerKey,rec.packet,{receivedAt:rec.receivedAt}))
         if(r.ok){this.deferredPoolShares.delete(id); if(!r.duplicate)this.recordRemoteOutcome('pool',rec.packet,'accepted'); continue}
         if(DEFERRABLE_CODES.has(r.code)){if(r.code==='pplns-context-unknown')this.requestMissingPplnsTip(rec.peerKey,r);rec.retryAt=Date.now()+DEFERRED_CONTEXT_RETRY_MS; continue}
         this.deferredPoolShares.delete(id)
         if(r.code==='pplns-tip-stale-fork'){this.recordRemoteOutcome('pool',rec.packet,'stale',r.code);continue}
-        this.recordRemoteOutcome('pool',rec.packet,'rejected',r.code); warn('deferred PoolShare rejected',r.code)
+        this.pplnsHistoryIncomplete=true
+        this.recordRemoteOutcome('pool',rec.packet,'rejected',r.code); warn('deferred PoolShare rejected; PPLNS submission held',r.code)
       }
     }finally{this.retryingDeferred=false}
   }
@@ -1163,6 +1195,8 @@ class MinerApp {
   async publishCandidate(raw,checked=null){
     if(!this.nodeMiningReady)return
     if(!this.submitBlocks){warn('Block candidate found but --no-submit is enabled.');return}
+    // No silent fallback to partial PPLNS payouts after a deferred proof is lost.
+    if(this.pplnsHistoryIncomplete){warn('Block candidate held: incomplete PPLNS history after deferred proof failure.');return}
     if(this.deferredLocalShares.size||this.deferredPoolShares.size){warn('Block candidate held: PPLNS chain-context synchronization is in progress.');return}
     const ctx=this.jobContexts.get(String(raw?.jobId||''))
     if(!raw?.blockHex||raw.blockCandidate!==true||!raw.directCoinbaseCommitted||!ctx?.commitment||raw.directCoinbaseCommitment!==ctx.plan?.commitment||raw.jobCommitmentHash!==ctx.commitment.jobCommitmentHash){warn('Block candidate cannot be submitted: bound PPLNS coinbase is not committed.');return}
@@ -1211,6 +1245,7 @@ class MinerApp {
   }
 
   async onFrame(peerKey,frame,{fromGraceQueue=false,requestedHistory=false}={}){
+    const receivedAt=Date.now()
     try{
       if(frame.type==='mining-presence'){
         const r=await this.presenceGate.run(peerKey,()=>this.acceptPresence(peerKey,frame.announcement))
@@ -1226,9 +1261,9 @@ class MinerApp {
       if(!this.remotePoolPeer(peerKey))return
       if(frame.type==='mining-local-share'){
         if(frame.packet?.proofMode===COORDINATION_PROOF_MODE){this.compatIgnoredRemote++; return}
-        const r=await this.validationGate.run(peerKey,()=>this.acceptLocalShare(peerKey,frame.packet))
+        const r=await this.validationGate.run(peerKey,()=>this.acceptLocalShare(peerKey,frame.packet,{receivedAt}))
         if(r.ok&&!r.duplicate)this.recordRemoteOutcome('local',frame.packet,'accepted')
-        else if(!r.ok&&DEFERRABLE_CODES.has(r.code)){if(r.code==='pplns-context-unknown')this.requestMissingPplnsTip(peerKey,r);this.deferContext('local',peerKey,frame.packet)}
+        else if(!r.ok&&DEFERRABLE_CODES.has(r.code)){if(r.code==='pplns-context-unknown')this.requestMissingPplnsTip(peerKey,r);this.deferContext('local',peerKey,frame.packet,{receivedAt,code:r.code});this.noteDeferred('local',r.code)}
         else if(!r.ok&&['peer-validation-overloaded','peer-validation-queue-timeout'].includes(r.code))return
         else if(!r.ok&&r.code==='pplns-tip-stale-fork')this.recordRemoteOutcome('local',frame.packet,'stale',r.code)
         else if(!r.ok){this.recordRemoteOutcome('local',frame.packet,'rejected',r.code);warn('Remote share rejected',r.code,short(frame.packet?.share?.shareId,8,6))}
@@ -1247,9 +1282,9 @@ class MinerApp {
       if(frame.type==='mining-pool-share'){
         if(!requestedHistory)return
         const assembled={ok:true,complete:true,packet:frame.packet}; if(!assembled.ok)return; if(!assembled.complete)return
-        const r=await this.validationGate.run(peerKey,()=>this.acceptPoolShare(peerKey,assembled.packet))
+        const r=await this.validationGate.run(peerKey,()=>this.acceptPoolShare(peerKey,assembled.packet,{receivedAt}))
         if(r.ok&&!r.duplicate)this.recordRemoteOutcome('pool',assembled.packet,'accepted')
-        else if(!r.ok&&DEFERRABLE_CODES.has(r.code)){if(r.code==='pplns-context-unknown')this.requestMissingPplnsTip(peerKey,r);this.deferContext('pool',peerKey,assembled.packet); return}
+        else if(!r.ok&&DEFERRABLE_CODES.has(r.code)){if(r.code==='pplns-context-unknown')this.requestMissingPplnsTip(peerKey,r);this.deferContext('pool',peerKey,assembled.packet,{receivedAt,code:r.code});this.noteDeferred('pool',r.code); return}
         else if(!r.ok&&['peer-validation-overloaded','peer-validation-queue-timeout'].includes(r.code))return
         else if(!r.ok&&r.code==='pplns-tip-stale-fork')this.recordRemoteOutcome('pool',assembled.packet,'stale',r.code)
         else if(!r.ok){this.recordRemoteOutcome('pool',assembled.packet,'rejected',r.code);warn('PoolShare rejected',r.code)}

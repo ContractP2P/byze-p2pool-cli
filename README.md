@@ -1,6 +1,6 @@
 # BYZE P2Pool CLI
 
-> **Byze v0.3.0 / block 28,000:** Unreleased experimental source `fix/byze-v0.3-p0-hardfork` is now `0.3.0-rc1.dev`. The published Community Test 2 archives listed below are legacy, **not fork-certified**. Guided `--install` is paused until new P2Pool bundles are independently verified. See [Byze v0.3 upgrade and macOS ARM testing](docs/byze-v03-upgrade.md). There is no automatic coin or fee-wallet migration.
+> **Byze Core v0.3.0 / block 28,000:** Experimental P2Pool CLI **v0.3.0-rc2.dev** adds deferred-epoch/PPLNS diagnostics (PR #51). **The two-peer PPLNS payout and post-fork behavior are NOT validated. Do not use this RC for real mainnet block submissions; test with `--no-submit`.** The guided installer remains paused. Historical `v0.3.0-rc1.dev` and Community Test 2 releases are preserved, with no automatic wallet or fee migration. See [Byze v0.3 upgrade and macOS ARM testing](docs/byze-v03-upgrade.md).
 
 
 **Peer-to-peer CPU mining for BYZE** — a standalone RandomX miner using Hyperswarm discovery, direct PPLNS coinbase payouts, and a **0.50% pool fee**. No Electron or Contract desktop application is needed.

@@ -137,6 +137,17 @@ Expected: `0.3.0-rc1.dev` and `BYZE_NODE_READY`. **The prior versioned package r
 
 **Rollback:** if needed, stop the new P2Pool process, inspect the timestamped `$LAUNCHER.pre-v03.*` backup, then copy the selected managed backup back to `$LAUNCHER`. Do not roll back the *Byze Core v0.3.0 node*.
 
+## RC2 (2026-11-23): deferred-epoch / two-peer diagnostic candidate
+
+**Experimental only.** The earlier source walkthrough below preserves the historical RC1 branch and paths. Use the v0.3.0-rc2.dev release's versioned archives (if published) or the exact RC2 git tag for new diagnostic sessions; do not overwrite the old installation, Core, wallets, or pending PPLNS data.
+
+A Mac ARM + Linux x64 mainnet test discovered peers but showed `Remote A/P/R` with **0 accepted shares**, repeated `miningRandomxShareEpochInvalid` at minute boundaries, expired deferred PoolShares, and `pplns-tip-stale-fork`. RC2 fixes local packet receipt-time deferral and scopes epoch liveness gates; it reports original deferral reasons, and disables real block submission after unrecoverable deferred context loss. This **does not prove two-peer PPLNS payouts**.
+
+- Launch *both* upgraded P2Pool CLIs in a short, explicitly **`--no-submit`** test (use distinct wallet-owned receiving addresses; both Core nodes must be synced).
+- Collect the first `P2Pool deferred context` cause, `Remote A/P/R`, `Stale`, fork/reorg counters, and native hashrates across several epochs.
+- Do not enable real block submission or claim a usable PPLNS release until independent full multi-peer payout and post-fork spendability testing is complete.
+- Historical `v0.3.0-rc1.dev` release remains immutable; do not reuse the tag or filenames. See PR #51 for the code review.
+
 ## Required release evidence
 
 Passing unit tests, `--check-node`, dry-run or `--no-submit` is not proof that a real found block or PPLNS payout will be accepted/spendable. Before publishing a fork-ready package: test on isolated `byzed` v0.3.0 regtest with fork activation at height 28,000 (or overridden activation on regtest), create and spend stateless outputs, test native block candidates / proposal acceptance, demonstrate PPLNS payout and 0.50% fee accounting for **at least two peers**, then repeat on actual mainnet with the release gates and operator approvals. Never use test wallet seeds on mainnet.

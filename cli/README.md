@@ -1,4 +1,4 @@
-# BYZE P2Pool CLI 0.3.0-rc1.dev — unreleased experimental source
+# BYZE P2Pool CLI 0.3.0-rc2.dev — experimental source for review; two-peer PPLNS not production qualified
 
 Standalone command-line peer for **BYZE P2Pool secure-v2**, with the `global-epoch-v6` compatibility generation.
 
@@ -25,7 +25,7 @@ Generation v6 uses a new discovery topic and a signed generation field. It does 
 
 ## Compatibility
 
-- CLI: `0.3.0-rc1.dev` (source branch; old Community Test 2 packaged binaries are not upgraded)
+- CLI: `0.3.0-rc2.dev` (source branch; old Community Test 2 packaged binaries are not upgraded)
 - Contract ancestry: `v0.15.85+`; unmodified v4/v5 peers are incompatible
 - contract: `org.contract.byze-p2pool@0.1.3`
 - contract source hash: `0ba509a74eb5f475ce41f152349fe49a7d19e4fbd6c14c1833632c61681a0b66`

@@ -72,6 +72,7 @@ test('expired deferred shares are dropped rather than accepted after recovery', 
   assert.equal(app.deferredLocalShares.size, 0)
   assert.equal(attempts.local, 0)
   assert.deepEqual(outcomes, [])
+  assert.equal(app.pplnsHistoryIncomplete,true,'expired unknown history must hold submission')
 })
 
 test('outage pauses native mining and advertises PAUSED; fresh job resumes once', async () => {
@@ -201,4 +202,88 @@ test('forced PPLNS refresh is not discarded while an RPC poll is in flight',asyn
   assert.equal(calls,2,'queued forced refresh must run after the first poll')
   assert.equal(app.jobRefreshForcePending,false)
   app.running=false
+})
+
+
+test('deferred local and PoolShare retries keep original receipt timestamps',async()=>{
+  const {app}=harness()
+  const receipt=Date.now()-35_000
+  const local={share:{shareId:'ls:'+'44'.repeat(32),epoch:1234}}
+  const pool={share:{poolShareId:'ps:'+'55'.repeat(32)},checkpoint:{epoch:1235}}
+
+  assert.equal(app.deferContext('local',PEER,local,{receivedAt:receipt,code:'pplns-context-unknown'}),true)
+  assert.equal(app.deferContext('pool',PEER,pool,{receivedAt:receipt,code:'consensus-context-unknown'}),true)
+
+  // Replays of a pending packet must not reset its original validation clock.
+  assert.equal(app.deferContext('local',PEER,local,{receivedAt:Date.now()}),true)
+  assert.equal(app.deferredLocalShares.get(local.share.shareId).receivedAt,receipt)
+  assert.equal(app.deferredLocalShares.get(local.share.shareId).reason,'pplns-context-unknown')
+  assert.equal(app.deferredPoolShares.get(pool.share.poolShareId).receivedAt,receipt)
+
+  const observed=[]
+  app.acceptLocalShare=async (_peer,_packet,options)=>{observed.push(['local',options.receivedAt]);return {ok:true,duplicate:false}}
+  app.acceptPoolShare=async (_peer,_packet,options)=>{observed.push(['pool',options.receivedAt]);return {ok:true,duplicate:false}}
+  for(const records of [app.deferredLocalShares,app.deferredPoolShares])
+    for(const rec of records.values())rec.retryAt=0
+  await app.retryDeferredContext()
+  assert.deepEqual(observed.sort(),[['local',receipt],['pool',receipt]])
+  assert.equal(app.deferredLocalShares.size,0)
+  assert.equal(app.deferredPoolShares.size,0)
+})
+
+test('only deferred proofs of the closing epoch block its checkpoints',()=>{
+  const {app}=harness()
+  const local={share:{shareId:'ls:'+'66'.repeat(32),epoch:100}}
+  const pool={share:{poolShareId:'ps:'+'77'.repeat(32)},checkpoint:{epoch:101}}
+  assert.equal(app.deferContext('local',PEER,local),true)
+  assert.equal(app.deferContext('pool',PEER,pool),true)
+  assert.equal(app.hasDeferredForEpoch(100),true)
+  assert.equal(app.hasDeferredForEpoch(101),true)
+  assert.equal(app.hasDeferredForEpoch(102),false,
+    'old unresolved shares must not prevent all later epoch checkpoints')
+  assert.equal(app.hasDeferredForEpoch(-1),true)
+})
+
+test('a valid share can age across two epochs while awaiting PPLNS context',()=>{
+  const {RANDOMX_PROOF_MODE,buildRandomxLocalShare,validateRandomxEnvelope,
+    targetFromCompactBits,shareTargetFromNetworkTarget}=require('../src/mining/p2pool-randomx')
+  const receivedAt=1000*60_000+20_000
+  const networkTarget=targetFromCompactBits('1d00ffff')
+  const shareTarget=shareTargetFromNetworkTarget(networkTarget,256)
+  const built=buildRandomxLocalShare({
+    contractHash:'aa'.repeat(32),poolId:'byze-main-p2pool-v1',cellId:'cell-1',
+    epoch:1000,minerPeerId:PEER,payoutAddress:'byz1ptestaddress12345678',
+    jobId:'rxj:'+'bb'.repeat(32),nonce:0,powHash:'00'.repeat(32),
+    createdAt:receivedAt,shareTarget
+  })
+  assert.equal(built.ok,true,built.code)
+  const header=Buffer.alloc(80)
+  header.writeUInt32LE(Number.parseInt('1d00ffff',16),72)
+  const packet={proofMode:RANDOMX_PROOF_MODE,share:built.share,signature:'pending',proof:{
+    header80:header.toString('hex'),networkTarget,shareTarget,
+    previousBlockHash:'cc'.repeat(32),templateHash:'dd'.repeat(32),height:25056,
+    difficultyMultiplier:256,blockCandidate:true,jobCommitmentHash:'ee'.repeat(32),
+    feePolicyHash:'ff'.repeat(32),pplnsTipId:'',coinbaseValue:'5000000000',
+    coinbaseNoWitnessHex:'11'.repeat(20),coinbaseMerkleBranch:[]
+  }}
+  const initial=validateRandomxEnvelope(packet,{now:receivedAt+1000,epochMs:60_000})
+  assert.equal(initial.ok,true,initial.code)
+  const retryNow=receivedAt+121_000
+  const expiredEpoch=validateRandomxEnvelope(packet,{now:retryNow,epochMs:60_000})
+  assert.equal(expiredEpoch.code,'miningRandomxShareEpochInvalid')
+  // The real signature, coinbase binding, chain context and PPLNS fork checks
+  // still run in acceptLocalShare; only its temporal reference is retained.
+  const anchored=validateRandomxEnvelope(packet,{now:receivedAt+1000,epochMs:60_000})
+  assert.equal(anchored.ok,true,anchored.code)
+})
+
+test('candidate submission fails closed after an unresolved deferred proof is lost',async()=>{
+  const {app}=harness()
+  app.nodeMiningReady=true
+  app.submitBlocks=true
+  app.pplnsHistoryIncomplete=true
+  let rpcCalls=0
+  app.byze.call=async()=>{rpcCalls++;throw Error('unexpected RPC')}
+  await app.publishCandidate({blockCandidate:true})
+  assert.equal(rpcCalls,0,'candidate must be held before RPC proposal/submission')
 })
