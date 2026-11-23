@@ -72,6 +72,7 @@ test('expired deferred shares are dropped rather than accepted after recovery', 
   assert.equal(app.deferredLocalShares.size, 0)
   assert.equal(attempts.local, 0)
   assert.deepEqual(outcomes, [])
+  assert.equal(app.pplnsHistoryIncomplete,true,'expired unknown history must hold submission')
 })
 
 test('outage pauses native mining and advertises PAUSED; fresh job resumes once', async () => {
@@ -274,4 +275,15 @@ test('a valid share can age across two epochs while awaiting PPLNS context',()=>
   // still run in acceptLocalShare; only its temporal reference is retained.
   const anchored=validateRandomxEnvelope(packet,{now:receivedAt+1000,epochMs:60_000})
   assert.equal(anchored.ok,true,anchored.code)
+})
+
+test('candidate submission fails closed after an unresolved deferred proof is lost',async()=>{
+  const {app}=harness()
+  app.nodeMiningReady=true
+  app.submitBlocks=true
+  app.pplnsHistoryIncomplete=true
+  let rpcCalls=0
+  app.byze.call=async()=>{rpcCalls++;throw Error('unexpected RPC')}
+  await app.publishCandidate({blockCandidate:true})
+  assert.equal(rpcCalls,0,'candidate must be held before RPC proposal/submission')
 })
