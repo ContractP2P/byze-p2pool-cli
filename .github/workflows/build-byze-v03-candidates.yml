@@ -33,7 +33,7 @@ jobs:
         working-directory: cli
         shell: bash
     env:
-      EXPECTED_VERSION: '0.3.0-rc1.dev'
+      EXPECTED_VERSION: '0.3.0-rc2.dev'
       EXPECTED_PLATFORM: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
@@ -138,9 +138,9 @@ jobs:
       - name: Upload temporary RC archive and checksums (no public release)
         uses: actions/upload-artifact@v4
         with:
-          name: byze-p2pool-v03-rc-${{ matrix.platform }}
+          name: byze-p2pool-v03-rc2-${{ matrix.platform }}
           path: |
-            cli/dist/byze-p2pool-cli-complete-0.3.0-rc1.dev-${{ matrix.platform }}.tar.gz
+            cli/dist/byze-p2pool-cli-complete-0.3.0-rc2.dev-${{ matrix.platform }}.tar.gz
             cli/dist/SHA256SUMS
             cli/dist/RC-NOTICE.txt
             cli/dist/${{ matrix.platform }}-file-list.txt
