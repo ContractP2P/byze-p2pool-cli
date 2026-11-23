@@ -418,6 +418,7 @@ class MinerApp {
     this.deferredPoolShares = new Map()
     this.missingTipRequestAt = new Map()
     this.retryingDeferred = false
+    this.pplnsHistoryIncomplete = false
     this.deferredReasonLog = new Map()
     this.validationGate = new ValidationGate()
     this.presenceGate = new ValidationGate({maxGlobal:8,maxPerPeer:1})
@@ -1168,23 +1169,25 @@ class MinerApp {
       const now=Date.now()
       for(const [id,rec] of [...this.deferredLocalShares]){
         if(now<rec.retryAt)continue
-        if(now-rec.firstSeen>DEFERRED_CONTEXT_TTL_MS){this.deferredLocalShares.delete(id); warn('deferred share expired',short(id,8,6)); continue}
+        if(now-rec.firstSeen>DEFERRED_CONTEXT_TTL_MS){this.deferredLocalShares.delete(id); this.pplnsHistoryIncomplete=true; warn('deferred share expired; PPLNS submission held',short(id,8,6)); continue}
         const r=await this.validationGate.run(rec.peerKey,()=>this.acceptLocalShare(rec.peerKey,rec.packet,{receivedAt:rec.receivedAt}))
         if(r.ok){this.deferredLocalShares.delete(id); if(!r.duplicate)this.recordRemoteOutcome('local',rec.packet,'accepted'); continue}
         if(DEFERRABLE_CODES.has(r.code)){if(r.code==='pplns-context-unknown')this.requestMissingPplnsTip(rec.peerKey,r);rec.retryAt=Date.now()+DEFERRED_CONTEXT_RETRY_MS; continue}
         this.deferredLocalShares.delete(id)
         if(r.code==='pplns-tip-stale-fork'){this.recordRemoteOutcome('local',rec.packet,'stale',r.code);continue}
-        this.recordRemoteOutcome('local',rec.packet,'rejected',r.code); warn('deferred share rejected',r.code)
+        this.pplnsHistoryIncomplete=true
+        this.recordRemoteOutcome('local',rec.packet,'rejected',r.code); warn('deferred share rejected; PPLNS submission held',r.code)
       }
       for(const [id,rec] of [...this.deferredPoolShares]){
         if(now<rec.retryAt)continue
-        if(now-rec.firstSeen>DEFERRED_CONTEXT_TTL_MS){this.deferredPoolShares.delete(id); warn('deferred PoolShare expired',short(id,8,6)); continue}
+        if(now-rec.firstSeen>DEFERRED_CONTEXT_TTL_MS){this.deferredPoolShares.delete(id); this.pplnsHistoryIncomplete=true; warn('deferred PoolShare expired; PPLNS submission held',short(id,8,6)); continue}
         const r=await this.validationGate.run(rec.peerKey,()=>this.acceptPoolShare(rec.peerKey,rec.packet,{receivedAt:rec.receivedAt}))
         if(r.ok){this.deferredPoolShares.delete(id); if(!r.duplicate)this.recordRemoteOutcome('pool',rec.packet,'accepted'); continue}
         if(DEFERRABLE_CODES.has(r.code)){if(r.code==='pplns-context-unknown')this.requestMissingPplnsTip(rec.peerKey,r);rec.retryAt=Date.now()+DEFERRED_CONTEXT_RETRY_MS; continue}
         this.deferredPoolShares.delete(id)
         if(r.code==='pplns-tip-stale-fork'){this.recordRemoteOutcome('pool',rec.packet,'stale',r.code);continue}
-        this.recordRemoteOutcome('pool',rec.packet,'rejected',r.code); warn('deferred PoolShare rejected',r.code)
+        this.pplnsHistoryIncomplete=true
+        this.recordRemoteOutcome('pool',rec.packet,'rejected',r.code); warn('deferred PoolShare rejected; PPLNS submission held',r.code)
       }
     }finally{this.retryingDeferred=false}
   }
@@ -1192,6 +1195,8 @@ class MinerApp {
   async publishCandidate(raw,checked=null){
     if(!this.nodeMiningReady)return
     if(!this.submitBlocks){warn('Block candidate found but --no-submit is enabled.');return}
+    // No silent fallback to partial PPLNS payouts after a deferred proof is lost.
+    if(this.pplnsHistoryIncomplete){warn('Block candidate held: incomplete PPLNS history after deferred proof failure.');return}
     if(this.deferredLocalShares.size||this.deferredPoolShares.size){warn('Block candidate held: PPLNS chain-context synchronization is in progress.');return}
     const ctx=this.jobContexts.get(String(raw?.jobId||''))
     if(!raw?.blockHex||raw.blockCandidate!==true||!raw.directCoinbaseCommitted||!ctx?.commitment||raw.directCoinbaseCommitment!==ctx.plan?.commitment||raw.jobCommitmentHash!==ctx.commitment.jobCommitmentHash){warn('Block candidate cannot be submitted: bound PPLNS coinbase is not committed.');return}
