@@ -1,6 +1,6 @@
 # BYZE v0.3.0 — hard fork and safe P2Pool CLI migration
 
-> **Experimental / not a production release.** Hard fork: **mainnet height 28,000**, not a fixed calendar date. P2Pool source candidate: `0.3.0-rc1.dev` on branch `fix/byze-v0.3-p0-hardfork`. Previous Community Test 2 archives (`0.2.5-rc4-community.2`) were built before this fork and must **not** be presented as v0.3-compatible.
+> **Current experimental diagnostic CLI: [v0.3.0-rc2.dev](https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/v0.3.0-rc2.dev).** These archives are for **manual `--no-submit` testing only**, not production mining. Mac/Linux two-peer PPLNS payouts and block-28,000 post-fork behavior remain unverified. The guided installer remains disabled. Older RC1 and Community Test 2 are historical; the RC1 commands later in this guide are not current installation instructions. No wallet or node migration is performed by this guide.
 
 ## Protocol changes and limits
 

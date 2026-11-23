@@ -264,7 +264,7 @@ case "$MODE" in
  --install)
    # P2Pool Community Test 2 archives are NOT fork-qualified. Do not silently
    # install them as Byze Core v0.3-ready bundles, even if Core is up-to-date.
-   fail "P2Pool Community Test 2 installer paused until v0.3-compatible, checksum-pinned P2Pool packages are published. Existing node and wallets unchanged. See docs/byze-v03-upgrade.md."
+   fail "P2Pool guided installer paused: RC2 experimental archives are available for manual --no-submit diagnostics only. Multi-peer PPLNS payouts are not validated. No Core, wallet or CLI changes. See docs/byze-v03-upgrade.md."
    message "BYZE P2Pool full installation for $PLATFORM"
    # Inspect local installations before any network operation. A detected
    # footprint with no usable byze-cli must fail closed even when offline.

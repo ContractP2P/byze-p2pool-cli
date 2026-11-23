@@ -5,7 +5,7 @@
 
 **Peer-to-peer CPU mining for BYZE** — a standalone RandomX miner using Hyperswarm discovery, direct PPLNS coinbase payouts, and a **0.50% pool fee**. No Electron or Contract desktop application is needed.
 
-**[▶ Open the guided installer — macOS Apple Silicon, macOS Intel & Linux x64](https://contractp2p.github.io/byze-p2pool-cli/)**
+**[Guided installer — temporarily disabled](https://contractp2p.github.io/byze-p2pool-cli/)** · **[Current RC2 experimental diagnostic release](https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/v0.3.0-rc2.dev)** (use `--no-submit`; multi-peer payouts unverified).
 
 > **Community testing only · Community Test 2 · CLI v0.2.5-rc4-community.2 · global-epoch-v6 · [Community Test 2 release](https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/v0.2.5-rc4-community.2).** Native test bundles are published but **unsigned and not yet production-qualified**. Mainnet multi-peer payout validation, spendability checks and signing/release gates remain open. See [release status](cli/RELEASE-CHECKLIST.md). Mining rewards are never guaranteed.
 
@@ -44,7 +44,7 @@ bash /tmp/byze-p2pool-install-linux.sh --wait-sync
 
 The miner command displayed by the website **enables real mainnet block submission**. For diagnostic mining that cannot submit a found block, add `--no-submit` to that command. Neither mode should be used until BYZE Core is fully synchronized and the payout address has been checked for **actual wallet spendability**.
 
-**Current community test packages (15 October 2026):** [macOS Apple Silicon, macOS Intel, and Linux x64 — Community Test 2](https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/v0.2.5-rc4-community.2) · [All releases](https://github.com/ContractP2P/byze-p2pool-cli/releases). The guided installers pin the exact SHA-256 for each platform and also verify the release manifest.
+**Historical Community Test 2 packages (15 October 2026; not v0.3-ready):** [macOS Apple Silicon, macOS Intel, and Linux x64 — Community Test 2](https://github.com/ContractP2P/byze-p2pool-cli/releases/tag/v0.2.5-rc4-community.2) · [All releases](https://github.com/ContractP2P/byze-p2pool-cli/releases). The guided installers pin the exact SHA-256 for each platform and also verify the release manifest.
 
 **Already installed an earlier experimental CLI?** Do not use the old guided installer for v0.3. Follow the [Mac ARM source testing / launcher replacement procedure](docs/byze-v03-upgrade.md) after stopping the existing miner. The Community Test 2 build has a **unique internal version**, and installs to a **new versioned directory** and the managed `~/.local/bin/byze-p2pool` launcher is repointed to it. The previous P2Pool files are not deleted. An existing **BYZE Core node is never reinstalled or upgraded**. `--wait-sync` only monitors synchronization; it does not update the CLI.
 

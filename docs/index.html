@@ -89,13 +89,13 @@
  <div class="plan"><span class="circle">1</span><div><strong data-i18n="step1">Choose your platform</strong><p data-i18n="step1Text">The appropriate native executable is selected.</p></div></div>
  <div class="plan"><span class="circle">2</span><div><strong data-i18n="step2">Download the package</strong><p data-i18n="step2Text">Node.js and dependencies are included in the complete package.</p></div></div>
  <div class="plan"><span class="circle">3</span><div><strong data-i18n="step3">Run the command</strong><p data-i18n="step3Text">Your public BYZE address is added to the mining command.</p></div></div>
- <div class="banner"><strong data-i18n="bannerTitle">Community testing · Experimental Test 1</strong><p id="availability-banner" data-i18n="bannerText">These Experimental Test 1 packages are intended for community testing, not production use. The binaries are unsigned.</p></div>
+ <div class="banner"><strong data-i18n="bannerTitle">RC2 experimental · diagnostic only</strong><p id="availability-banner" data-i18n="bannerText">These Experimental Test 1 packages are intended for community testing, not production use. The binaries are unsigned.</p></div>
 </aside>
 </div>
 <section class="panel output" aria-label="Custom mining command" data-i18n-aria-label="miningAria">
  <div class="output-heading"><h3 data-i18n="miningTitle">Your mainnet mining command</h3><span class="pill" data-i18n="submission">Block submission enabled</span></div>
  <p class="output-note" data-i18n="miningNote">Run after installing the complete package and synchronizing BYZE Core (existing or newly installed). Without --no-submit, real mining may submit blocks to mainnet.</p>
- <div class="code-wrap"><div class="code-header"><span>Terminal · macOS / Linux</span><span>BYZE P2Pool CLI v0.2.5-rc4-community.2</span></div><pre id="command">Enter a valid public BYZE address and miner settings.</pre></div>
+ <div class="code-wrap"><div class="code-header"><span>Terminal · macOS / Linux</span><span>BYZE P2Pool CLI v0.3.0-rc2.dev · diagnostic only</span></div><pre id="command">Enter a valid public BYZE address and miner settings.</pre></div>
  <div class="action-row"><button type="button" id="copy" data-i18n="copyCommand" disabled>Copy mining command</button><span class="label-inline" id="copy-status" role="status" aria-live="polite">BYZE address required</span></div>
  <p class="fieldnote" style="margin-top:15px" data-i18n="coreCaution">Real mining can submit blocks to the mainnet. BYZE Core 0.2.4 may have limitations when signing blocks or spending rewards. This installer cannot guarantee payout validity.</p>
 </section>
@@ -111,11 +111,12 @@
  const wallet=$('wallet'),alias=$('alias'),threads=$('threads'),code=$('command'),copy=$('copy'),msg=$('copy-status');
  const installCode=$('install-command'), installCopy=$('install-copy'), installMsg=$('install-copy-status');
  const RELEASES={
-  'darwin-arm64':{tag:'v0.2.5-rc4-community.2',archive:'byze-p2pool-cli-complete-0.2.5-rc4-community.2-darwin-arm64.tar.gz'},
-  'darwin-x64':{tag:'v0.2.5-rc4-community.2',archive:'byze-p2pool-cli-complete-0.2.5-rc4-community.2-darwin-x64.tar.gz'},
-  'linux-x64':{tag:'v0.2.5-rc4-community.2',archive:'byze-p2pool-cli-complete-0.2.5-rc4-community.2-linux-x64.tar.gz'}
+  'darwin-arm64':{tag:'v0.3.0-rc2.dev',archive:'byze-p2pool-cli-complete-0.3.0-rc2.dev-darwin-arm64.tar.gz'},
+  'darwin-x64':{tag:'v0.3.0-rc2.dev',archive:'byze-p2pool-cli-complete-0.3.0-rc2.dev-darwin-x64.tar.gz'},
+  'linux-x64':{tag:'v0.3.0-rc2.dev',archive:'byze-p2pool-cli-complete-0.3.0-rc2.dev-linux-x64.tar.gz'}
  };
- // Legacy P2Pool test bundles must not be advertised as Byze v0.3-ready.
+ // RC2 is available for manual --no-submit diagnostics only; automated installation and
+  // user-visible runnable commands stay disabled until real two-peer payout validation.
  const FORK_P2POOL_INSTALLER_PAUSED = true;
  const releaseReady={'darwin-arm64':false,'darwin-x64':false,'linux-x64':false};
  const translations=window.BYZE_I18N||{en:{}};
@@ -130,6 +131,10 @@
   document.title=t('pageTitle');
   document.querySelector('meta[name="description"]').content=t('metaDescription');
   document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=t(el.dataset.i18n)});
+  if(FORK_P2POOL_INSTALLER_PAUSED){
+   document.querySelector('[data-i18n="submission"]').textContent=t('submissionPaused');
+   document.querySelector('[data-i18n="miningTitle"]').textContent=t('miningPausedTitle');
+  }
   document.querySelectorAll('[data-i18n-aria-label]').forEach(el=>el.setAttribute('aria-label',t(el.dataset.i18nAriaLabel)));
   $('language-label').textContent=languageLabels[currentLang];
   $('language-select').setAttribute('aria-label',languageLabels[currentLang]);
@@ -170,9 +175,9 @@
   const available=!FORK_P2POOL_INSTALLER_PAUSED && releaseReady[platform]===true, mac=platform==='darwin-arm64'||platform==='darwin-x64';
   const release=RELEASES[platform];
   $('install-status').textContent=FORK_P2POOL_INSTALLER_PAUSED?t('forkInstallerPaused'):available?(platform==='darwin-x64'?t('intelReady'):platform==='linux-x64'?t('linuxReady'):t('macReady')):t(d.statusKey);
-  installCode.textContent=mac?macInstall():platform==='linux-x64'?linuxInstall():t('installUnavailable');
+  installCode.textContent=FORK_P2POOL_INSTALLER_PAUSED?t('installPausedCommand'):(mac?macInstall():platform==='linux-x64'?linuxInstall():t('installUnavailable'));
   installCopy.disabled=!available;
-  installMsg.textContent=available?t('installReady'):t('installPending');
+  installMsg.textContent=FORK_P2POOL_INSTALLER_PAUSED?t('installDisabled'):(available?t('installReady'):t('installPending'));
   $('release-warning').textContent=FORK_P2POOL_INSTALLER_PAUSED?t('forkInstallerPaused'):available?t('releaseReady',{tag:release.tag}):t('releasePending',{tag:release.tag});
   $('installer-platform').textContent=platform==='darwin-x64'?'macOS Intel x64':platform==='darwin-arm64'?'macOS Apple Silicon':'Linux x64';
   $('download-link').href=d.link;
@@ -184,9 +189,9 @@
   const errors=[];
   if(a!==''&&!/^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$/.test(a))errors.push(t('aliasError'));
   if(!Number.isInteger(n)||n<1||n>128)errors.push(t('threadsError'));
-  code.textContent=valid?`"$HOME/.local/bin/byze-p2pool" --alias ${q(a)} --wallet ${q(w)} --threads ${n}`:t('commandPrompt');
+  code.textContent=FORK_P2POOL_INSTALLER_PAUSED?t('miningPausedCommand'):(valid?`"$HOME/.local/bin/byze-p2pool" --alias ${q(a)} --wallet ${q(w)} --threads ${n}`:t('commandPrompt'));
   copy.disabled=FORK_P2POOL_INSTALLER_PAUSED||!valid;
-  msg.textContent=errors.length?errors.join(' · '):valid?t('readyToCopy'):t('walletNeeded');
+  msg.textContent=FORK_P2POOL_INSTALLER_PAUSED?t('installDisabled'):(errors.length?errors.join(' · '):valid?t('readyToCopy'):t('walletNeeded'));
  }
  for(const el of [...osRadios,wallet,alias,threads])el.addEventListener('input',render);
  async function copyText(value,target){

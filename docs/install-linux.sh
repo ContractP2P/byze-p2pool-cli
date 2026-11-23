@@ -267,7 +267,7 @@ case "$MODE" in
     wait_for_mainnet_sync ;;
   --install|--install-core)
     if [ "$MODE" = --install ]; then
-      fail 'P2Pool Community Test 2 installer paused until v0.3-compatible, checksum-pinned P2Pool packages are released. Existing node and wallets unchanged. See docs/byze-v03-upgrade.md.'
+      fail 'P2Pool guided installer paused: RC2 experimental archives are available for manual --no-submit diagnostics only. Multi-peer PPLNS payouts are not validated. No Core, wallet or CLI changes. See docs/byze-v03-upgrade.md.'
     fi
     for c in curl tar sha256sum awk grep realpath mktemp; do
       command -v "$c" >/dev/null || fail "Missing prerequisite: $c"
