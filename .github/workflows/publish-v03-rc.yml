@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: byze-p2pool-v03-rc3-release
+  group: byze-p2pool-v03-rc4-release
   cancel-in-progress: false
 
 jobs:
@@ -38,7 +38,7 @@ jobs:
         working-directory: cli
         shell: bash
     env:
-      RELEASE_VERSION: '0.3.0-rc3.dev'
+      RELEASE_VERSION: '0.3.0-rc4.dev'
       EXPECTED_PLATFORM: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
@@ -133,8 +133,8 @@ jobs:
           echo "RC candidate ready: $archive"
       - uses: actions/upload-artifact@v4
         with:
-          name: byze-v03-rc3-release-${{ matrix.platform }}
-          path: cli/dist/byze-p2pool-cli-complete-0.3.0-rc3.dev-${{ matrix.platform }}.tar.gz
+          name: byze-v03-rc4-release-${{ matrix.platform }}
+          path: cli/dist/byze-p2pool-cli-complete-0.3.0-rc4.dev-${{ matrix.platform }}.tar.gz
           retention-days: 14
           compression-level: 0
           if-no-files-found: error
@@ -149,12 +149,12 @@ jobs:
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
-      VERSION: '0.3.0-rc3.dev'
-      TAG: 'v0.3.0-rc3.dev'
+      VERSION: '0.3.0-rc4.dev'
+      TAG: 'v0.3.0-rc4.dev'
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: byze-v03-rc3-release-*
+          pattern: byze-v03-rc4-release-*
           merge-multiple: true
           path: release
       - name: Verify release is new, all archives complete and checksums valid
@@ -180,18 +180,18 @@ jobs:
       - name: Write prominent experimental release notes
         run: |
           cat > release/RELEASE-NOTES.md <<'NOTES'
-          # BYZE P2Pool CLI v0.3.0-rc3.dev — EXPERIMENTAL
+          # BYZE P2Pool CLI v0.3.0-rc4.dev — EXPERIMENTAL
 
-          Experimental P2Pool PPLNS peer-disconnect recovery fix (#53) for BYZE Core v0.3.0; fork at block 28,000.
+          Experimental P2Pool PPLNS history convergence and bounded replay diagnostic fix for BYZE Core v0.3.0; fork at block 28,000.
           Tested source compatibility and native miners for macOS Apple Silicon, macOS Intel and Linux x64.
 
           ### Evidence and current limits
           - Earlier RC1: a live mainnet block at height 24,798 was found on Mac ARM and accepted on chain.
           - That earlier coinbase contained 49.75 BYZE to the miner and 0.25 BYZE fee (0.50%).
           - This proves only an earlier **single-miner, pre-fork** payout, NOT current two-peer or post-fork behavior.
-          - RC3 retains failed deferred proofs and retries recovery; submission remains blocked until tracked proofs are validated. Offline history requests no longer starve reachable peers. Permanently unavailable proofs can still block submission.
+          - RC4 limits replay traffic, prioritizes missing history ancestors and requires recent verified peer proofs on the candidate tip before multi-peer submission. Live convergence and equitable payout remain unverified.
           - Two-peer Mac/Linux live test previously showed Remote A/P/R with zero accepts, stale PPLNS forks and expiries.
-          - **Do not use RC3 for real block submission until independent multi-peer validation passes.** Test with --no-submit.
+          - **Do not use RC4 for real block submission until independent multi-peer validation passes.** Test with --no-submit.
           - Experimental releases are NOT signed, notarized, audited or approved for production.
           - The existing official fee address and P2P discovery topic remain unchanged.
           - Hard-fork witness-v2 (byz1z) payouts are activated only at block 28,000.
