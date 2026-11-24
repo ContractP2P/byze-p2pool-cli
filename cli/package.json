@@ -1,6 +1,6 @@
 {
   "name": "byze-p2pool-cli",
-  "version": "0.3.0-rc2.dev",
+  "version": "0.3.0-rc3.dev",
   "private": true,
   "description": "Standalone CLI peer for Contract BYZE P2P Mining Pool",
   "type": "commonjs",
