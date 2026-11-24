@@ -17,9 +17,10 @@ class HistorySync {
     if(!idOK(id)||this.known(id))return false
     const key=`${peer}:${id}`
     if(this.pending.has(key)){if(priority)this.pending.get(key).priority=true;return true}
-    if(this.pending.size>=16||[...this.pending.values()].filter(p=>p.peer===peer).length>=4){
+    const peerFull=[...this.pending.values()].filter(p=>p.peer===peer).length>=4
+    if(this.pending.size>=16||peerFull){
       if(!priority)return false
-      const victim=[...this.pending].reverse().find(([,p])=>!p.priority&&p.cursor===0&&(p.peer===peer||this.pending.size>=16))
+      const victim=[...this.pending].reverse().find(([,p])=>!p.priority&&p.cursor===0&&(!peerFull||p.peer===peer))
       if(!victim)return false
       this.pending.delete(victim[0])
     }
