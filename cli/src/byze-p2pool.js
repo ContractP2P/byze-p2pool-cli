@@ -419,6 +419,8 @@ class MinerApp {
     this.missingTipRequestAt = new Map()
     this.retryingDeferred = false
     this.pplnsHistoryIncomplete = false
+    this.failedDeferredProofs = new Map()
+    this.deferredRecoveryOverflow = false
     this.deferredReasonLog = new Map()
     this.validationGate = new ValidationGate()
     this.presenceGate = new ValidationGate({maxGlobal:8,maxPerPeer:1})
@@ -1138,7 +1140,11 @@ class MinerApp {
     map.set(id,{peerKey:String(peerKey||'').toLowerCase(),packet:clone(packet),
       firstSeen:prior?.firstSeen||now,receivedAt:prior?.receivedAt||observedAt,
       reason:prior?.reason||String(code||''),retryAt:now+DEFERRED_CONTEXT_RETRY_MS})
-    while(map.size>MAX_DEFERRED_CONTEXT_ITEMS)map.delete(map.keys().next().value)
+    while(map.size>MAX_DEFERRED_CONTEXT_ITEMS){
+      const oldest=map.keys().next().value
+      this.rememberDeferredFailure(kind,oldest,map.get(oldest))
+      map.delete(oldest)
+    }
     return true
   }
 
@@ -1162,6 +1168,48 @@ class MinerApp {
     warn('P2Pool deferred context',kind,code)
   }
 
+  rememberDeferredFailure(kind,id,rec){
+    this.pplnsHistoryIncomplete=true
+    const key=`${kind}:${id}`
+    if(!this.failedDeferredProofs)this.failedDeferredProofs=new Map()
+    if(!this.failedDeferredProofs.has(key)&&this.failedDeferredProofs.size>=MAX_DEFERRED_CONTEXT_ITEMS){
+      this.deferredRecoveryOverflow=true
+      return
+    }
+    this.failedDeferredProofs.set(key,{...rec,kind,id,retryAt:Date.now()+10_000})
+  }
+
+  async recoverDeferredFailures(now){
+    if(!this.failedDeferredProofs?.size)return
+    // Bound expensive verification to one recovery attempt per tick.
+    for(const [key,rec] of this.failedDeferredProofs){
+      const pool=rec.kind==='pool'
+      const known=pool?this.poolChain.byId.has(rec.id):this.liveShares.has(rec.id)
+      if(known){this.failedDeferredProofs.delete(key);continue}
+      if(now<rec.retryAt)continue
+      rec.retryAt=now+10_000
+      // Rotate failed records so an offline peer cannot starve later records.
+      this.failedDeferredProofs.delete(key);this.failedDeferredProofs.set(key,rec)
+      if(pool){
+        for(const peer of this.transport.peers.keys())if(this.remotePoolPeer(peer))this.history.request(peer,rec.id)
+      }
+      if(!this.remotePoolPeer(rec.peerKey))continue
+      const result=await this.validationGate.run(rec.peerKey,()=>pool?this.acceptPoolShare(rec.peerKey,rec.packet,{receivedAt:rec.receivedAt}):this.acceptLocalShare(rec.peerKey,rec.packet,{receivedAt:rec.receivedAt}))
+      if(result.ok&&!result.pending&&(pool?this.poolChain.byId.has(rec.id):this.liveShares.has(rec.id))){
+        this.failedDeferredProofs.delete(key)
+        if(!result.duplicate)this.recordRemoteOutcome(rec.kind,rec.packet,'accepted')
+      }else if(result.code==='pplns-context-unknown'){
+        for(const peer of this.transport.peers.keys())this.requestMissingPplnsTip(peer,result)
+      }
+      break
+    }
+    // Never clear an untracked loss or accept a partial history.
+    if(!this.failedDeferredProofs.size&&!this.deferredRecoveryOverflow){
+      this.pplnsHistoryIncomplete=false
+      warn('PPLNS deferred proof recovery completed; submission gate restored')
+    }
+  }
+
   async retryDeferredContext(){
     if(this.retryingDeferred)return
     this.retryingDeferred=true
@@ -1169,26 +1217,31 @@ class MinerApp {
       const now=Date.now()
       for(const [id,rec] of [...this.deferredLocalShares]){
         if(now<rec.retryAt)continue
-        if(now-rec.firstSeen>DEFERRED_CONTEXT_TTL_MS){this.deferredLocalShares.delete(id); this.pplnsHistoryIncomplete=true; warn('deferred share expired; PPLNS submission held',short(id,8,6)); continue}
+        if(now-rec.firstSeen>DEFERRED_CONTEXT_TTL_MS){this.deferredLocalShares.delete(id); this.rememberDeferredFailure('local',id,rec); warn('deferred share expired; PPLNS submission held',short(id,8,6)); continue}
+        if(!this.remotePoolPeer(rec.peerKey)){rec.retryAt=now+DEFERRED_CONTEXT_RETRY_MS;continue}
         const r=await this.validationGate.run(rec.peerKey,()=>this.acceptLocalShare(rec.peerKey,rec.packet,{receivedAt:rec.receivedAt}))
+        if(r.ok&&r.pending){rec.retryAt=now+DEFERRED_CONTEXT_RETRY_MS;continue}
         if(r.ok){this.deferredLocalShares.delete(id); if(!r.duplicate)this.recordRemoteOutcome('local',rec.packet,'accepted'); continue}
         if(DEFERRABLE_CODES.has(r.code)){if(r.code==='pplns-context-unknown')this.requestMissingPplnsTip(rec.peerKey,r);rec.retryAt=Date.now()+DEFERRED_CONTEXT_RETRY_MS; continue}
         this.deferredLocalShares.delete(id)
         if(r.code==='pplns-tip-stale-fork'){this.recordRemoteOutcome('local',rec.packet,'stale',r.code);continue}
-        this.pplnsHistoryIncomplete=true
+        this.rememberDeferredFailure('local',id,rec)
         this.recordRemoteOutcome('local',rec.packet,'rejected',r.code); warn('deferred share rejected; PPLNS submission held',r.code)
       }
       for(const [id,rec] of [...this.deferredPoolShares]){
         if(now<rec.retryAt)continue
-        if(now-rec.firstSeen>DEFERRED_CONTEXT_TTL_MS){this.deferredPoolShares.delete(id); this.pplnsHistoryIncomplete=true; warn('deferred PoolShare expired; PPLNS submission held',short(id,8,6)); continue}
+        if(now-rec.firstSeen>DEFERRED_CONTEXT_TTL_MS){this.deferredPoolShares.delete(id); this.rememberDeferredFailure('pool',id,rec); warn('deferred PoolShare expired; PPLNS submission held',short(id,8,6)); continue}
+        if(!this.remotePoolPeer(rec.peerKey)){rec.retryAt=now+DEFERRED_CONTEXT_RETRY_MS;continue}
         const r=await this.validationGate.run(rec.peerKey,()=>this.acceptPoolShare(rec.peerKey,rec.packet,{receivedAt:rec.receivedAt}))
+        if(r.ok&&r.pending){rec.retryAt=now+DEFERRED_CONTEXT_RETRY_MS;continue}
         if(r.ok){this.deferredPoolShares.delete(id); if(!r.duplicate)this.recordRemoteOutcome('pool',rec.packet,'accepted'); continue}
         if(DEFERRABLE_CODES.has(r.code)){if(r.code==='pplns-context-unknown')this.requestMissingPplnsTip(rec.peerKey,r);rec.retryAt=Date.now()+DEFERRED_CONTEXT_RETRY_MS; continue}
         this.deferredPoolShares.delete(id)
         if(r.code==='pplns-tip-stale-fork'){this.recordRemoteOutcome('pool',rec.packet,'stale',r.code);continue}
-        this.pplnsHistoryIncomplete=true
+        this.rememberDeferredFailure('pool',id,rec)
         this.recordRemoteOutcome('pool',rec.packet,'rejected',r.code); warn('deferred PoolShare rejected; PPLNS submission held',r.code)
       }
+      await this.recoverDeferredFailures(now)
     }finally{this.retryingDeferred=false}
   }
 
