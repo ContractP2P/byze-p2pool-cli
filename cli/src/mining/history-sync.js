@@ -13,17 +13,23 @@ class HistorySync {
   }
   start(){if(!this.timer){this.timer=setInterval(()=>this.tick(),650);this.timer.unref?.()}}
   stop(){clearInterval(this.timer);this.timer=null;this.pending.clear();this.allowed.clear()}
-  request(peer,id){
+  request(peer,id,{priority=false}={}){
     if(!idOK(id)||this.known(id))return false
     const key=`${peer}:${id}`
-    if(this.pending.has(key))return true
-    if(this.pending.size>=16||[...this.pending.values()].filter(p=>p.peer===peer).length>=4)return false
-    this.pending.set(key,{peer,id,cursor:0,at:this.now(),sentAt:null,retries:0});return true
+    if(this.pending.has(key)){if(priority)this.pending.get(key).priority=true;return true}
+    const peerFull=[...this.pending.values()].filter(p=>p.peer===peer).length>=4
+    if(this.pending.size>=16||peerFull){
+      if(!priority)return false
+      const victim=[...this.pending].reverse().find(([,p])=>!p.priority&&p.cursor===0&&(!peerFull||p.peer===peer))
+      if(!victim)return false
+      this.pending.delete(victim[0])
+    }
+    this.pending.set(key,{peer,id,cursor:0,at:this.now(),sentAt:null,retries:0,priority});return true
   }
   tick(){
     const now=this.now()
     for(const [key,until] of this.allowed)if(until<now)this.allowed.delete(key)
-    for(const [key,p] of this.pending){
+    for(const [key,p] of [...this.pending].sort((a,b)=>Number(b[1].priority)-Number(a[1].priority))){
       if(now-p.at>120000||this.known(p.id)){this.pending.delete(key);continue}
       if(p.sentAt!==null&&now-p.sentAt<5000)continue
       if(p.retries>=4){this.pending.delete(key);continue}
@@ -50,7 +56,7 @@ class HistorySync {
     if(!p||p.sentAt===null||frame.cursor!==p.cursor||frame.packet?.share?.poolShareId!==p.id||meta?.chunkIndex!==p.cursor)return false
     const result=this.assembler.add(frame.packet,peer,this.now())
     if(!result.ok){this.pending.delete(key);return false}
-    if(!result.complete){p.cursor++;p.sentAt=null;p.retries=0;return true}
+    if(!result.complete){p.cursor++;p.sentAt=null;p.retries=0;p.at=this.now();return true}
     this.pending.delete(key);this.allowed.set(key,this.now()+300000)
     while(this.allowed.size>128)this.allowed.delete(this.allowed.keys().next().value)
     await this.receive(peer,result.packet)

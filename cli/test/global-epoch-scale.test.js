@@ -160,7 +160,7 @@ test('mid-epoch cell migration recovery accepts deterministic old-cell work and 
   const source=fs.readFileSync(path.join(__dirname,'..','src','byze-p2pool.js'),'utf8')
   assert.match(source,/isDeterministicCellId/)
   assert.doesNotMatch(source,/packet\.share\.cellId!==live\.cellId/)
-  assert.match(source,/const targets=s\.cellId===live\.cellId\?null:globalPeers/)
+  assert.match(source,/const peerKeys=targets\|\|\[\.\.\.this\.transport\.peers\.keys\(\)\]/)
 })
 
 test('100-miner global PoolShare proof bundle stays chunked and reassembles exactly',()=>{
