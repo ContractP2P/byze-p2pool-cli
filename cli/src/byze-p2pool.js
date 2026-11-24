@@ -81,7 +81,7 @@ const RELAY_BACKUPS = 2
 const RELAY_FAILOVER_GRACE_MS = 12_000
 const GLOBAL_AGGREGATION_GRACE_MS = 30_000
 const MAX_CELL_CHECKPOINT_CACHE = 512
-const PRESENCE_HEARTBEAT_MS = 20_000
+const PRESENCE_HEARTBEAT_MS = 10_000
 const PRESENCE_TTL_MS = Math.max(90_000, DEFAULT_TTL_MS)
 const MAX_FRAME_BYTES = 256 * 1024
 const P2P_MAX_PEERS = 64
@@ -372,6 +372,8 @@ class MinerApp {
     this.transport = null
     this.peerKey = ''
     this.remotePresence = new Map()
+    this.localReplayByPeer = new Map()
+    this.peerPplnsProofs = new Map()
     this.localSeq = 0
     this.liveShares = new Map()
     this.shareSlots = new Map()
@@ -423,6 +425,7 @@ class MinerApp {
     this.deferredRecoveryOverflow = false
     this.deferredReasonLog = new Map()
     this.validationGate = new ValidationGate()
+    this.historyValidationGate = new ValidationGate({maxGlobal:2,maxPerPeer:1,maxQueued:16,maxQueuedPerPeer:4})
     this.presenceGate = new ValidationGate({maxGlobal:8,maxPerPeer:1})
     this.sessionStartHeight = 0
     this.lastRewardScanHeight = 0
@@ -468,7 +471,7 @@ class MinerApp {
     if (!verify(peerKey,p,announcement.signature)) return {ok:false,code:'signature-invalid'}
     const prior=this.remotePresence.get(peerKey)
     if (prior && (p.seq < prior.payload.seq || (p.seq===prior.payload.seq && p.updatedAt<=prior.payload.updatedAt))) return {ok:true,ignored:true}
-    if (p.miningState==='LEFT') { this.remotePresence.delete(peerKey); return {ok:true,left:true,payload:p,firstSeen:false} }
+    if (p.miningState==='LEFT') { this.remotePresence.delete(peerKey); this.peerPplnsProofs.delete(peerKey); this.localReplayByPeer.delete(peerKey); return {ok:true,left:true,payload:p,firstSeen:false} }
     const addressCheck = await this.payoutValidator.validate(p.payoutAddress)
     if (!addressCheck.ok) return addressCheck
     // RPC validation yields: a newer heartbeat may have arrived meanwhile.
@@ -490,7 +493,7 @@ class MinerApp {
     const rows=[{peerKey:this.peerKey,alias:this.alias,instanceId:this.instanceId,payoutAddress:this.payoutAddress,miningState:this.nodeMiningReady?'MINING':'PAUSED',updatedAt:now,local:true,transportConnected:true,hashrateHps:this.nodeMiningReady?(Number(this.workerState.hashrate)||0):0,hashrateObservedAt:now}]
     for (const [peerKey,rec] of [...this.remotePresence]) {
       const p=rec.payload
-      if (!p || p.expiresAt<=now || p.miningState==='LEFT') { this.remotePresence.delete(peerKey); continue }
+      if (!p || p.expiresAt<=now || p.miningState==='LEFT') { this.remotePresence.delete(peerKey); this.peerPplnsProofs.delete(peerKey); this.localReplayByPeer.delete(peerKey); continue }
       if (p.contractId!==CONTRACT_ID || p.version!==CONTRACT_VERSION || p.publisherKey!==BUILTIN_PUBLISHER_KEY || p.sourceHash!==CONTRACT_SOURCE_HASH || p.poolId!==POOL_ID) continue
       const t=this.safeTelemetry(rec.telemetry)
       rows.push({peerKey,alias:p.alias,instanceId:p.instanceId,payoutAddress:p.payoutAddress,miningState:p.miningState,updatedAt:p.updatedAt,local:false,transportConnected:this.transport.connected(peerKey),hashrateHps:t.hashrateHps,hashrateObservedAt:t.observedAt})
@@ -568,10 +571,12 @@ class MinerApp {
       if(!checked.ok)return checked
       if(!verify(peerKey,proofEnvelopeSigningPayload(packet),packet.signature))return {ok:false,code:'share-signature-invalid'}
       const context=await this.validateConsensusContext(checked.proof); if(!context.ok)return context
-      const binding=await this.verifyShareCoinbaseBinding(checked); if(!binding.ok)return binding
+      const binding=await this.verifyShareCoinbaseBinding(checked); if(!binding.ok){if(binding.code==='pplns-tip-stale-fork')this.peerPplnsProofs.delete(peerKey);return binding}
       const existing=this.liveShares.get(checked.payload.shareId)
       if(!existing){const verified=await this.verifyRandomxHash(checked.proof.header80,checked.payload.powHash); if(!verified.ok)return {ok:false,code:verified.code==='randomx-hash-mismatch'?'share-randomx-hash-mismatch':verified.code}}
-      return this.storeShare({...packet,share:checked.payload},{local:false})
+      const stored=this.storeShare({...packet,share:checked.payload},{local:false})
+      if(stored.ok)this.peerPplnsProofs.set(peerKey,{tip:String(checked.proof.pplnsTipId||''),epoch:checked.payload.epoch,at:Date.now()})
+      return stored
     } finally {
       if(/^ls:[0-9a-f]{64}$/.test(rawShareId))this.pendingLocalShareIds.delete(rawShareId)
     }
@@ -579,21 +584,39 @@ class MinerApp {
 
   sendLocalPacket(packet, targets=null) {
     const live=this.live(); if(!live)return 0
-    const peerKeys=targets||live.members.map((m)=>m.peerKey)
+    const peerKeys=targets||[...this.transport.peers.keys()]
     let n=0
-    for(const peerKey of peerKeys){if(peerKey===this.peerKey||!this.transport.connected(peerKey)||!this.remotePoolPeer(peerKey))continue; if(this.transport.send(peerKey,{v:10,type:'mining-local-share',packet}))n++}
+    const now=Date.now(), id=String(packet?.share?.shareId||'')
+    for(const peerKey of peerKeys){
+      if(peerKey===this.peerKey||!this.transport.connected(peerKey)||!this.remotePoolPeer(peerKey))continue
+      let state=this.localReplayByPeer.get(peerKey)
+      if(!state){state={sent:new Map(),times:[]};this.localReplayByPeer.set(peerKey,state)}
+      state.times=state.times.filter(t=>now-t<10_000)
+      // Reserve at least half the expensive-frame budget for history and checkpoints.
+      if(state.times.length>=20||state.sent.has(id))continue
+      if(this.transport.send(peerKey,{v:10,type:'mining-local-share',packet})){
+        n++;state.times.push(now);state.sent.set(id,now)
+        while(state.sent.size>1024)state.sent.delete(state.sent.keys().next().value)
+      }
+    }
     return n
   }
 
   rebroadcastRecentLocalShares(){
     const live=this.live(); if(!live?.cellId)return 0
-    const globalPeers=[...this.transport.peers.keys()].filter((peerKey)=>this.remotePoolPeer(peerKey))
     let sent=0
-    for(const rec of this.liveShares.values()){
-      const s=rec?.share
-      if(!rec?.local||!s||s.contractHash!==CONTRACT_SOURCE_HASH||s.poolId!==POOL_ID||Number(s.epoch)<Number(live.epoch)-1)continue
-      const targets=s.cellId===live.cellId?null:globalPeers
-      sent += this.sendLocalPacket({proofMode:rec.proofMode,share:rec.share,proof:rec.proof,signature:rec.signature},targets)
+    // Replays fill gaps only, not a full two-epoch broadcast every five seconds.
+    // A reconnect resets delivery tracking. Prefer newest eligible proofs.
+    const rows=[...this.liveShares.values()].reverse()
+    for(const peerKey of this.transport.peers.keys()){
+      if(!this.remotePoolPeer(peerKey))continue
+      let count=0
+      for(const rec of rows){
+        const share=rec?.share
+        if(!rec?.local||!share||share.contractHash!==CONTRACT_SOURCE_HASH||share.poolId!==POOL_ID||Number(share.epoch)<Number(live.epoch)-1)continue
+        if(this.sendLocalPacket({proofMode:rec.proofMode,share,proof:rec.proof,signature:rec.signature},[peerKey])){sent++;count++}
+        if(count>=4)break
+      }
     }
     return sent
   }
@@ -784,6 +807,8 @@ class MinerApp {
       if(share.contractHash!==CONTRACT_SOURCE_HASH||share.poolId!==POOL_ID||!validPeerKey(signer)||!verify(signer,this.poolShareSigningPayload(share),packet.signature))return {ok:false,code:'poolshare-signature-invalid'}
       const historical=this.history.isRequested(peerKey,id)
       const authorized=this.precheckRelay(packet,packet.checkpoint,packet.proofs,signer,share.previousPoolShareId,{historical,receivedAt});if(!authorized.ok)return authorized
+      const parent=String(share.previousPoolShareId||'')
+      if(parent&&!this.poolChain.byId.has(parent))return {ok:false,code:'pplns-context-unknown',missingTip:parent}
       const proof=await this.verifyPoolProofBundle(packet,{historical,receivedAt}); if(!proof.ok)return proof
       const relay=electCellRelays({members:proof.minerPeerIds,cellId:share.cellId,epoch:this.relayTermForWorkEpoch(proof.checkpoint.epoch),seed:membershipSeed({contractHash:CONTRACT_SOURCE_HASH,poolId:POOL_ID}),backups:RELAY_BACKUPS})
       if(!relay?.ok||![relay.primary,...relay.backups].includes(signer))return {ok:false,code:'poolshare-relay-unauthorized'}
@@ -1127,7 +1152,7 @@ class MinerApp {
     if(now-last<2_000)return false
     this.missingTipRequestAt.set(key,now)
     while(this.missingTipRequestAt.size>256)this.missingTipRequestAt.delete(this.missingTipRequestAt.keys().next().value)
-    return this.history.request(peerKey,id)
+    return this.history.request(peerKey,id,{priority:true})
   }
 
   deferContext(kind, peerKey, packet, {receivedAt=null,code=''}={}){
@@ -1139,7 +1164,7 @@ class MinerApp {
     const observedAt=Number.isSafeInteger(receivedAt)&&receivedAt>0&&receivedAt<=now?receivedAt:now
     map.set(id,{peerKey:String(peerKey||'').toLowerCase(),packet:clone(packet),
       firstSeen:prior?.firstSeen||now,receivedAt:prior?.receivedAt||observedAt,
-      reason:prior?.reason||String(code||''),retryAt:now+DEFERRED_CONTEXT_RETRY_MS})
+      reason:prior?.reason||String(code||''),retryAt:prior?.retryAt??now+DEFERRED_CONTEXT_RETRY_MS})
     while(map.size>MAX_DEFERRED_CONTEXT_ITEMS){
       const oldest=map.keys().next().value
       this.rememberDeferredFailure(kind,oldest,map.get(oldest))
@@ -1241,7 +1266,7 @@ class MinerApp {
         if(now<rec.retryAt)continue
         if(now-rec.firstSeen>DEFERRED_CONTEXT_TTL_MS){this.deferredPoolShares.delete(id); this.rememberDeferredFailure('pool',id,rec); warn('deferred PoolShare expired; PPLNS submission held',short(id,8,6)); continue}
         if(!this.remotePoolPeer(rec.peerKey)){rec.retryAt=now+DEFERRED_CONTEXT_RETRY_MS;continue}
-        const r=await this.validationGate.run(rec.peerKey,()=>this.acceptPoolShare(rec.peerKey,rec.packet,{receivedAt:rec.receivedAt}))
+        const r=await this.historyValidationGate.run(rec.peerKey,()=>this.acceptPoolShare(rec.peerKey,rec.packet,{receivedAt:rec.receivedAt}))
         if(r.ok&&!this.poolChain.byId.has(id)){rec.retryAt=now+DEFERRED_CONTEXT_RETRY_MS;continue}
         if(r.ok){this.deferredPoolShares.delete(id); if(!r.duplicate)this.recordRemoteOutcome('pool',rec.packet,'accepted'); continue}
         if(DEFERRABLE_CODES.has(r.code)||['peer-validation-overloaded','peer-validation-queue-timeout','poolshare-unauthorized'].includes(r.code)){if(r.code==='pplns-context-unknown')this.requestMissingPplnsTip(rec.peerKey,r);rec.retryAt=Date.now()+DEFERRED_CONTEXT_RETRY_MS; continue}
@@ -1254,6 +1279,19 @@ class MinerApp {
     }finally{this.retryingDeferred=false}
   }
 
+  peerPplnsReady(tipId,now=Date.now()){
+    const epoch=Math.floor(now/WORK_EPOCH_MS), tip=String(tipId||'')
+    if(tip!==this.poolChain.tipBeforeEpoch(epoch))return false
+    // No multi-peer payout on an empty bootstrap window or without recent
+    // fully verified proofs from each active miner on the candidate's branch.
+    for(const member of this.members(now)){
+      if(member.local||String(member.miningState).toUpperCase()!=='MINING')continue
+      const proof=this.peerPplnsProofs.get(member.peerKey)
+      if(!tip||!member.transportConnected||!proof||proof.tip!==tip||proof.epoch!==epoch||now-proof.at>30_000)return false
+    }
+    return true
+  }
+
   async publishCandidate(raw,checked=null){
     if(!this.nodeMiningReady)return
     if(!this.submitBlocks){warn('Block candidate found but --no-submit is enabled.');return}
@@ -1262,6 +1300,7 @@ class MinerApp {
     if(this.deferredLocalShares.size||this.deferredPoolShares.size){warn('Block candidate held: PPLNS chain-context synchronization is in progress.');return}
     const ctx=this.jobContexts.get(String(raw?.jobId||''))
     if(!raw?.blockHex||raw.blockCandidate!==true||!raw.directCoinbaseCommitted||!ctx?.commitment||raw.directCoinbaseCommitment!==ctx.plan?.commitment||raw.jobCommitmentHash!==ctx.commitment.jobCommitmentHash){warn('Block candidate cannot be submitted: bound PPLNS coinbase is not committed.');return}
+    if(!this.peerPplnsReady(ctx.commitment.pplnsTipId)){warn('Block candidate held: peer PPLNS convergence not demonstrated.');return}
     let checkedCoinbaseTxid=''
     if(checked){const binding=await verifyCoinbaseBinding({rpc:(m,p=[])=>this.byze.call(m,p,{timeout:15_000}),header80:checked.proof.header80,coinbaseNoWitnessHex:checked.proof.coinbaseNoWitnessHex,merkleBranch:checked.proof.coinbaseMerkleBranch,expectedCommitment:ctx.commitment,expectedHeight:checked.proof.height});if(!binding.ok){warn('Block candidate coinbase binding rejected:',binding.code);return} checkedCoinbaseTxid=binding.coinbaseTxid}
     const candidate={...raw,previousBlockHash:raw.previousBlockHash||this.lastTemplate?.previousblockhash||'',expectedVersion:ctx.templateVersion}
@@ -1269,6 +1308,7 @@ class MinerApp {
     try{chainInfo=await this.byze.call('getblockchaininfo',[],{timeout:10_000})}catch(e){warn('Block candidate held: unable to confirm mainnet synchronization.');return}
     const ready=assertMainnetReady(chainInfo)
     if(!ready.ok){warn('Block candidate held:',ready.code);return}
+    if(this.pplnsHistoryIncomplete||this.deferredLocalShares.size||this.deferredPoolShares.size||!this.peerPplnsReady(ctx.commitment.pplnsTipId)){warn('Block candidate held: PPLNS changed during validation.');return}
     const result=await publishQuantumBlock({rpc:async(method,params=[])=>this.byze.call(method,params,{timeout:30_000}),candidate,allowSubmit:true,expectedNetwork:'main',validateProposal:true})
     if(result.ok){
       if(this.uiReady)log('🔥 BYZE BLOCK SUBMITTED',`#${raw.height}`,short(raw.powHash,10,8))
@@ -1317,7 +1357,7 @@ class MinerApp {
         }
         return
       }
-      if(!fromGraceQueue&&!this.remotePoolPeer(peerKey)&&['mining-local-share','mining-cell-checkpoint','mining-pool-share'].includes(frame.type)){
+      if(!fromGraceQueue&&!this.remotePoolPeer(peerKey)&&['mining-local-share','mining-cell-checkpoint','mining-pool-share','mining-pool-share-inventory'].includes(frame.type)){
         if(this.queuePrePresence(peerKey,frame))return
       }
       if(!this.remotePoolPeer(peerKey))return
@@ -1344,10 +1384,10 @@ class MinerApp {
       if(frame.type==='mining-pool-share'){
         if(!requestedHistory)return
         const assembled={ok:true,complete:true,packet:frame.packet}; if(!assembled.ok)return; if(!assembled.complete)return
-        const r=await this.validationGate.run(peerKey,()=>this.acceptPoolShare(peerKey,assembled.packet,{receivedAt}))
+        const r=await this.historyValidationGate.run(peerKey,()=>this.acceptPoolShare(peerKey,assembled.packet,{receivedAt}))
         if(r.ok&&!r.duplicate)this.recordRemoteOutcome('pool',assembled.packet,'accepted')
         else if(!r.ok&&DEFERRABLE_CODES.has(r.code)){if(r.code==='pplns-context-unknown')this.requestMissingPplnsTip(peerKey,r);this.deferContext('pool',peerKey,assembled.packet,{receivedAt,code:r.code});this.noteDeferred('pool',r.code); return}
-        else if(!r.ok&&['peer-validation-overloaded','peer-validation-queue-timeout'].includes(r.code))return
+        else if(!r.ok&&['peer-validation-overloaded','peer-validation-queue-timeout'].includes(r.code)){this.history.request(peerKey,assembled.packet.share.poolShareId,{priority:true});return}
         else if(!r.ok&&r.code==='pplns-tip-stale-fork')this.recordRemoteOutcome('pool',assembled.packet,'stale',r.code)
         else if(!r.ok){this.recordRemoteOutcome('pool',assembled.packet,'rejected',r.code);warn('PoolShare rejected',r.code)}
         return
@@ -1364,7 +1404,7 @@ class MinerApp {
   stats(){
     if(!this.uiReady)return
     const live=this.live(),chain=this.poolChain.snapshot(),poolMembers=this.members()
-    const poolHps=poolMembers.filter(m=>String(m.miningState).toUpperCase()==='MINING'&&m.hashrateObservedAt&&Date.now()-m.hashrateObservedAt<=20_000).reduce((sum,m)=>sum+Math.max(0,Number(m.hashrateHps)||0),0)
+    const poolHps=poolMembers.filter(m=>String(m.miningState).toUpperCase()==='MINING'&&m.hashrateObservedAt&&Date.now()-m.hashrateObservedAt<=30_000&&m.transportConnected).reduce((sum,m)=>sum+Math.max(0,Number(m.hashrateHps)||0),0)
     const pendingCtx=this.deferredLocalShares.size+this.deferredPoolShares.size
     const line=statusLine({
       time:localClock(),
@@ -1381,13 +1421,13 @@ class MinerApp {
       sessionByze:satoshisToByze(this.sessionRewardSatoshis),
       lastRejectCode:this.lastRemoteRejectCode
     })
-    console.log(color(line,ANSI.cyan))
+    console.log(color(line,ANSI.cyan)+' | PPLNS '+short(chain.bestPoolShareId||'bootstrap',8,6)+' '+chain.windowCount+'/'+chain.window+' | History '+this.history.pending.size+' | Held '+(this.pplnsHistoryIncomplete?'yes':'no'))
   }
 
   async start(){
     setNativeMessageHandler((m)=>void this.handleNative(m))
     const topic=this.discoveryTopic()
-    this.transport=new P2PTransport({bootstrap:this.bootstrap,seed:this.seed,alias:this.alias,topicHex:topic,onFrame:(k,f)=>void this.onFrame(k,f),onPeerChange:(k,on)=>{if(on)setTimeout(()=>{this.broadcastPresence(); this.rebroadcastRecentLocalShares()},80)}})
+    this.transport=new P2PTransport({bootstrap:this.bootstrap,seed:this.seed,alias:this.alias,topicHex:topic,onFrame:(k,f)=>void this.onFrame(k,f),onPeerChange:(k,on)=>{this.localReplayByPeer.delete(k);this.peerPplnsProofs.delete(k);if(on)setTimeout(()=>{this.broadcastPresence(); this.syncPoolHistory(k); this.rebroadcastRecentLocalShares()},80)}})
     this.peerKey=this.transport.peerKey
     const selfTest=this.selfPresence(); if(!verify(this.peerKey,presenceSigningPayload(selfTest),selfTest.signature))throw new Error('The temporary P2P key does not match the signing key.')
     this.history.start()
