@@ -27,8 +27,8 @@ class HistorySync {
       if(now-p.at>120000||this.known(p.id)){this.pending.delete(key);continue}
       if(p.sentAt!==null&&now-p.sentAt<5000)continue
       if(p.retries>=4){this.pending.delete(key);continue}
-      if(this.send(p.peer,{v:12,type:'mining-pool-share-request',id:p.id,cursor:p.cursor})) {p.sentAt=now;p.retries++;this.pending.delete(key);this.pending.set(key,p)}
-      break
+      if(this.send(p.peer,{v:12,type:'mining-pool-share-request',id:p.id,cursor:p.cursor})) {p.sentAt=now;p.retries++;this.pending.delete(key);this.pending.set(key,p);break}
+      // An offline peer must not prevent requests to reachable peers.
     }
   }
   isRequested(peer,id){return (this.allowed.get(`${peer}:${id}`)||0)>this.now()}
