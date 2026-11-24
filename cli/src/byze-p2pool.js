@@ -571,11 +571,11 @@ class MinerApp {
       if(!checked.ok)return checked
       if(!verify(peerKey,proofEnvelopeSigningPayload(packet),packet.signature))return {ok:false,code:'share-signature-invalid'}
       const context=await this.validateConsensusContext(checked.proof); if(!context.ok)return context
-      const binding=await this.verifyShareCoinbaseBinding(checked); if(!binding.ok){if(binding.code==='pplns-tip-stale-fork')this.peerPplnsProofs.delete(peerKey);return binding}
+      const binding=await this.verifyShareCoinbaseBinding(checked); if(!binding.ok){if(binding.code==='pplns-tip-stale-fork'&&checked.payload.epoch>=(this.peerPplnsProofs.get(peerKey)?.epoch??-1))this.peerPplnsProofs.delete(peerKey);return binding}
       const existing=this.liveShares.get(checked.payload.shareId)
       if(!existing){const verified=await this.verifyRandomxHash(checked.proof.header80,checked.payload.powHash); if(!verified.ok)return {ok:false,code:verified.code==='randomx-hash-mismatch'?'share-randomx-hash-mismatch':verified.code}}
       const stored=this.storeShare({...packet,share:checked.payload},{local:false})
-      if(stored.ok)this.peerPplnsProofs.set(peerKey,{tip:String(checked.proof.pplnsTipId||''),epoch:checked.payload.epoch,at:Date.now()})
+      if(stored.ok&&checked.payload.epoch>=(this.peerPplnsProofs.get(peerKey)?.epoch??-1))this.peerPplnsProofs.set(peerKey,{tip:String(checked.proof.pplnsTipId||''),epoch:checked.payload.epoch,at:Date.now()})
       return stored
     } finally {
       if(/^ls:[0-9a-f]{64}$/.test(rawShareId))this.pendingLocalShareIds.delete(rawShareId)
@@ -842,7 +842,7 @@ class MinerApp {
 
   maybePublishCellCheckpoints(){
     const now=Date.now(),currentEpoch=Math.floor(now/WORK_EPOCH_MS),closed=currentEpoch-1
-    if(closed<0||this.hasDeferredForEpoch(closed))return 0
+    if(closed<0||this.hasDeferredForEpoch(closed)||now-currentEpoch*WORK_EPOCH_MS<8_000)return 0
     const previousPoolShareId=this.poolChain.tipBeforeEpoch(closed)
     const groups=this.closedEpochProofGroups(closed,previousPoolShareId)
     const elapsed=Math.max(0,now-currentEpoch*WORK_EPOCH_MS)
