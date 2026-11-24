@@ -21,12 +21,14 @@ function harness() {
   const attempts = { local: 0, pool: 0 }
   let online = false
   app.validationGate.run = async (_peer, fn) => fn()
+  app.remotePoolPeer = peer => peer === PEER
   app.acceptLocalShare = async () => {
     attempts.local++
     return online ? { ok: true, duplicate: false } : { ok: false, code: TRANSIENT[0] }
   }
-  app.acceptPoolShare = async () => {
+  app.acceptPoolShare = async (_peer, packet) => {
     attempts.pool++
+    if (online) app.poolChain.byId.set(packet.share.poolShareId, {})
     return online ? { ok: true, duplicate: false } : { ok: false, code: TRANSIENT[1] }
   }
   app.recordRemoteOutcome = (kind, packet, outcome) => outcomes.push({ kind, id: packet.share.shareId || packet.share.poolShareId, outcome })
@@ -222,7 +224,7 @@ test('deferred local and PoolShare retries keep original receipt timestamps',asy
 
   const observed=[]
   app.acceptLocalShare=async (_peer,_packet,options)=>{observed.push(['local',options.receivedAt]);return {ok:true,duplicate:false}}
-  app.acceptPoolShare=async (_peer,_packet,options)=>{observed.push(['pool',options.receivedAt]);return {ok:true,duplicate:false}}
+  app.acceptPoolShare=async (_peer,packet,options)=>{observed.push(['pool',options.receivedAt]);app.poolChain.byId.set(packet.share.poolShareId,{});return {ok:true,duplicate:false}}
   for(const records of [app.deferredLocalShares,app.deferredPoolShares])
     for(const rec of records.values())rec.retryAt=0
   await app.retryDeferredContext()
